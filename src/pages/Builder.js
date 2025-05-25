@@ -4,6 +4,7 @@ import { useAuth } from '../AuthContext';
 import { availableElements, getElementByType, createElement } from '../elements';
 import { ZIndexProvider } from '../components/ZIndexContext';
 import { executeTextCalculations } from '../utils/calculationEngine';
+import { getVisibleElements } from '../utils/ConditionEngine';
 import axios from 'axios';
 
 const Builder = () => {
@@ -826,58 +827,71 @@ const Builder = () => {
   );
 };
 
-// Preview Modal Component with Real Calculation Execution
+// Preview Modal Component with Real Calculation Execution AND Conditional Rendering
 const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => {
   const currentScreen = screens.find(screen => screen.id === currentScreenId);
   const [calculationResults, setCalculationResults] = useState({});
+  const [visibleElements, setVisibleElements] = useState([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionErrors, setExecutionErrors] = useState({});
 
-  // Execute calculations for the current screen
+  // Execute calculations and conditional rendering for the current screen
   useEffect(() => {
     if (currentScreen) {
-      executeCalculations();
+      executeCalculationsAndConditions();
     }
   }, [currentScreen]);
 
-  const executeCalculations = async () => {
+  const executeCalculationsAndConditions = async () => {
     setIsExecuting(true);
     setExecutionErrors({});
     
-    const results = {};
-    const errors = {};
-    const allElements = getAllElementsInScreen(currentScreen.elements);
-    
-    for (const element of allElements) {
-      if (element.type === 'text' && element.properties?.value) {
-        try {
-          // Extract calculation storage from SuperText component data
-          // This is a simplified approach - in a real app, you'd store calculations centrally
-          const calculationStorage = extractCalculationStorage(element.properties.value);
-          
-          const executedValue = await executeTextCalculations(
-            element.properties.value, 
-            allElements,
-            calculationStorage
-          );
-          results[element.id] = executedValue;
-        } catch (error) {
-          console.error(`Error executing calculations for element ${element.id}:`, error);
-          errors[element.id] = error.message;
-          results[element.id] = `[Error: ${error.message}]`;
+    try {
+      // First, get all elements for condition evaluation
+      const allElements = getAllElementsInScreen(currentScreen.elements);
+      
+      // Execute conditional rendering to get visible elements
+      console.log('Original elements:', currentScreen.elements);
+      const filteredElements = await getVisibleElements(currentScreen.elements, allElements);
+      console.log('Visible elements after conditions:', filteredElements);
+      setVisibleElements(filteredElements);
+      
+      // Then execute calculations on visible elements
+      const results = {};
+      const errors = {};
+      const visibleFlatElements = getAllElementsInScreen(filteredElements);
+      
+      for (const element of visibleFlatElements) {
+        if (element.type === 'text' && element.properties?.value) {
+          try {
+            const calculationStorage = extractCalculationStorage(element.properties.value);
+            
+            const executedValue = await executeTextCalculations(
+              element.properties.value, 
+              allElements, // Use all elements for calculations, not just visible ones
+              calculationStorage
+            );
+            results[element.id] = executedValue;
+          } catch (error) {
+            console.error(`Error executing calculations for element ${element.id}:`, error);
+            errors[element.id] = error.message;
+            results[element.id] = `[Error: ${error.message}]`;
+          }
         }
       }
+      
+      setCalculationResults(results);
+      setExecutionErrors(errors);
+    } catch (error) {
+      console.error('Error in executeCalculationsAndConditions:', error);
+      setExecutionErrors({ general: error.message });
+    } finally {
+      setIsExecuting(false);
     }
-    
-    setCalculationResults(results);
-    setExecutionErrors(errors);
-    setIsExecuting(false);
   };
 
   // Helper function to extract calculation storage (simplified)
   const extractCalculationStorage = (textValue) => {
-    // In a real implementation, you'd store calculations in a central location
-    // For now, we'll return an empty object and let the engine handle missing calculations
     return {};
   };
 
@@ -982,7 +996,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
                   color: '#28a745', 
                   marginLeft: '10px' 
                 }}>
-                  🔄 Executing calculations...
+                  🔄 Executing calculations and conditions...
                 </span>
               )}
             </h3>
@@ -1004,9 +1018,9 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
               ))}
             </select>
 
-            {/* Refresh Calculations Button */}
+            {/* Refresh Button */}
             <button
-              onClick={executeCalculations}
+              onClick={executeCalculationsAndConditions}
               disabled={isExecuting}
               style={{
                 padding: '5px 10px',
@@ -1020,6 +1034,11 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
             >
               {isExecuting ? '🔄' : '🔄 Refresh'}
             </button>
+
+            {/* Debug Info */}
+            <div style={{ fontSize: '12px', color: '#666' }}>
+              Visible: {visibleElements.length} / {currentScreen?.elements?.length || 0} elements
+            </div>
           </div>
           
           <button
@@ -1047,7 +1066,8 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
             fontSize: '12px',
             color: '#d32f2f'
           }}>
-            ⚠️ Calculation errors detected. Check console for details.
+            ⚠️ Execution errors detected. Check console for details.
+            {executionErrors.general && ` General error: ${executionErrors.general}`}
           </div>
         )}
 
@@ -1058,7 +1078,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           backgroundColor: '#ffffff',
           overflow: 'auto'
         }}>
-          {currentScreen?.elements?.length === 0 ? (
+          {visibleElements.length === 0 ? (
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1067,11 +1087,14 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
               color: '#999',
               fontSize: '18px'
             }}>
-              No elements to preview
+              {currentScreen?.elements?.length === 0 
+                ? "No elements to preview" 
+                : "No elements are visible (all hidden by conditions)"
+              }
             </div>
           ) : (
             <div style={{ minHeight: '100%' }}>
-              {currentScreen.elements.map(element => renderPreviewElement(element))}
+              {visibleElements.map(element => renderPreviewElement(element))}
             </div>
           )}
         </div>
@@ -1084,7 +1107,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           fontSize: '12px',
           color: '#666'
         }}>
-          💡 This is how your app will look to users. Calculations are executed in real-time.
+          💡 This preview shows conditional rendering and calculations in real-time.
           {Object.keys(executionErrors).length > 0 && (
             <span style={{ color: '#d32f2f', marginLeft: '10px' }}>
               | ⚠️ Some calculations failed - check your database connections and element references.
