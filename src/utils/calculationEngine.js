@@ -148,22 +148,31 @@ export class CalculationEngine {
 
   // Execute database query
   async executeDatabaseQuery(config) {
+    console.log('\n🗄️ === DATABASE QUERY EXECUTION ===');
+    console.log('Database config:', JSON.stringify(config, null, 2));
+    
     const { databaseId, tableId, filters = [], action = 'value', selectedColumn } = config;
 
     if (!databaseId || !tableId) {
+      console.log('❌ Missing database or table ID');
       throw new Error('Database and table must be selected');
     }
 
     if ((action === 'value' || action === 'values') && !selectedColumn) {
+      console.log('❌ Missing column for value operation');
       throw new Error('Column must be selected for value operations');
     }
 
     try {
       // Build query filters
       const queryFilters = [];
+      console.log('🔧 Processing filters:', filters.length);
+      
       for (const filter of filters) {
+        console.log('Processing filter:', JSON.stringify(filter, null, 2));
         if (filter.column && filter.operator && filter.value !== '') {
           const filterValue = await this.executeCustomValue(filter.value);
+          console.log(`Filter value processed: "${filter.value}" -> "${filterValue}"`);
           queryFilters.push({
             column: filter.column,
             operator: filter.operator,
@@ -173,19 +182,35 @@ export class CalculationEngine {
         }
       }
 
+      console.log('📝 Final query filters:', JSON.stringify(queryFilters, null, 2));
+      console.log('🎯 Query action:', action);
+      console.log('📊 Selected column:', selectedColumn);
+
       // Execute database query via API
-      const response = await axios.post(`/api/databases/${databaseId}/tables/${tableId}/query`, {
+      const queryPayload = {
         filters: queryFilters,
         action: action,
         column: selectedColumn
-      });
+      };
+      
+      console.log('🚀 Sending API request:', JSON.stringify(queryPayload, null, 2));
+      
+      const response = await axios.post(`/api/databases/${databaseId}/tables/${tableId}/query`, queryPayload);
+
+      console.log('📥 API response status:', response.status);
+      console.log('📥 API response data:', JSON.stringify(response.data, null, 2));
 
       if (response.data.success) {
-        return this.formatDatabaseResult(response.data.data, action);
+        const formattedResult = this.formatDatabaseResult(response.data.data, action);
+        console.log('✅ Formatted database result:', typeof formattedResult, formattedResult);
+        console.log('🗄️ === DATABASE QUERY END ===\n');
+        return formattedResult;
       } else {
+        console.log('❌ Database query failed:', response.data.message);
         throw new Error(response.data.message || 'Database query failed');
       }
     } catch (error) {
+      console.error('❌ Database query error:', error);
       if (error.response?.status === 404) {
         throw new Error('Database or table not found');
       }
@@ -198,33 +223,49 @@ export class CalculationEngine {
 
   // Format database query results
   formatDatabaseResult(data, action) {
+    console.log('🔄 Formatting database result:', { data, action });
+    
+    let result;
+    
     switch (action) {
       case 'count':
-        return data.count || (Array.isArray(data) ? data.length : 0);
+        result = data.count || (Array.isArray(data) ? data.length : 0);
+        console.log('📊 Count result:', result);
+        return result;
       
       case 'value':
         if (Array.isArray(data) && data.length > 0) {
           const firstRow = data[0];
           const firstValue = Object.values(firstRow)[0];
-          return firstValue !== undefined ? firstValue : '';
+          result = firstValue !== undefined ? firstValue : '';
+          console.log('📊 Value result (from array):', result);
+          return result;
         }
         if (data && typeof data === 'object' && !Array.isArray(data)) {
           const firstValue = Object.values(data)[0];
-          return firstValue !== undefined ? firstValue : '';
+          result = firstValue !== undefined ? firstValue : '';
+          console.log('📊 Value result (from object):', result);
+          return result;
         }
+        console.log('📊 Value result (empty):', '');
         return '';
       
       case 'values':
         if (Array.isArray(data)) {
-          return data
+          result = data
             .map(row => Object.values(row)[0])
             .filter(val => val !== undefined && val !== null)
             .join(', ');
+          console.log('📊 Values result:', result);
+          return result;
         }
+        console.log('📊 Values result (empty):', '');
         return '';
       
       default:
-        return String(data);
+        result = String(data);
+        console.log('📊 Default result:', result);
+        return result;
     }
   }
 
