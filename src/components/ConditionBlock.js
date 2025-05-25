@@ -77,7 +77,28 @@ const ConditionBlock = ({
           ...condition,
           steps: condition.steps.map(step => {
             if (step.id === stepId) {
-              return { ...step, ...updates };
+              // Automatically determine the correct source based on the config
+              let updatedStep = { ...step, ...updates };
+              
+              // If config is being updated, determine the correct source
+              if (updates.config) {
+                const config = { ...step.config, ...updates.config };
+                
+                // Determine source based on config properties
+                if (config.databaseId && config.tableId) {
+                  config.source = 'database';
+                } else if (config.elementId) {
+                  config.source = 'element';
+                } else if (['timestamp', 'screen_width', 'screen_height'].includes(config.source)) {
+                  // Keep information sources as they are
+                } else {
+                  config.source = 'custom';
+                }
+                
+                updatedStep.config = config;
+              }
+              
+              return updatedStep;
             }
             return step;
           })
@@ -88,37 +109,7 @@ const ConditionBlock = ({
     onUpdate({ conditions: newConditions });
   }, [conditions, onUpdate]);
 
-  const renderTabs = () => (
-    <div style={{
-      display: 'flex',
-      backgroundColor: '#f0f0f0',
-      borderRadius: '8px',
-      padding: '4px',
-      marginBottom: '16px'
-    }}>
-      {['fixed', 'conditional'].map((tab) => (
-        <button
-          key={tab}
-          onClick={() => handleTabChange(tab)}
-          style={{
-            flex: 1,
-            padding: '8px 16px',
-            border: 'none',
-            backgroundColor: activeTab === tab ? 'white' : 'transparent',
-            color: activeTab === tab ? '#333' : '#666',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: activeTab === tab ? '500' : '400',
-            transition: 'all 0.2s ease',
-            textTransform: 'capitalize'
-          }}
-        >
-          {tab}
-        </button>
-      ))}
-    </div>
-  );
+
 
   const renderConditionStep = (condition, step, stepIndex, isFirst) => {
     const canRemove = condition.steps.length > 1;
@@ -343,6 +334,40 @@ const ConditionBlock = ({
       )}
     </div>
   );
+
+  function renderTabs() {
+    return (
+      <div style={{
+        display: 'flex',
+        backgroundColor: '#f0f0f0',
+        borderRadius: '8px',
+        padding: '4px',
+        marginBottom: '16px'
+      }}>
+        {['fixed', 'conditional'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => handleTabChange(tab)}
+            style={{
+              flex: 1,
+              padding: '8px 16px',
+              border: 'none',
+              backgroundColor: activeTab === tab ? 'white' : 'transparent',
+              color: activeTab === tab ? '#333' : '#666',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: activeTab === tab ? '500' : '400',
+              transition: 'all 0.2s ease',
+              textTransform: 'capitalize'
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+    );
+  }
 };
 
 export default ConditionBlock;
