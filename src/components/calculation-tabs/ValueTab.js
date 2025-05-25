@@ -11,14 +11,27 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
     onUpdate({
       source: option,
       value: '',
-      elementId: null
+      elementId: null,
+      // Clear database-specific fields when switching away from database
+      databaseId: null,
+      tableId: null,
+      filters: [],
+      action: 'value',
+      selectedColumn: null
     });
   }, [onUpdate]);
 
   const handleCustomValueChange = useCallback((value) => {
     onUpdate({
       source: 'custom',
-      value: value
+      value: value,
+      // Clear other source-specific fields
+      elementId: null,
+      databaseId: null,
+      tableId: null,
+      filters: [],
+      action: 'value',
+      selectedColumn: null
     });
   }, [onUpdate]);
 
@@ -27,7 +40,13 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
     onUpdate({
       source: 'element',
       elementId: elementId,
-      value: selectedElement ? `Text (${elementId.slice(-6)})` : ''
+      value: selectedElement ? `Text (${elementId.slice(-6)})` : '',
+      // Clear other source-specific fields
+      databaseId: null,
+      tableId: null,
+      filters: [],
+      action: 'value',
+      selectedColumn: null
     });
   }, [availableElements, onUpdate]);
 

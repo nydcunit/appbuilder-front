@@ -230,17 +230,25 @@ const Builder = () => {
   };
 
   const updateElement = (elementId, updates) => {
-    setScreens(screens.map(screen =>
+    console.log('Updating element:', elementId, 'with updates:', updates);
+    
+    const updatedScreens = screens.map(screen =>
       screen.id === currentScreenId
         ? {
             ...screen,
             elements: updateElementInTree(screen.elements, elementId, updates)
           }
         : screen
-    ));
+    );
+    
+    setScreens(updatedScreens);
 
+    // Update selected element if it's the one being updated
     if (selectedElement && selectedElement.id === elementId) {
-      setSelectedElement({ ...selectedElement, ...updates });
+      const updatedElement = findElementInTree(updatedScreens.find(s => s.id === currentScreenId)?.elements || [], elementId);
+      if (updatedElement) {
+        setSelectedElement(updatedElement);
+      }
     }
   };
 
@@ -257,6 +265,19 @@ const Builder = () => {
       }
       return element;
     });
+  };
+
+  const findElementInTree = (elements, targetId) => {
+    for (const element of elements) {
+      if (element.id === targetId) {
+        return element;
+      }
+      if (element.children) {
+        const found = findElementInTree(element.children, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
   };
 
   const deleteElement = (elementId) => {

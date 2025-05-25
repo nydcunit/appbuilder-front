@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ValueTab from './calculation-tabs/ValueTab';
 import DatabaseTab from './calculation-tabs/DatabaseTab';
 import InformationTab from './calculation-tabs/InformationTab';
@@ -12,10 +12,22 @@ export const ValueSelector = ({
   label = "Value"
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
-    if (config.source === 'database') return 'database';
-    if (config.source === 'timestamp' || config.source === 'screen_width' || config.source === 'screen_height') return 'information';
+    // Better detection of active tab based on config
+    if (config.source === 'database' || config.databaseId) return 'database';
+    if (['timestamp', 'screen_width', 'screen_height'].includes(config.source)) return 'information';
     return 'value';
   });
+
+  // Update active tab when config changes
+  useEffect(() => {
+    if (config.source === 'database' || config.databaseId) {
+      setActiveTab('database');
+    } else if (['timestamp', 'screen_width', 'screen_height'].includes(config.source)) {
+      setActiveTab('information');
+    } else {
+      setActiveTab('value');
+    }
+  }, [config.source, config.databaseId]);
 
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);

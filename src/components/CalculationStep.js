@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ValueTab from './calculation-tabs/ValueTab';
 import DatabaseTab from './calculation-tabs/DatabaseTab';
 import InformationTab from './calculation-tabs/InformationTab';
@@ -14,11 +14,22 @@ const CalculationStep = ({
   parentZIndex = 1000
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
-    // Set initial tab based on step's source
-    if (step.config.source === 'database') return 'database';
-    if (step.config.source === 'timestamp' || step.config.source === 'screen_width' || step.config.source === 'screen_height') return 'information';
+    // Better detection of active tab based on step's config
+    if (step.config.source === 'database' || step.config.databaseId) return 'database';
+    if (['timestamp', 'screen_width', 'screen_height'].includes(step.config.source)) return 'information';
     return 'value';
   });
+
+  // Update active tab when step config changes
+  useEffect(() => {
+    if (step.config.source === 'database' || step.config.databaseId) {
+      setActiveTab('database');
+    } else if (['timestamp', 'screen_width', 'screen_height'].includes(step.config.source)) {
+      setActiveTab('information');
+    } else {
+      setActiveTab('value');
+    }
+  }, [step.config.source, step.config.databaseId]);
 
   const handleTabChange = useCallback((tab) => {
     setActiveTab(tab);
