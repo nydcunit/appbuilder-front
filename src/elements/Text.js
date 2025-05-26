@@ -381,6 +381,48 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
   );
 });
 
+// FIX: Helper function to render text with calculation capsules in Canvas
+const renderTextWithCalculationCapsules = (textValue) => {
+  if (!textValue || typeof textValue !== 'string') {
+    return 'Sample Text';
+  }
+
+  // Check if text contains calculation tokens
+  if (!textValue.includes('{{CALC:')) {
+    return textValue;
+  }
+
+  // Split text into parts and render calculation capsules
+  const parts = textValue.split(/({{CALC:[^}]+}})/);
+  
+  return parts.map((part, index) => {
+    const calcMatch = part.match(/{{CALC:([^}]+)}}/);
+    if (calcMatch) {
+      // This is a calculation token - render as capsule
+      return (
+        <span
+          key={`calc-${index}`}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#333',
+            color: 'white',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            fontSize: '11px',
+            fontWeight: '500',
+            margin: '0 2px',
+            verticalAlign: 'middle'
+          }}
+        >
+          Calculation
+        </span>
+      );
+    }
+    // Regular text part
+    return part;
+  });
+};
+
 export const TextElement = {
   type: 'text',
   label: 'Text',
@@ -552,9 +594,9 @@ export const TextElement = {
           </div>
         )}
 
-        {/* Text Content */}
+        {/* Text Content - FIX: Render with calculation capsules */}
         <div style={textStyle}>
-          {props.value || 'Sample Text'}
+          {renderTextWithCalculationCapsules(props.value)}
         </div>
       </div>
     );
