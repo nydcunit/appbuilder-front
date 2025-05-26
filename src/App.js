@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Databases from './pages/Databases/index';
+import DatabaseDetail from './pages/Databases/DatabaseDetail';
 import Builder from './pages/Builder';
 import Layout from './components/Layout';
 import './App.css';
@@ -39,6 +40,16 @@ function AppRoutes() {
           <PrivateRoute>
             <Layout>
               <Databases />
+            </Layout>
+          </PrivateRoute>
+        } 
+      />
+      <Route 
+        path="/databases/:databaseId" 
+        element={
+          <PrivateRoute>
+            <Layout>
+              <DatabaseDetail />
             </Layout>
           </PrivateRoute>
         } 

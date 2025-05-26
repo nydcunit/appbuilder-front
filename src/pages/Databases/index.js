@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDatabases } from './hooks/useDatabases';
 import DatabaseList from './DatabaseList';
-import DatabaseDetail from './DatabaseDetail';
 
 const Databases = () => {
   const { fetchDatabases } = useDatabases();
+  const navigate = useNavigate();
   
   const [databases, setDatabases] = useState([]);
-  const [selectedDatabase, setSelectedDatabase] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,11 +26,7 @@ const Databases = () => {
   };
 
   const handleSelectDatabase = (database) => {
-    setSelectedDatabase(database);
-  };
-
-  const handleBackToList = () => {
-    setSelectedDatabase(null);
+    navigate(`/databases/${database._id}`);
   };
 
   const handleDatabasesChange = (newDatabases) => {
@@ -54,18 +50,11 @@ const Databases = () => {
 
   return (
     <div style={{ padding: '2rem' }}>
-      {!selectedDatabase ? (
-        <DatabaseList 
-          databases={databases}
-          onSelectDatabase={handleSelectDatabase}
-          onDatabasesChange={handleDatabasesChange}
-        />
-      ) : (
-        <DatabaseDetail 
-          database={selectedDatabase}
-          onBack={handleBackToList}
-        />
-      )}
+      <DatabaseList 
+        databases={databases}
+        onSelectDatabase={handleSelectDatabase}
+        onDatabasesChange={handleDatabasesChange}
+      />
     </div>
   );
 };
