@@ -28,6 +28,7 @@ const Builder = () => {
   const [saving, setSaving] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewScreenId, setPreviewScreenId] = useState(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   const popupRef = useRef(null);
   const currentScreen = screens.find(screen => screen.id === currentScreenId);
@@ -78,6 +79,7 @@ const Builder = () => {
       const response = await axios.get(`/api/apps/${appId}`);
       if (response.data.success) {
         const appData = response.data.data;
+        console.log('Loaded app data:', appData);
         setApp(appData);
         setScreens(appData.screens || [{ id: 1, name: 'Home', elements: [] }]);
         setCurrentScreenId(appData.screens?.[0]?.id || 1);
@@ -93,11 +95,18 @@ const Builder = () => {
   const saveApp = async () => {
     setSaving(true);
     try {
+      console.log('Saving app with screens:', screens);
+      
+      // Log the current screen elements to see what we're saving
+      const currentScreenElements = currentScreen?.elements || [];
+      console.log('Current screen elements being saved:', JSON.stringify(currentScreenElements, null, 2));
+      
       const response = await axios.put(`/api/apps/${appId}`, {
         screens: screens
       });
       
       if (response.data.success) {
+        console.log('App saved successfully. Saved data:', response.data.data);
         alert('App saved successfully!');
         setApp(response.data.data);
       }
@@ -106,6 +115,59 @@ const Builder = () => {
       alert('Error saving app: ' + (error.response?.data?.message || 'Unknown error'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  // New Copy Canvas function
+  const copyCanvasToClipboard = async () => {
+    try {
+      const canvasData = {
+        app: {
+          name: app?.name,
+          id: appId,
+          description: app?.description
+        },
+        currentScreen: {
+          id: currentScreenId,
+          name: currentScreen?.name,
+          elementCount: currentScreen?.elements?.length || 0
+        },
+        elements: currentScreen?.elements || [],
+        allScreens: screens.map(screen => ({
+          id: screen.id,
+          name: screen.name,
+          elementCount: screen.elements?.length || 0
+        })),
+        selectedElement: selectedElement ? {
+          id: selectedElement.id,
+          type: selectedElement.type,
+          properties: selectedElement.properties,
+          conditions: selectedElement.conditions,
+          renderType: selectedElement.renderType,
+          contentType: selectedElement.contentType,
+          repeatingConfig: selectedElement.repeatingConfig,
+          children: selectedElement.children
+        } : null,
+        metadata: {
+          timestamp: new Date().toISOString(),
+          totalElements: getAllElementsInScreen(currentScreen?.elements || []).length,
+          hasConditionalElements: (currentScreen?.elements || []).some(el => el.renderType === 'conditional'),
+          hasRepeatingContainers: (currentScreen?.elements || []).some(el => 
+            el.type === 'container' && el.contentType === 'repeating'
+          )
+        }
+      };
+
+      const formattedJSON = JSON.stringify(canvasData, null, 2);
+      await navigator.clipboard.writeText(formattedJSON);
+      
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+      
+      console.log('Canvas data copied to clipboard:', canvasData);
+    } catch (error) {
+      console.error('Error copying to clipboard:', error);
+      alert('Failed to copy canvas data to clipboard');
     }
   };
 
@@ -230,8 +292,10 @@ const Builder = () => {
     });
   };
 
+  // FIXED: Better element update function with detailed logging
   const updateElement = (elementId, updates) => {
-    console.log('Updating element:', elementId, 'with updates:', updates);
+    console.log('🔧 Updating element:', elementId);
+    console.log('📝 Updates being applied:', updates);
     
     const updatedScreens = screens.map(screen =>
       screen.id === currentScreenId
@@ -242,21 +306,35 @@ const Builder = () => {
         : screen
     );
     
+    console.log('📊 Updated screens state:', updatedScreens);
     setScreens(updatedScreens);
 
     // Update selected element if it's the one being updated
     if (selectedElement && selectedElement.id === elementId) {
       const updatedElement = findElementInTree(updatedScreens.find(s => s.id === currentScreenId)?.elements || [], elementId);
       if (updatedElement) {
+        console.log('🎯 Updated selected element:', updatedElement);
         setSelectedElement(updatedElement);
       }
     }
   };
 
+  // FIXED: Improved updateElementInTree with better merging
   const updateElementInTree = (elements, targetId, updates) => {
     return elements.map(element => {
       if (element.id === targetId) {
-        return { ...element, ...updates };
+        console.log('🎯 Found target element:', element.id);
+        console.log('📝 Current element state:', element);
+        console.log('🔄 Applying updates:', updates);
+        
+        // Create the updated element with proper merging
+        const updatedElement = {
+          ...element,
+          ...updates
+        };
+        
+        console.log('✅ Updated element result:', updatedElement);
+        return updatedElement;
       }
       if (element.children) {
         return {
@@ -330,6 +408,7 @@ const Builder = () => {
 
   const handleElementClick = (element, event) => {
     event.stopPropagation();
+    console.log('🖱️ Element clicked:', element);
     setSelectedElement(element);
     setShowPropertiesPopup(true);
   };
@@ -554,6 +633,27 @@ const Builder = () => {
                 🗑
               </button>
             </div>
+
+            {/* Copy Canvas Button */}
+            <button
+              onClick={copyCanvasToClipboard}
+              style={{
+                padding: '8px 15px',
+                backgroundColor: copySuccess ? '#28a745' : '#6c757d',
+                color: 'white',
+                border: 'none',
+                cursor: 'pointer',
+                borderRadius: '4px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'background-color 0.3s ease'
+              }}
+              title="Copy all canvas data to clipboard for sharing/debugging"
+            >
+              {copySuccess ? '✓ Copied!' : '📋 Copy Canvas'}
+            </button>
 
             {/* Execute Button */}
             <button

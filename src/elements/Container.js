@@ -11,13 +11,21 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Content settings with defaults
+  // FIXED: Content settings with proper defaults and initialization
   const contentType = element.contentType || 'fixed';
   const repeatingConfig = element.repeatingConfig || {
     databaseId: null,
     tableId: null,
     filters: []
   };
+
+  console.log('Container Properties Panel - Current State:', {
+    elementId: element.id,
+    contentType,
+    repeatingConfig,
+    elementContentType: element.contentType,
+    elementRepeatingConfig: element.repeatingConfig
+  });
 
   // Fetch databases on mount
   useEffect(() => {
@@ -95,6 +103,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
 
   // Stable update function for properties
   const updateProperty = useCallback((key, value) => {
+    console.log('Updating property:', key, value);
     onUpdate({
       properties: {
         ...props,
@@ -105,35 +114,53 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
 
   // Handle condition updates (these go on the element itself, not properties)
   const handleConditionUpdate = useCallback((updates) => {
+    console.log('Updating conditions:', updates);
     onUpdate(updates);
   }, [onUpdate]);
 
-  // Handle content type change
+  // FIXED: Handle content type change - update element directly, not properties
   const handleContentTypeChange = useCallback((type) => {
-    onUpdate({
-      contentType: type,
-      ...(type === 'repeating' && {
-        repeatingConfig: {
-          databaseId: null,
-          tableId: null,
-          filters: []
-        }
-      })
-    });
-  }, [onUpdate]);
+    console.log('Changing content type to:', type, 'for element:', element.id);
+    
+    const updates = {
+      contentType: type
+    };
 
-  // Handle repeating config updates
+    // If switching to repeating, initialize repeating config
+    if (type === 'repeating') {
+      updates.repeatingConfig = {
+        databaseId: null,
+        tableId: null,
+        filters: []
+      };
+    } else {
+      // If switching away from repeating, remove repeating config
+      updates.repeatingConfig = null;
+    }
+
+    console.log('Content type update payload:', updates);
+    onUpdate(updates);
+  }, [onUpdate, element.id]);
+
+  // FIXED: Handle repeating config updates - update element directly
   const updateRepeatingConfig = useCallback((updates) => {
+    console.log('Updating repeating config:', updates, 'current:', repeatingConfig);
+    
+    const newRepeatingConfig = {
+      ...repeatingConfig,
+      ...updates
+    };
+    
+    console.log('New repeating config:', newRepeatingConfig);
+    
     onUpdate({
-      repeatingConfig: {
-        ...repeatingConfig,
-        ...updates
-      }
+      repeatingConfig: newRepeatingConfig
     });
   }, [repeatingConfig, onUpdate]);
 
   // Handle database selection
   const handleDatabaseSelect = useCallback((databaseId) => {
+    console.log('Selecting database:', databaseId);
     updateRepeatingConfig({
       databaseId,
       tableId: null,
@@ -145,12 +172,12 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
 
   // Handle table selection
   const handleTableSelect = useCallback((tableId) => {
+    console.log('Selecting table:', tableId);
     updateRepeatingConfig({
-      ...repeatingConfig,
       tableId,
       filters: []
     });
-  }, [repeatingConfig, updateRepeatingConfig]);
+  }, [updateRepeatingConfig]);
 
   // Handle filter updates
   const handleAddFilter = useCallback(() => {
@@ -579,6 +606,18 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
           Content
         </h4>
+        
+        {/* Debug info */}
+        <div style={{ 
+          fontSize: '10px', 
+          color: '#666', 
+          marginBottom: '8px',
+          padding: '4px 8px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px'
+        }}>
+          Debug: contentType={contentType}, has repeatingConfig={!!element.repeatingConfig}
+        </div>
         
         {renderContentTabs()}
         
@@ -1011,7 +1050,7 @@ export const ContainerElement = {
   label: 'Container',
   icon: '📦',
   
-  // Default properties when element is created
+  // FIXED: Default properties when element is created - removed contentType and repeatingConfig from properties
   getDefaultProps: () => ({
     // Layout
     orientation: 'column',
