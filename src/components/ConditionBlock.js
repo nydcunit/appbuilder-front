@@ -77,7 +77,7 @@ const ConditionBlock = ({
           ...condition,
           steps: condition.steps.map(step => {
             if (step.id === stepId) {
-              // Automatically determine the correct source based on the config
+              // FIXED: Properly handle source determination
               let updatedStep = { ...step, ...updates };
               
               // If config is being updated, determine the correct source
@@ -89,8 +89,14 @@ const ConditionBlock = ({
                   config.source = 'database';
                 } else if (config.elementId) {
                   config.source = 'element';
+                } else if (config.repeatingContainerId) {
+                  // FIX: Handle repeating container source
+                  config.source = 'repeating_container';
                 } else if (['timestamp', 'screen_width', 'screen_height'].includes(config.source)) {
                   // Keep information sources as they are
+                } else if (config.source) {
+                  // FIX: If source is explicitly set, keep it
+                  // Don't override it
                 } else {
                   config.source = 'custom';
                 }
@@ -108,8 +114,6 @@ const ConditionBlock = ({
     });
     onUpdate({ conditions: newConditions });
   }, [conditions, onUpdate]);
-
-
 
   const renderConditionStep = (condition, step, stepIndex, isFirst) => {
     const canRemove = condition.steps.length > 1;

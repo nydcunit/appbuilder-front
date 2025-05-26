@@ -1,9 +1,13 @@
 import { CalculationEngine } from './calculationEngine.js';
 
 export class ConditionEngine {
-  constructor(availableElements = []) {
-    this.calculationEngine = new CalculationEngine(availableElements);
+  constructor(availableElements = [], repeatingContext = null) {
+    // FIX: Pass repeating context to CalculationEngine
+    this.calculationEngine = new CalculationEngine(availableElements, repeatingContext);
     console.log('🔍 ConditionEngine initialized with', availableElements.length, 'available elements');
+    if (repeatingContext) {
+      console.log('🔍 ConditionEngine has repeating context for container:', repeatingContext.containerId);
+    }
   }
 
   // Main function to evaluate if an element should be rendered
@@ -295,13 +299,12 @@ export class ConditionEngine {
   }
 }
 
-// Helper function to evaluate all elements and return filtered list
+// FIXED: Helper function to evaluate all elements and return filtered list
 export async function getVisibleElements(elements, availableElements = []) {
   console.log('\n🌟 === STARTING VISIBILITY EVALUATION ===');
   console.log('Total elements to evaluate:', elements.length);
   console.log('Available elements for context:', availableElements.length);
   
-  const conditionEngine = new ConditionEngine(availableElements);
   const visibleElements = [];
 
   for (let i = 0; i < elements.length; i++) {
@@ -309,6 +312,17 @@ export async function getVisibleElements(elements, availableElements = []) {
     console.log(`\n📋 Evaluating element ${i + 1}/${elements.length}: ${element.id} (${element.type})`);
     
     try {
+      // FIX: Extract repeating context from the element itself
+      let repeatingContext = null;
+      if (element.repeatingContext) {
+        repeatingContext = element.repeatingContext;
+      } else if (element.parentRepeatingContext) {
+        repeatingContext = element.parentRepeatingContext;
+      }
+      
+      // FIX: Create ConditionEngine with the repeating context
+      const conditionEngine = new ConditionEngine(availableElements, repeatingContext);
+      
       const shouldRender = await conditionEngine.shouldRenderElement(element);
       console.log(`📊 Element ${element.id} visibility result:`, shouldRender);
       

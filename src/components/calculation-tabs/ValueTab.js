@@ -4,11 +4,26 @@ import { useZIndex } from '../ZIndexContext';
 import axios from 'axios';
 
 const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 1000 }) => {
-  const [selectedOption, setSelectedOption] = useState(config.source || 'custom');
+  // FIX: Properly initialize selectedOption based on config.source
+  const getInitialSelectedOption = () => {
+    if (config.source === 'element') return 'element';
+    if (config.source === 'repeating_container') return 'repeating_container';
+    if (config.source === 'custom') return 'custom';
+    // Default fallback
+    return 'custom';
+  };
+
+  const [selectedOption, setSelectedOption] = useState(getInitialSelectedOption());
   const [repeatingContainers, setRepeatingContainers] = useState([]);
   const [containerColumns, setContainerColumns] = useState({});
   const [loading, setLoading] = useState(false);
   const { getNextZIndex } = useZIndex();
+
+  // FIX: Update selectedOption when config changes
+  useEffect(() => {
+    const newOption = getInitialSelectedOption();
+    setSelectedOption(newOption);
+  }, [config.source, config.elementId, config.repeatingContainerId]);
 
   // Find repeating containers that this element is inside
   useEffect(() => {
