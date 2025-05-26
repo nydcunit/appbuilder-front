@@ -1,9 +1,10 @@
 import axios from 'axios';
 
 export class CalculationEngine {
-  constructor(availableElements = []) {
+  constructor(availableElements = [], repeatingContext = null) {
     this.availableElements = availableElements;
     this.elementValues = {};
+    this.repeatingContext = repeatingContext; // { containerId, recordData, rowIndex }
     
     // Pre-compute element values for quick lookup
     this.availableElements.forEach(element => {
@@ -59,6 +60,9 @@ export class CalculationEngine {
       case 'database':
         return await this.executeDatabaseQuery(config);
       
+      case 'repeating_container':
+        return this.executeRepeatingContainerValue(config);
+      
       case 'timestamp':
         return new Date().toISOString();
       
@@ -71,6 +75,48 @@ export class CalculationEngine {
       default:
         throw new Error(`Unknown source type: ${config.source}`);
     }
+  }
+
+  // Execute repeating container value
+  executeRepeatingContainerValue(config) {
+    console.log('\n🔄 === REPEATING CONTAINER VALUE EXECUTION ===');
+    console.log('Config:', JSON.stringify(config, null, 2));
+    console.log('Repeating context:', this.repeatingContext);
+
+    const { repeatingContainerId, repeatingColumn } = config;
+
+    if (!repeatingContainerId || !repeatingColumn) {
+      throw new Error('Repeating container ID and column must be specified');
+    }
+
+    // Check if we have a repeating context for this container
+    if (!this.repeatingContext || this.repeatingContext.containerId !== repeatingContainerId) {
+      console.log('❌ No repeating context found for container:', repeatingContainerId);
+      throw new Error(`No repeating context found for container ${repeatingContainerId}`);
+    }
+
+    const { recordData, rowIndex } = this.repeatingContext;
+
+    // Handle special row_number column
+    if (repeatingColumn === 'row_number') {
+      const rowNumber = rowIndex + 1; // 1-based indexing
+      console.log('✅ Row number result:', rowNumber);
+      console.log('🔄 === REPEATING CONTAINER END ===\n');
+      return rowNumber;
+    }
+
+    // Handle regular column data
+    if (!recordData || recordData[repeatingColumn] === undefined) {
+      console.log('❌ Column not found in record data:', repeatingColumn);
+      console.log('Available columns:', Object.keys(recordData || {}));
+      throw new Error(`Column '${repeatingColumn}' not found in repeating container data`);
+    }
+
+    const columnValue = recordData[repeatingColumn];
+    console.log('✅ Column value result:', typeof columnValue, columnValue);
+    console.log('🔄 === REPEATING CONTAINER END ===\n');
+    
+    return columnValue;
   }
 
   // Execute custom value (may contain nested calculations)
@@ -331,13 +377,13 @@ export class CalculationEngine {
   }
 }
 
-// Execute all calculations in a text string
-export async function executeTextCalculations(textValue, availableElements, calculationStorage = {}) {
+// Execute all calculations in a text string with repeating context
+export async function executeTextCalculations(textValue, availableElements, calculationStorage = {}, repeatingContext = null) {
   if (!textValue || !textValue.includes('{{CALC:')) {
     return textValue;
   }
 
-  const engine = new CalculationEngine(availableElements);
+  const engine = new CalculationEngine(availableElements, repeatingContext);
   let result = textValue;
   const calcMatches = textValue.match(/{{CALC:([^}]+)}}/g);
   
@@ -406,4 +452,102 @@ export function getAllStoredCalculations() {
   }
   
   return calculations;
+}
+
+// Helper function to execute database queries for repeating containers
+export async function executeRepeatingContainerQuery(databaseId, tableId, filters = []) {
+  console.log('\n🔄 === REPEATING CONTAINER QUERY ===');
+  console.log('Database ID:', databaseId);
+  console.log('Table ID:', tableId);
+  console.log('Filters:', JSON.stringify(filters, null, 2));
+
+  try {
+    const queryPayload = {
+      filters: filters,
+      action: 'values', // Get all matching records
+      column: null // We want all columns
+    };
+    
+    console.log('🚀 Sending repeating container query:', JSON.stringify(queryPayload, null, 2));
+    
+    // Use a different endpoint that returns full records
+    const response = await axios.get(`/api/databases/${databaseId}/tables/${tableId}/records`);
+    
+    console.log('📥 Repeating query response:', response.data);
+    
+    if (response.data.success) {
+      let records = response.data.data;
+      
+      // Apply filters on the frontend if any
+      if (filters && filters.length > 0) {
+        records = applyFiltersToRecords(records, filters);
+      }
+      
+      console.log('✅ Filtered records count:', records.length);
+      console.log('🔄 === REPEATING CONTAINER QUERY END ===\n');
+      
+      return records;
+    } else {
+      throw new Error(response.data.message || 'Failed to fetch repeating container data');
+    }
+  } catch (error) {
+    console.error('❌ Repeating container query error:', error);
+    throw new Error(`Failed to fetch repeating container data: ${error.message}`);
+  }
+}
+
+// Helper function to apply filters to records (client-side filtering)
+function applyFiltersToRecords(records, filters) {
+  return records.filter(record => {
+    let result = true;
+    let currentLogic = 'and';
+    
+    for (const filter of filters) {
+      if (!filter.column || !filter.operator || filter.value === '') {
+        continue;
+      }
+      
+      const recordValue = record[filter.column];
+      const filterValue = filter.value;
+      let conditionResult = false;
+      
+      switch (filter.operator) {
+        case 'equals':
+          conditionResult = String(recordValue) === String(filterValue);
+          break;
+        case 'not_equals':
+          conditionResult = String(recordValue) !== String(filterValue);
+          break;
+        case 'greater_than':
+          conditionResult = Number(recordValue) > Number(filterValue);
+          break;
+        case 'less_than':
+          conditionResult = Number(recordValue) < Number(filterValue);
+          break;
+        case 'greater_equal':
+          conditionResult = Number(recordValue) >= Number(filterValue);
+          break;
+        case 'less_equal':
+          conditionResult = Number(recordValue) <= Number(filterValue);
+          break;
+        case 'contains':
+          conditionResult = String(recordValue).toLowerCase().includes(String(filterValue).toLowerCase());
+          break;
+        default:
+          conditionResult = false;
+      }
+      
+      // Apply logic
+      if (currentLogic === 'and') {
+        result = result && conditionResult;
+      } else if (currentLogic === 'or') {
+        result = result || conditionResult;
+      }
+      
+      // Set logic for next iteration
+      currentLogic = filter.logic || 'and';
+    }
+    
+    return result;
+  });
 }

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { availableElements, getElementByType, createElement } from '../elements';
 import { ZIndexProvider } from '../components/ZIndexContext';
-import { executeTextCalculations } from '../utils/calculationEngine';
+import { executeTextCalculations, executeRepeatingContainerQuery } from '../utils/calculationEngine';
 import { getVisibleElements } from '../utils/ConditionEngine';
 import axios from 'axios';
 
@@ -744,7 +744,7 @@ const Builder = () => {
           </div>
         )}
 
-        {/* Preview Modal */}
+        {/* Preview Modal with Repeating Container Support */}
         {showPreviewModal && (
           <PreviewModal
             screens={screens}
@@ -827,11 +827,12 @@ const Builder = () => {
   );
 };
 
-// Preview Modal Component with Real Calculation Execution AND Conditional Rendering
+// Preview Modal Component with Real Calculation Execution AND Conditional Rendering AND Repeating Containers
 const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => {
   const currentScreen = screens.find(screen => screen.id === currentScreenId);
   const [calculationResults, setCalculationResults] = useState({});
   const [visibleElements, setVisibleElements] = useState([]);
+  const [repeatingContainerData, setRepeatingContainerData] = useState({});
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionErrors, setExecutionErrors] = useState({});
 
@@ -850,13 +851,24 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       // First, get all elements for condition evaluation
       const allElements = getAllElementsInScreen(currentScreen.elements);
       
-      // Execute conditional rendering to get visible elements
-      console.log('Original elements:', currentScreen.elements);
-      const filteredElements = await getVisibleElements(currentScreen.elements, allElements);
+      // Step 1: Load repeating container data
+      console.log('🔄 Loading repeating container data...');
+      const containerData = await loadRepeatingContainerData(currentScreen.elements);
+      setRepeatingContainerData(containerData);
+      
+      // Step 2: Expand repeating containers into multiple instances
+      console.log('🔄 Expanding repeating containers...');
+      const expandedElements = await expandRepeatingContainers(currentScreen.elements, containerData);
+      console.log('Expanded elements:', expandedElements);
+      
+      // Step 3: Execute conditional rendering on expanded elements
+      console.log('🔄 Executing conditional rendering...');
+      const filteredElements = await getVisibleElements(expandedElements, allElements);
       console.log('Visible elements after conditions:', filteredElements);
       setVisibleElements(filteredElements);
       
-      // Then execute calculations on visible elements
+      // Step 4: Execute calculations on visible elements
+      console.log('🔄 Executing calculations...');
       const results = {};
       const errors = {};
       const visibleFlatElements = getAllElementsInScreen(filteredElements);
@@ -866,10 +878,14 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           try {
             const calculationStorage = extractCalculationStorage(element.properties.value);
             
+            // Get repeating context if element is inside a repeating container
+            const repeatingContext = getRepeatingContextForElement(element, containerData);
+            
             const executedValue = await executeTextCalculations(
               element.properties.value, 
-              allElements, // Use all elements for calculations, not just visible ones
-              calculationStorage
+              allElements, // Use all elements for calculations
+              calculationStorage,
+              repeatingContext // Pass repeating context
             );
             results[element.id] = executedValue;
           } catch (error) {
@@ -888,6 +904,168 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     } finally {
       setIsExecuting(false);
     }
+  };
+
+  // Load data for all repeating containers
+  const loadRepeatingContainerData = async (elements) => {
+    const containerData = {};
+    const repeatingContainers = findRepeatingContainers(elements);
+    
+    console.log('Found repeating containers:', repeatingContainers.length);
+    
+    for (const container of repeatingContainers) {
+      const { databaseId, tableId, filters } = container.repeatingConfig;
+      
+      try {
+        console.log(`Loading data for container ${container.id}:`, { databaseId, tableId, filters });
+        const records = await executeRepeatingContainerQuery(databaseId, tableId, filters);
+        containerData[container.id] = {
+          records,
+          config: container.repeatingConfig
+        };
+        console.log(`Loaded ${records.length} records for container ${container.id}`);
+      } catch (error) {
+        console.error(`Error loading data for container ${container.id}:`, error);
+        containerData[container.id] = {
+          records: [],
+          config: container.repeatingConfig,
+          error: error.message
+        };
+      }
+    }
+    
+    return containerData;
+  };
+
+  // Find all repeating containers in the element tree
+  const findRepeatingContainers = (elements) => {
+    const containers = [];
+    
+    const traverse = (elementList) => {
+      elementList.forEach(element => {
+        if (element.type === 'container' && 
+            element.contentType === 'repeating' && 
+            element.repeatingConfig?.databaseId && 
+            element.repeatingConfig?.tableId) {
+          containers.push(element);
+        }
+        
+        if (element.children && element.children.length > 0) {
+          traverse(element.children);
+        }
+      });
+    };
+    
+    traverse(elements);
+    return containers;
+  };
+
+  // Expand repeating containers into multiple instances
+  const expandRepeatingContainers = async (elements, containerData) => {
+    const expanded = [];
+    
+    for (const element of elements) {
+      if (element.type === 'container' && element.contentType === 'repeating') {
+        // This is a repeating container
+        const data = containerData[element.id];
+        
+        if (data && data.records && data.records.length > 0) {
+          // Create multiple instances of this container
+          for (let i = 0; i < data.records.length; i++) {
+            const record = data.records[i];
+            const instanceId = `${element.id}_instance_${i}`;
+            
+            // Create container instance with repeating context
+            const containerInstance = {
+              ...element,
+              id: instanceId,
+              originalId: element.id, // Keep track of original ID
+              repeatingContext: {
+                containerId: element.id,
+                recordData: record,
+                rowIndex: i
+              },
+              // Recursively expand children
+              children: element.children ? await expandRepeatingContainers(element.children, containerData) : []
+            };
+            
+            // Update child elements with repeating context
+            containerInstance.children = await updateChildrenWithRepeatingContext(
+              containerInstance.children, 
+              element.id, 
+              record, 
+              i,
+              containerData
+            );
+            
+            expanded.push(containerInstance);
+          }
+        } else {
+          // No data or error - show empty container
+          expanded.push({
+            ...element,
+            children: element.children ? await expandRepeatingContainers(element.children, containerData) : []
+          });
+        }
+      } else {
+        // Regular element - recursively process children
+        const expandedElement = {
+          ...element,
+          children: element.children ? await expandRepeatingContainers(element.children, containerData) : []
+        };
+        expanded.push(expandedElement);
+      }
+    }
+    
+    return expanded;
+  };
+
+  // Update children with repeating context information
+  const updateChildrenWithRepeatingContext = async (children, containerId, recordData, rowIndex, containerData) => {
+    const updated = [];
+    
+    for (const child of children) {
+      const updatedChild = {
+        ...child,
+        id: `${child.id}_repeat_${containerId}_${rowIndex}`, // Unique ID for this instance
+        originalId: child.id, // Keep original ID for reference
+        parentRepeatingContext: {
+          containerId,
+          recordData,
+          rowIndex
+        }
+      };
+      
+      // Recursively update grandchildren
+      if (updatedChild.children && updatedChild.children.length > 0) {
+        updatedChild.children = await updateChildrenWithRepeatingContext(
+          updatedChild.children, 
+          containerId, 
+          recordData, 
+          rowIndex,
+          containerData
+        );
+      }
+      
+      updated.push(updatedChild);
+    }
+    
+    return updated;
+  };
+
+  // Get repeating context for an element (for calculations)
+  const getRepeatingContextForElement = (element, containerData) => {
+    // Check if element has parent repeating context
+    if (element.parentRepeatingContext) {
+      return element.parentRepeatingContext;
+    }
+    
+    // Check if element itself is a repeating container instance
+    if (element.repeatingContext) {
+      return element.repeatingContext;
+    }
+    
+    return null;
   };
 
   // Helper function to extract calculation storage (simplified)
@@ -938,13 +1116,22 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       children
     );
     
+    // Add debug info for repeating container instances
+    let debugStyle = {};
+    if (element.repeatingContext || element.parentRepeatingContext) {
+      debugStyle = {
+        border: '2px solid #28a745',
+        margin: '2px'
+      };
+    }
+    
     return React.cloneElement(renderedElement, {
       key: element.id,
       style: {
         ...renderedElement.props.style,
+        ...debugStyle,
         // Remove edit-specific styles
         cursor: 'default',
-        border: element.type === 'container' ? '1px solid #ddd' : renderedElement.props.style?.border,
         // Add error styling if there's an execution error
         ...(executionErrors[element.id] && {
           backgroundColor: '#ffebee',
@@ -1037,7 +1224,8 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
 
             {/* Debug Info */}
             <div style={{ fontSize: '12px', color: '#666' }}>
-              Visible: {visibleElements.length} / {currentScreen?.elements?.length || 0} elements
+              Visible: {visibleElements.length} elements | 
+              Repeating Containers: {Object.keys(repeatingContainerData).length}
             </div>
           </div>
           
@@ -1068,6 +1256,23 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           }}>
             ⚠️ Execution errors detected. Check console for details.
             {executionErrors.general && ` General error: ${executionErrors.general}`}
+          </div>
+        )}
+
+        {/* Repeating Container Status */}
+        {Object.keys(repeatingContainerData).length > 0 && (
+          <div style={{
+            padding: '10px 20px',
+            backgroundColor: '#e8f5e9',
+            borderBottom: '1px solid #4caf50',
+            fontSize: '12px',
+            color: '#2e7d32'
+          }}>
+            🔄 Repeating Containers Active: {
+              Object.entries(repeatingContainerData).map(([containerId, data]) => 
+                `${containerId.slice(-6)} (${data.records?.length || 0} records)`
+              ).join(', ')
+            }
           </div>
         )}
 
@@ -1107,12 +1312,14 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           fontSize: '12px',
           color: '#666'
         }}>
-          💡 This preview shows conditional rendering and calculations in real-time.
+          💡 This preview shows conditional rendering, calculations, and repeating containers in real-time.
           {Object.keys(executionErrors).length > 0 && (
             <span style={{ color: '#d32f2f', marginLeft: '10px' }}>
               | ⚠️ Some calculations failed - check your database connections and element references.
             </span>
           )}
+          <br />
+          🔄 Repeating containers are outlined in green. Elements inside show data from each record.
         </div>
       </div>
     </div>
