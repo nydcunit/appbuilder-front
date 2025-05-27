@@ -37,8 +37,8 @@ export class ConditionEngine {
         console.log(`✨ Condition ${i + 1} final result:`, conditionResult);
         
         if (conditionResult) {
-          console.log('✅ Element should render: Found TRUE condition');
-          return true; // First true condition found
+          console.log(`✅ Element should render: Found TRUE condition at index ${i + 1}`);
+          return { shouldRender: true, conditionIndex: i }; // Return which condition matched
         }
       } catch (error) {
         console.error(`❌ Error evaluating condition ${i + 1}:`, error);
@@ -48,7 +48,7 @@ export class ConditionEngine {
 
     // No conditions were true
     console.log('❌ Element should NOT render: All conditions evaluated to FALSE');
-    return false;
+    return { shouldRender: false, conditionIndex: -1 };
   }
 
   // Evaluate a single condition (with multiple steps)
@@ -191,19 +191,37 @@ export class ConditionEngine {
         console.log(`🔗 OR: ${leftBool2} || ${rightBool2} = ${operationResult}`);
         return operationResult;
 
-      // Comparison operations
+      // Comparison operations - FIXED: Better type handling
       case 'equals':
-        const leftStr = String(left).trim();
-        const rightStr = String(right).trim();
-        operationResult = leftStr === rightStr;
-        console.log(`🟰 EQUALS: "${leftStr}" === "${rightStr}" = ${operationResult}`);
+        // For numeric comparisons, convert both to numbers if they look like numbers
+        if (this.isNumeric(left) && this.isNumeric(right)) {
+          const leftNum = this.toNumber(left);
+          const rightNum = this.toNumber(right);
+          operationResult = leftNum === rightNum;
+          console.log(`🟰 EQUALS (numeric): ${leftNum} === ${rightNum} = ${operationResult}`);
+        } else {
+          // String comparison
+          const leftStr = String(left).trim();
+          const rightStr = String(right).trim();
+          operationResult = leftStr === rightStr;
+          console.log(`🟰 EQUALS (string): "${leftStr}" === "${rightStr}" = ${operationResult}`);
+        }
         return operationResult;
       
       case 'not_equals':
-        const leftStr2 = String(left).trim();
-        const rightStr2 = String(right).trim();
-        operationResult = leftStr2 !== rightStr2;
-        console.log(`🚫 NOT EQUALS: "${leftStr2}" !== "${rightStr2}" = ${operationResult}`);
+        // For numeric comparisons, convert both to numbers if they look like numbers
+        if (this.isNumeric(left) && this.isNumeric(right)) {
+          const leftNum = this.toNumber(left);
+          const rightNum = this.toNumber(right);
+          operationResult = leftNum !== rightNum;
+          console.log(`🚫 NOT EQUALS (numeric): ${leftNum} !== ${rightNum} = ${operationResult}`);
+        } else {
+          // String comparison
+          const leftStr = String(left).trim();
+          const rightStr = String(right).trim();
+          operationResult = leftStr !== rightStr;
+          console.log(`🚫 NOT EQUALS (string): "${leftStr}" !== "${rightStr}" = ${operationResult}`);
+        }
         return operationResult;
       
       case 'greater_than':
@@ -238,6 +256,16 @@ export class ConditionEngine {
         console.log(`❌ Unknown operation: ${operation}`);
         throw new Error(`Unknown condition operation: ${operation}`);
     }
+  }
+
+  // Helper: Check if a value is numeric
+  isNumeric(value) {
+    if (typeof value === 'number') return true;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed !== '' && !isNaN(trimmed) && !isNaN(parseFloat(trimmed));
+    }
+    return false;
   }
 
   // Helper: Convert value to appropriate type
@@ -299,7 +327,7 @@ export class ConditionEngine {
   }
 }
 
-// FIXED: Helper function to evaluate all elements and return filtered list
+// FIXED: Helper function to evaluate all elements and return filtered list with condition matching
 export async function getVisibleElements(elements, availableElements = []) {
   console.log('\n🌟 === STARTING VISIBILITY EVALUATION ===');
   console.log('Total elements to evaluate:', elements.length);
@@ -323,22 +351,49 @@ export async function getVisibleElements(elements, availableElements = []) {
       // FIX: Create ConditionEngine with the repeating context
       const conditionEngine = new ConditionEngine(availableElements, repeatingContext);
       
-      const shouldRender = await conditionEngine.shouldRenderElement(element);
-      console.log(`📊 Element ${element.id} visibility result:`, shouldRender);
+      const evaluationResult = await conditionEngine.shouldRenderElement(element);
+      
+      // Handle both old boolean return and new object return
+      let shouldRender, matchedConditionIndex;
+      if (typeof evaluationResult === 'boolean') {
+        shouldRender = evaluationResult;
+        matchedConditionIndex = evaluationResult ? 0 : -1;
+      } else {
+        shouldRender = evaluationResult.shouldRender;
+        matchedConditionIndex = evaluationResult.conditionIndex;
+      }
+      
+      console.log(`📊 Element ${element.id} visibility result:`, shouldRender, 'matched condition:', matchedConditionIndex);
       
       if (shouldRender) {
-        // If element has children, recursively filter them too
-        if (element.children && element.children.length > 0) {
-          console.log(`🔄 Element has ${element.children.length} children, evaluating recursively`);
-          const visibleChildren = await getVisibleElements(element.children, availableElements);
-          console.log(`📊 Visible children: ${visibleChildren.length}/${element.children.length}`);
-          visibleElements.push({
-            ...element,
-            children: visibleChildren
-          });
-        } else {
-          visibleElements.push(element);
+        // Create element with the matched condition's properties
+        let elementToRender = { ...element };
+        
+        if (element.renderType === 'conditional' && 
+            element.conditions && 
+            element.conditions.length > 0 && 
+            matchedConditionIndex >= 0) {
+          
+          const matchedCondition = element.conditions[matchedConditionIndex];
+          if (matchedCondition && matchedCondition.properties) {
+            // Merge the matched condition's properties with base properties
+            elementToRender.properties = {
+              ...element.properties,
+              ...matchedCondition.properties
+            };
+            console.log(`🎨 Applied properties from condition ${matchedConditionIndex + 1}`);
+          }
         }
+        
+        // If element has children, recursively filter them too
+        if (elementToRender.children && elementToRender.children.length > 0) {
+          console.log(`🔄 Element has ${elementToRender.children.length} children, evaluating recursively`);
+          const visibleChildren = await getVisibleElements(elementToRender.children, availableElements);
+          console.log(`📊 Visible children: ${visibleChildren.length}/${elementToRender.children.length}`);
+          elementToRender.children = visibleChildren;
+        }
+        
+        visibleElements.push(elementToRender);
       }
     } catch (error) {
       console.error(`❌ Error evaluating visibility for element ${element.id}:`, error);

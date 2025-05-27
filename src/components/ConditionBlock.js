@@ -7,6 +7,7 @@ const ConditionBlock = ({
   availableElements = [] 
 }) => {
   const [activeTab, setActiveTab] = useState(element.renderType || 'fixed');
+  const [activeConditionIndex, setActiveConditionIndex] = useState(0);
   const conditions = element.conditions || [];
 
   const handleTabChange = useCallback((tab) => {
@@ -35,18 +36,31 @@ const ConditionBlock = ({
   });
 
   const handleAddCondition = useCallback(() => {
-    const newConditions = [...conditions, createNewCondition()];
+    const newCondition = createNewCondition();
+    const newConditions = [...conditions, newCondition];
     onUpdate({ conditions: newConditions });
+    
+    // Set the new condition as active
+    setActiveConditionIndex(newConditions.length - 1);
   }, [conditions, onUpdate]);
 
-  const handleRemoveCondition = useCallback((conditionId) => {
-    const newConditions = conditions.filter(c => c.id !== conditionId);
+  const handleRemoveCondition = useCallback((conditionIndex) => {
+    if (conditions.length <= 1) return; // Don't allow removing the last condition
+    
+    const newConditions = conditions.filter((_, index) => index !== conditionIndex);
     onUpdate({ conditions: newConditions });
-  }, [conditions, onUpdate]);
+    
+    // Adjust active condition index if needed
+    if (activeConditionIndex >= newConditions.length) {
+      setActiveConditionIndex(Math.max(0, newConditions.length - 1));
+    } else if (activeConditionIndex > conditionIndex) {
+      setActiveConditionIndex(activeConditionIndex - 1);
+    }
+  }, [conditions, onUpdate, activeConditionIndex]);
 
-  const handleAddConditionStep = useCallback((conditionId) => {
-    const newConditions = conditions.map(condition => {
-      if (condition.id === conditionId) {
+  const handleAddConditionStep = useCallback((conditionIndex) => {
+    const newConditions = conditions.map((condition, index) => {
+      if (index === conditionIndex) {
         return {
           ...condition,
           steps: [...condition.steps, createNewConditionStep()]
@@ -57,9 +71,9 @@ const ConditionBlock = ({
     onUpdate({ conditions: newConditions });
   }, [conditions, onUpdate]);
 
-  const handleRemoveConditionStep = useCallback((conditionId, stepId) => {
-    const newConditions = conditions.map(condition => {
-      if (condition.id === conditionId) {
+  const handleRemoveConditionStep = useCallback((conditionIndex, stepId) => {
+    const newConditions = conditions.map((condition, index) => {
+      if (index === conditionIndex) {
         return {
           ...condition,
           steps: condition.steps.filter(step => step.id !== stepId)
@@ -70,9 +84,9 @@ const ConditionBlock = ({
     onUpdate({ conditions: newConditions });
   }, [conditions, onUpdate]);
 
-  const handleStepUpdate = useCallback((conditionId, stepId, updates) => {
-    const newConditions = conditions.map(condition => {
-      if (condition.id === conditionId) {
+  const handleStepUpdate = useCallback((conditionIndex, stepId, updates) => {
+    const newConditions = conditions.map((condition, index) => {
+      if (index === conditionIndex) {
         return {
           ...condition,
           steps: condition.steps.map(step => {
@@ -115,8 +129,100 @@ const ConditionBlock = ({
     onUpdate({ conditions: newConditions });
   }, [conditions, onUpdate]);
 
-  const renderConditionStep = (condition, step, stepIndex, isFirst) => {
-    const canRemove = condition.steps.length > 1;
+  const renderConditionSelector = () => {
+    if (activeTab !== 'conditional' || conditions.length === 0) return null;
+
+    return (
+      <div style={{
+        marginBottom: '16px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        padding: '12px'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap'
+        }}>
+          {conditions.map((condition, index) => (
+            <div
+              key={condition.id || index}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                backgroundColor: activeConditionIndex === index ? '#007bff' : '#ffffff',
+                color: activeConditionIndex === index ? 'white' : '#333',
+                border: `1px solid ${activeConditionIndex === index ? '#007bff' : '#ddd'}`,
+                borderRadius: '6px',
+                overflow: 'hidden',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <button
+                onClick={() => setActiveConditionIndex(index)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'inherit',
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '500'
+                }}
+              >
+                Condition {index + 1}
+              </button>
+              
+              {conditions.length > 1 && (
+                <button
+                  onClick={() => handleRemoveCondition(index)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    borderLeft: `1px solid ${activeConditionIndex === index ? 'rgba(255,255,255,0.3)' : '#ddd'}`,
+                    color: 'inherit',
+                    padding: '8px 10px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  −
+                </button>
+              )}
+            </div>
+          ))}
+          
+          <button
+            onClick={handleAddCondition}
+            style={{
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              padding: '8px 12px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '32px',
+              height: '32px'
+            }}
+          >
+            +
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderConditionStep = (step, stepIndex, isFirst) => {
+    const canRemove = conditions[activeConditionIndex]?.steps.length > 1;
 
     return (
       <div 
@@ -146,7 +252,7 @@ const ConditionBlock = ({
           
           {canRemove && (
             <button
-              onClick={() => handleRemoveConditionStep(condition.id, step.id)}
+              onClick={() => handleRemoveConditionStep(activeConditionIndex, step.id)}
               style={{
                 background: 'none',
                 border: 'none',
@@ -166,7 +272,7 @@ const ConditionBlock = ({
           <div style={{ marginBottom: '16px' }}>
             <OperationSelector
               value={step.operation}
-              onChange={(operation) => handleStepUpdate(condition.id, step.id, { operation })}
+              onChange={(operation) => handleStepUpdate(activeConditionIndex, step.id, { operation })}
               operations={CONDITION_OPERATIONS}
               placeholder="Select operation"
             />
@@ -176,7 +282,7 @@ const ConditionBlock = ({
         {/* Value Selector */}
         <ValueSelector
           config={step.config}
-          onUpdate={(config) => handleStepUpdate(condition.id, step.id, { config })}
+          onUpdate={(config) => handleStepUpdate(activeConditionIndex, step.id, { config })}
           availableElements={availableElements}
           label=""
         />
@@ -184,92 +290,86 @@ const ConditionBlock = ({
     );
   };
 
-  const renderCondition = (condition, conditionIndex) => {
-    return (
-      <div 
-        key={condition.id}
-        style={{
-          marginBottom: '20px',
-          padding: '20px',
-          backgroundColor: 'white',
-          borderRadius: '12px',
-          border: '2px solid #e0e0e0'
-        }}
-      >
-        {/* Condition Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: '16px'
-        }}>
-          <h4 style={{
-            margin: 0,
-            fontSize: '16px',
-            fontWeight: '600',
-            color: '#333'
-          }}>
-            Condition {conditionIndex + 1}
-          </h4>
-          
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {/* Add Step Button */}
-            <button
-              onClick={() => handleAddConditionStep(condition.id)}
-              style={{
-                backgroundColor: '#28a745',
-                color: 'white',
-                border: 'none',
-                padding: '6px 10px',
-                borderRadius: '50%',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 'bold',
-                width: '28px',
-                height: '28px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              title="Add condition step"
-            >
-              +
-            </button>
-            
-            {/* Remove Condition Button */}
-            {conditions.length > 1 && (
-              <button
-                onClick={() => handleRemoveCondition(condition.id)}
-                style={{
-                  backgroundColor: '#dc3545',
-                  color: 'white',
-                  border: 'none',
-                  padding: '6px 10px',
-                  borderRadius: '50%',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  width: '28px',
-                  height: '28px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-                title="Remove condition"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        </div>
+  const renderActiveCondition = () => {
+    if (activeTab !== 'conditional' || conditions.length === 0) return null;
+    
+    const activeCondition = conditions[activeConditionIndex];
+    if (!activeCondition) return null;
 
+    return (
+      <div>
+        <div style={{
+          fontSize: '12px',
+          color: '#666',
+          marginBottom: '16px',
+          fontStyle: 'italic'
+        }}>
+          Configure the steps for Condition {activeConditionIndex + 1}. The first condition that evaluates to true will render this element.
+        </div>
+        
         {/* Condition Steps */}
-        {condition.steps.map((step, stepIndex) => 
-          renderConditionStep(condition, step, stepIndex, stepIndex === 0)
+        {activeCondition.steps.map((step, stepIndex) => 
+          renderConditionStep(step, stepIndex, stepIndex === 0)
         )}
+        
+        {/* Add Step Button */}
+        <div style={{ textAlign: 'center', marginTop: '16px' }}>
+          <button
+            onClick={() => handleAddConditionStep(activeConditionIndex)}
+            style={{
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              margin: '0 auto'
+            }}
+          >
+            <span style={{ fontSize: '16px' }}>+</span>
+            Add Step
+          </button>
+        </div>
       </div>
     );
   };
+
+  const renderTabs = () => (
+    <div style={{
+      display: 'flex',
+      backgroundColor: '#f0f0f0',
+      borderRadius: '8px',
+      padding: '4px',
+      marginBottom: '16px'
+    }}>
+      {['fixed', 'conditional'].map((tab) => (
+        <button
+          key={tab}
+          onClick={() => handleTabChange(tab)}
+          style={{
+            flex: 1,
+            padding: '8px 16px',
+            border: 'none',
+            backgroundColor: activeTab === tab ? 'white' : 'transparent',
+            color: activeTab === tab ? '#333' : '#666',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: activeTab === tab ? '500' : '400',
+            transition: 'all 0.2s ease',
+            textTransform: 'capitalize'
+          }}
+        >
+          {tab}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -284,47 +384,11 @@ const ConditionBlock = ({
       
       {renderTabs()}
       
-      {activeTab === 'conditional' && (
-        <div>
-          <div style={{
-            fontSize: '12px',
-            color: '#666',
-            marginBottom: '16px',
-            fontStyle: 'italic'
-          }}>
-            The first condition that evaluates to true will render this element.
-          </div>
-          
-          {/* Render Conditions */}
-          {conditions.map((condition, index) => renderCondition(condition, index))}
-          
-          {/* Add Condition Button */}
-          <div style={{ textAlign: 'center', marginTop: '16px' }}>
-            <button
-              onClick={handleAddCondition}
-              style={{
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                padding: '10px 20px',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                margin: '0 auto'
-              }}
-            >
-              <span style={{ fontSize: '16px' }}>+</span>
-              Add Condition
-            </button>
-          </div>
-        </div>
-      )}
+      {renderConditionSelector()}
       
-      {activeTab === 'fixed' && (
+      {activeTab === 'conditional' ? (
+        renderActiveCondition()
+      ) : (
         <div style={{
           padding: '20px',
           backgroundColor: '#f8f9fa',
@@ -338,40 +402,6 @@ const ConditionBlock = ({
       )}
     </div>
   );
-
-  function renderTabs() {
-    return (
-      <div style={{
-        display: 'flex',
-        backgroundColor: '#f0f0f0',
-        borderRadius: '8px',
-        padding: '4px',
-        marginBottom: '16px'
-      }}>
-        {['fixed', 'conditional'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => handleTabChange(tab)}
-            style={{
-              flex: 1,
-              padding: '8px 16px',
-              border: 'none',
-              backgroundColor: activeTab === tab ? 'white' : 'transparent',
-              color: activeTab === tab ? '#333' : '#666',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: activeTab === tab ? '500' : '400',
-              transition: 'all 0.2s ease',
-              textTransform: 'capitalize'
-            }}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-    );
-  }
 };
 
 export default ConditionBlock;

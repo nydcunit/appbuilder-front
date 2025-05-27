@@ -2,24 +2,70 @@ import React, { useState, useCallback, memo } from 'react';
 import SuperText from '../components/SuperText';
 import ConditionBlock from '../components/ConditionBlock';
 
-// Updated Text Properties Panel with ConditionBlock
+// Updated Text Properties Panel with Conditional Properties Support
 const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] }) => {
   const props = element.properties || {};
+  const [activeConditionIndex, setActiveConditionIndex] = useState(0);
+
+  // Get the current properties - either base properties or condition-specific properties
+  const getCurrentProperties = useCallback(() => {
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      const activeCondition = element.conditions[activeConditionIndex];
+      return activeCondition?.properties || props;
+    }
+    return props;
+  }, [element.renderType, element.conditions, activeConditionIndex, props]);
 
   // Stable update function
   const updateProperty = useCallback((key, value) => {
-    onUpdate({
-      properties: {
-        ...props,
-        [key]: value
-      }
-    });
-  }, [props, onUpdate]);
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      // Update condition-specific properties
+      const newConditions = element.conditions.map((condition, index) => {
+        if (index === activeConditionIndex) {
+          return {
+            ...condition,
+            properties: {
+              ...condition.properties,
+              [key]: value
+            }
+          };
+        }
+        return condition;
+      });
+      onUpdate({ conditions: newConditions });
+    } else {
+      // Update base properties
+      onUpdate({
+        properties: {
+          ...props,
+          [key]: value
+        }
+      });
+    }
+  }, [props, onUpdate, element.renderType, element.conditions, activeConditionIndex]);
 
   // Handle condition updates (these go on the element itself, not properties)
   const handleConditionUpdate = useCallback((updates) => {
+    console.log('Updating conditions:', updates);
+    
+    // If we're adding a new condition, copy properties from the previous condition
+    if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
+      const newConditions = updates.conditions.map((condition, index) => {
+        // If this is a new condition and doesn't have properties, copy from previous condition
+        if (!condition.properties && index > 0) {
+          const previousCondition = updates.conditions[index - 1];
+          return {
+            ...condition,
+            properties: previousCondition.properties ? { ...previousCondition.properties } : { ...props }
+          };
+        }
+        return condition;
+      });
+      updates.conditions = newConditions;
+    }
+    
     onUpdate(updates);
-  }, [onUpdate]);
+  }, [onUpdate, element.conditions, props]);
 
   // Handle input changes with immediate updates
   const handleInputChange = useCallback((key, value) => {
@@ -33,10 +79,11 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
     }
   }, []);
 
-  // Get current value directly from props
+  // Get current value directly from current properties
   const getValue = useCallback((key) => {
-    return props[key] ?? '';
-  }, [props]);
+    const currentProps = getCurrentProperties();
+    return currentProps[key] ?? '';
+  }, [getCurrentProperties]);
 
   // Handle copying element ID to clipboard
   const copyElementId = useCallback(async () => {
@@ -47,6 +94,68 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
       console.error('Failed to copy element ID:', err);
     }
   }, [element.id]);
+
+  // Render condition selector for properties
+  const renderConditionSelector = () => {
+    if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
+      return null;
+    }
+
+    return (
+      <div style={{
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e0e0e0'
+      }}>
+        <h4 style={{ 
+          marginBottom: '12px', 
+          color: '#333', 
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          Condition Properties
+        </h4>
+        
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginBottom: '12px'
+        }}>
+          {element.conditions.map((condition, index) => (
+            <button
+              key={condition.id || index}
+              onClick={() => setActiveConditionIndex(index)}
+              style={{
+                backgroundColor: activeConditionIndex === index ? '#007bff' : '#ffffff',
+                color: activeConditionIndex === index ? 'white' : '#333',
+                border: `1px solid ${activeConditionIndex === index ? '#007bff' : '#ddd'}`,
+                borderRadius: '6px',
+                padding: '8px 12px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Condition {index + 1}
+            </button>
+          ))}
+        </div>
+        
+        <div style={{
+          fontSize: '12px',
+          color: '#666',
+          fontStyle: 'italic'
+        }}>
+          Configure how this element appears when Condition {activeConditionIndex + 1} is true.
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -107,12 +216,15 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
         </div>
       </div>
 
-      {/* NEW: Condition Block */}
+      {/* Condition Block */}
       <ConditionBlock
         element={element}
         onUpdate={handleConditionUpdate}
         availableElements={availableElements}
       />
+
+      {/* Condition Properties Selector */}
+      {renderConditionSelector()}
 
       {/* Content Section with SuperText */}
       <div style={{ marginBottom: '20px' }}>
@@ -423,6 +535,17 @@ const renderTextWithCalculationCapsules = (textValue) => {
   });
 };
 
+// Get properties for rendering - use condition 1 properties if conditional
+const getRenderProperties = (element) => {
+  if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+    const firstCondition = element.conditions[0];
+    if (firstCondition.properties) {
+      return { ...element.properties, ...firstCondition.properties };
+    }
+  }
+  return element.properties || {};
+};
+
 export const TextElement = {
   type: 'text',
   label: 'Text',
@@ -458,7 +581,7 @@ export const TextElement = {
   // Render the element in the canvas
   render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null) => {
     const { onClick, onDelete, onDragStart } = handlers;
-    const props = element.properties || {};
+    const props = getRenderProperties(element); // Use condition 1 properties if conditional
     
     // Build styles from properties
     const textStyle = {
@@ -539,6 +662,9 @@ export const TextElement = {
             }}
           >
             Text Element (ID: {element.id.slice(-6)})
+            {element.renderType === 'conditional' && (
+              <span style={{ color: '#28a745', marginLeft: '4px' }}>• Conditional</span>
+            )}
           </div>
         )}
         
