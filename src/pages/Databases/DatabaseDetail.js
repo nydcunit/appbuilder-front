@@ -29,11 +29,13 @@ const DatabaseDetail = () => {
   const [newTableName, setNewTableName] = useState('');
   const [newColumnName, setNewColumnName] = useState('');
 
-  // Enhanced editing state
+  // Enhanced editing state with CMD+A support and file upload prevention
   const [editingCell, setEditingCell] = useState(null);
   const [editingValue, setEditingValue] = useState('');
   const [editingCapsules, setEditingCapsules] = useState([]);
   const [originalValue, setOriginalValue] = useState('');
+  const [isAllSelected, setIsAllSelected] = useState(false); // New state for CMD+A
+  const [isUploadingFile, setIsUploadingFile] = useState(false); // Prevent blur during upload
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -155,15 +157,17 @@ const DatabaseDetail = () => {
     }
   };
 
-  // Parse value into capsules for editing - preserves commas in display
+  // Parse value into capsules for editing - ALL comma-separated items become capsules
   const parseValueToCapsules = (value) => {
     if (Array.isArray(value)) {
       return { capsules: value, text: '' };
     }
     if (typeof value === 'string' && value.includes(',')) {
       const parts = value.split(',').map(part => part.trim()).filter(part => part);
-      return { capsules: parts.slice(0, -1), text: parts[parts.length - 1] || '' };
+      // ALL parts become capsules, text field starts empty for new item
+      return { capsules: parts, text: '' };
     }
+    // Single value without comma - keep as text for editing
     return { capsules: [], text: value || '' };
   };
 
@@ -182,6 +186,7 @@ const DatabaseDetail = () => {
     setEditingCapsules(parsed.capsules);
     setEditingValue(parsed.text);
     setOriginalValue(currentValue);
+    setIsAllSelected(false); // Reset selection state
   };
 
   const saveEdit = async () => {
@@ -208,6 +213,8 @@ const DatabaseDetail = () => {
     setEditingValue('');
     setEditingCapsules([]);
     setOriginalValue('');
+    setIsAllSelected(false);
+    setIsUploadingFile(false);
   };
 
   const cancelEdit = () => {
@@ -215,9 +222,91 @@ const DatabaseDetail = () => {
     setEditingValue('');
     setEditingCapsules([]);
     setOriginalValue('');
+    setIsAllSelected(false);
+    setIsUploadingFile(false);
   };
 
+  // Handle blur with file upload protection
+  const handleInputBlur = () => {
+    // Don't save if we're in the middle of a file upload
+    if (isUploadingFile) {
+      console.log('Preventing blur during file upload');
+      return;
+    }
+    saveEdit();
+  };
+
+  // Enhanced key handler with CMD+A support
   const handleKeyPress = (e) => {
+    console.log('Key pressed:', e.key, 'isAllSelected:', isAllSelected);
+    
+    // CMD+A or Ctrl+A - Select all content
+    if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+      e.preventDefault();
+      console.log('CMD+A pressed, setting isAllSelected to true');
+      setIsAllSelected(true);
+      
+      // Ensure input stays focused
+      if (inputRef.current) {
+        setTimeout(() => {
+          inputRef.current.focus();
+        }, 0);
+      }
+      return;
+    }
+
+    // If content is selected (CMD+A was pressed)
+    if (isAllSelected) {
+      console.log('Handling key while selected:', e.key);
+      
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        e.preventDefault();
+        console.log('Clearing all content');
+        // Clear everything and return to normal editing mode
+        setEditingCapsules([]);
+        setEditingValue('');
+        setIsAllSelected(false);
+        
+        // Ensure focus stays on input for continued typing
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 0);
+        return;
+      } else if (e.key.length === 1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // Replace everything with new character (only for printable characters)
+        e.preventDefault();
+        console.log('Replacing all content with:', e.key);
+        setEditingCapsules([]);
+        setEditingValue(e.key);
+        setIsAllSelected(false);
+        
+        // Ensure focus stays on input for continued typing
+        setTimeout(() => {
+          if (inputRef.current) {
+            inputRef.current.focus();
+          }
+        }, 0);
+        return;
+      } else if (e.key === 'Enter') {
+        // Save on Enter even when selected
+        e.preventDefault();
+        saveEdit();
+        return;
+      } else if (e.key === 'Escape') {
+        // Cancel on Escape even when selected
+        e.preventDefault();
+        cancelEdit();
+        return;
+      } else {
+        // For other keys (arrows, etc.), just reset selection
+        console.log('Resetting selection for key:', e.key);
+        setIsAllSelected(false);
+      }
+    }
+
+    // Normal key handling (when not selected)
     if (e.key === 'Enter') {
       saveEdit();
     } else if (e.key === 'Escape') {
@@ -239,9 +328,55 @@ const DatabaseDetail = () => {
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    const fileNames = files.map(file => file.name);
-    setEditingCapsules([...editingCapsules, ...fileNames]);
+    console.log('Files selected:', files);
+    
+    if (files.length === 0) {
+      setIsUploadingFile(false);
+      return;
+    }
+    
+    // Process each file and create file objects with metadata
+    const fileObjects = files.map(file => {
+      const fileObj = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        lastModified: file.lastModified,
+        isFile: true
+      };
+      
+      // For images, create thumbnail URL
+      if (file.type.startsWith('image/')) {
+        fileObj.thumbnailUrl = URL.createObjectURL(file);
+        fileObj.isImage = true;
+      } else {
+        fileObj.isImage = false;
+        // Extract file extension
+        const extension = file.name.split('.').pop()?.toUpperCase() || 'FILE';
+        fileObj.extension = extension;
+      }
+      
+      return fileObj;
+    });
+    
+    // Add file objects to capsules
+    setEditingCapsules([...editingCapsules, ...fileObjects]);
+    setIsAllSelected(false);
     e.target.value = ''; // Reset file input
+    
+    // Reset upload state and refocus
+    setIsUploadingFile(false);
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 10);
+  };
+
+  // Handle upload button click
+  const handleUploadClick = () => {
+    setIsUploadingFile(true);
+    fileInputRef.current?.click();
   };
 
   const handleDeleteSelectedRecords = async () => {
@@ -298,10 +433,119 @@ const DatabaseDetail = () => {
     });
   };
 
-  // Detect if a capsule is likely a file (has file extension)
+  // Enhanced function to detect if a capsule is a file object
   const isFileCapsule = (capsule) => {
-    const fileExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.zip'];
-    return fileExtensions.some(ext => capsule.toLowerCase().includes(ext));
+    // Check if it's a file object
+    if (typeof capsule === 'object' && capsule?.isFile) {
+      return true;
+    }
+    
+    // Legacy check for file extensions in strings
+    if (typeof capsule === 'string') {
+      const fileExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt', '.zip', '.mp4', '.mov', '.avi'];
+      return fileExtensions.some(ext => capsule.toLowerCase().includes(ext));
+    }
+    
+    return false;
+  };
+
+  // Function to render file capsule with thumbnail
+  const renderFileCapsule = (capsule, index) => {
+    if (typeof capsule === 'object' && capsule?.isFile) {
+      return (
+        <div
+          key={index}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            backgroundColor: '#000',
+            color: 'white',
+            padding: '4px 8px',
+            borderRadius: '12px',
+            fontSize: '12px',
+            gap: '6px',
+            maxWidth: '200px'
+          }}
+        >
+          {/* Thumbnail or Extension */}
+          <div style={{
+            width: '20px',
+            height: '20px',
+            borderRadius: '4px',
+            backgroundColor: capsule.isImage ? 'transparent' : 'rgba(255,255,255,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '8px',
+            fontWeight: 'bold',
+            overflow: 'hidden'
+          }}>
+            {capsule.isImage ? (
+              <img 
+                src={capsule.thumbnailUrl} 
+                alt={capsule.name}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  borderRadius: '4px'
+                }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : (
+              <span style={{ color: 'white' }}>{capsule.extension}</span>
+            )}
+          </div>
+          
+          {/* File name (truncated) */}
+          <span style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '140px'
+          }}>
+            {capsule.name}
+          </span>
+        </div>
+      );
+    }
+    
+    // Legacy string-based file rendering
+    if (typeof capsule === 'string' && isFileCapsule(capsule)) {
+      return (
+        <span
+          key={index}
+          style={{
+            backgroundColor: '#000',
+            color: 'white',
+            padding: '2px 8px',
+            borderRadius: '12px',
+            fontSize: '12px'
+          }}
+        >
+          {capsule}
+        </span>
+      );
+    }
+    
+    // Regular text capsule
+    return (
+      <span
+        key={index}
+        style={{
+          backgroundColor: '#f0f0f0',
+          color: '#333',
+          padding: '2px 8px',
+          borderRadius: '12px',
+          fontSize: '12px'
+        }}
+      >
+        {capsule}
+      </span>
+    );
   };
 
   const renderCellContent = (record, column) => {
@@ -312,17 +556,7 @@ const DatabaseDetail = () => {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
           {value.map((item, index) => (
             <React.Fragment key={index}>
-              <span
-                style={{
-                  backgroundColor: isFileCapsule(item) ? '#000' : '#f0f0f0',
-                  color: isFileCapsule(item) ? 'white' : '#333',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '12px'
-                }}
-              >
-                {item}
-              </span>
+              {renderFileCapsule(item, index)}
               {index < value.length - 1 && (
                 <span style={{ color: '#666', fontSize: '12px' }}>,</span>
               )}
@@ -338,17 +572,7 @@ const DatabaseDetail = () => {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
           {parts.map((part, index) => (
             <React.Fragment key={index}>
-              <span
-                style={{
-                  backgroundColor: isFileCapsule(part) ? '#000' : '#f0f0f0',
-                  color: isFileCapsule(part) ? 'white' : '#333',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  fontSize: '12px'
-                }}
-              >
-                {part}
-              </span>
+              {renderFileCapsule(part, index)}
               {index < parts.length - 1 && (
                 <span style={{ color: '#666', fontSize: '12px' }}>,</span>
               )}
@@ -362,6 +586,152 @@ const DatabaseDetail = () => {
   };
 
   const renderEditingCell = () => {
+    // If all content is selected, show selected state with individual word selections
+    if (isAllSelected) {
+      return (
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: '4px',
+          padding: '8px',
+          border: '2px solid #007bff',
+          borderRadius: '4px',
+          backgroundColor: 'white',
+          minHeight: '36px',
+          width: '100%'
+        }}>
+          {/* Show capsules with selected appearance */}
+          {editingCapsules.map((capsule, index) => (
+            <React.Fragment key={index}>
+              <div
+                style={{
+                  backgroundColor: '#e3f2fd', // Selected blue background
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  flexShrink: 0,
+                  border: '1px solid #2196f3' // Selected border
+                }}
+              >
+                {typeof capsule === 'object' && capsule?.isFile ? (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    color: '#333'
+                  }}>
+                    {/* Thumbnail or Extension */}
+                    <div style={{
+                      width: '16px',
+                      height: '16px',
+                      borderRadius: '2px',
+                      backgroundColor: capsule.isImage ? 'transparent' : 'rgba(0,0,0,0.1)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '6px',
+                      fontWeight: 'bold',
+                      overflow: 'hidden'
+                    }}>
+                      {capsule.isImage ? (
+                        <img 
+                          src={capsule.thumbnailUrl} 
+                          alt={capsule.name}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            borderRadius: '2px'
+                          }}
+                        />
+                      ) : (
+                        <span>{capsule.extension}</span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: '12px' }}>{capsule.name}</span>
+                  </div>
+                ) : (
+                  <span style={{ color: '#333' }}>{capsule}</span>
+                )}
+              </div>
+              {/* Comma remains unselected (white) */}
+              <span style={{ color: '#666', fontSize: '12px', flexShrink: 0 }}>,</span>
+            </React.Fragment>
+          ))}
+          
+          {/* Show current text input with selected appearance if it has content */}
+          {editingValue && (
+            <>
+              <span
+                style={{
+                  backgroundColor: '#e3f2fd', // Selected blue background
+                  color: '#333',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  flexShrink: 0,
+                  border: '1px solid #2196f3' // Selected border
+                }}
+              >
+                {editingValue}
+              </span>
+            </>
+          )}
+          
+          {/* Hidden input for keyboard handling - only when selected */}
+          <input
+            ref={inputRef}
+            type="text"
+            value=""
+            onChange={() => {}} // No onChange needed, we handle via onKeyDown
+            onKeyDown={handleKeyPress}
+            autoFocus
+            style={{
+              position: 'absolute',
+              opacity: 0,
+              width: '100%',
+              height: '100%',
+              top: 0,
+              left: 0,
+              border: 'none',
+              outline: 'none',
+              backgroundColor: 'transparent',
+              zIndex: 10,
+              cursor: 'text'
+            }}
+          />
+          
+          {/* Upload button */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileUpload}
+            style={{ display: 'none' }}
+          />
+          <button
+            onMouseDown={(e) => e.preventDefault()} // Prevent blur on input
+            onClick={handleUploadClick}
+            style={{
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              cursor: 'pointer',
+              flexShrink: 0,
+              marginLeft: '8px'
+            }}
+          >
+            + Upload
+          </button>
+        </div>
+      );
+    }
+
+    // Normal editing view with capsules
     return (
       <div style={{
         display: 'flex',
@@ -377,22 +747,9 @@ const DatabaseDetail = () => {
       }}>
         {editingCapsules.map((capsule, index) => (
           <React.Fragment key={index}>
-            <span
-              style={{
-                backgroundColor: isFileCapsule(capsule) ? '#000' : '#f0f0f0',
-                color: isFileCapsule(capsule) ? 'white' : '#333',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                fontSize: '12px',
-                flexShrink: 0
-              }}
-            >
-              {capsule}
-            </span>
-            {/* Show comma after each capsule except the last one or when there's text being typed */}
-            {(index < editingCapsules.length - 1 || editingValue === '') && (
-              <span style={{ color: '#666', fontSize: '12px', flexShrink: 0 }}>,</span>
-            )}
+            {renderFileCapsule(capsule, index)}
+            {/* Always show comma after each capsule */}
+            <span style={{ color: '#666', fontSize: '12px', flexShrink: 0 }}>,</span>
           </React.Fragment>
         ))}
         
@@ -401,9 +758,9 @@ const DatabaseDetail = () => {
           type="text"
           value={editingValue}
           onChange={(e) => setEditingValue(e.target.value)}
-          onBlur={saveEdit}
+          onBlur={handleInputBlur}
           onKeyDown={handleKeyPress}
-          placeholder="Type and press comma..."
+          placeholder={editingCapsules.length > 0 ? "Type to add item..." : "Type and press comma..."}
           style={{
             border: 'none',
             outline: 'none',
@@ -423,7 +780,8 @@ const DatabaseDetail = () => {
           style={{ display: 'none' }}
         />
         <button
-          onClick={() => fileInputRef.current?.click()}
+          onMouseDown={(e) => e.preventDefault()} // Prevent blur on input
+          onClick={handleUploadClick}
           style={{
             backgroundColor: '#007bff',
             color: 'white',
