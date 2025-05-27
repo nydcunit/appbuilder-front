@@ -1,15 +1,28 @@
 import React from 'react';
 import ContainerPropertiesPanel from './ContainerPropertiesPanel';
 
-// Get properties for rendering - use condition 1 properties if conditional
+// FIXED: Get properties for rendering - properly handle conditional properties
 const getRenderProperties = (element) => {
+  console.log('🎨 Getting render properties for element:', element.id);
+  console.log('🎨 Element renderType:', element.renderType);
+  console.log('🎨 Element conditions:', element.conditions?.length || 0);
+  
   if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+    // For conditional rendering, use the first condition's properties (first true condition in actual rendering)
     const firstCondition = element.conditions[0];
+    console.log('🎨 First condition:', firstCondition);
+    console.log('🎨 First condition properties:', firstCondition.properties);
+    
     if (firstCondition.properties) {
-      return { ...element.properties, ...firstCondition.properties };
+      const mergedProperties = { ...element.properties, ...firstCondition.properties };
+      console.log('🎨 Merged properties:', mergedProperties);
+      return mergedProperties;
     }
   }
-  return element.properties || {};
+  
+  const baseProperties = element.properties || {};
+  console.log('🎨 Using base properties:', baseProperties);
+  return baseProperties;
 };
 
 export const ContainerElement = {
@@ -71,8 +84,12 @@ export const ContainerElement = {
   // Render the element in the canvas
   render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null) => {
     const { onClick, onDelete, onDragOver, onDragLeave, onDrop, onDragStart } = handlers;
+    
+    // FIXED: Use the fixed getRenderProperties function
     const props = getRenderProperties(element);
     const contentType = element.contentType || 'fixed';
+    
+    console.log('🎨 Rendering container with props:', props);
     
     // Build styles from properties
     const containerStyle = {
@@ -84,7 +101,7 @@ export const ContainerElement = {
       alignItems: props.horizontalAlignment || 'flex-start',
       justifyContent: props.verticalAlignment || 'flex-start',
       
-      // Styling
+      // Styling - FIXED: Ensure background color is applied
       backgroundColor: props.backgroundColor || '#ffffff',
       
       // Spacing

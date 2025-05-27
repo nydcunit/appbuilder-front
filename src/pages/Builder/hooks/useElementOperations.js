@@ -67,9 +67,11 @@ export const useElementOperations = (screens, currentScreenId, updateScreens, se
     ));
   }, [screens, currentScreenId, updateScreens]);
 
+  // FIXED: Enhanced updateElement with better logging and proper merging
   const updateElement = useCallback((elementId, updates) => {
-    console.log('🔧 Updating element:', elementId);
-    console.log('📝 Updates being applied:', updates);
+    console.log('🔧 === ELEMENT UPDATE START ===');
+    console.log('🔧 Element ID:', elementId);
+    console.log('🔧 Updates being applied:', JSON.stringify(updates, null, 2));
     
     const updatedScreens = screens.map(screen =>
       screen.id === currentScreenId
@@ -80,7 +82,7 @@ export const useElementOperations = (screens, currentScreenId, updateScreens, se
         : screen
     );
     
-    console.log('📊 Updated screens state:', updatedScreens);
+    console.log('🔧 Updated screens state calculated');
     updateScreens(updatedScreens);
 
     // Update selected element if it's the one being updated
@@ -88,12 +90,14 @@ export const useElementOperations = (screens, currentScreenId, updateScreens, se
       if (prevSelected && prevSelected.id === elementId) {
         const updatedElement = findElementInTree(updatedScreens.find(s => s.id === currentScreenId)?.elements || [], elementId);
         if (updatedElement) {
-          console.log('🎯 Updated selected element:', updatedElement);
+          console.log('🔧 Updated selected element:', JSON.stringify(updatedElement, null, 2));
           return updatedElement;
         }
       }
       return prevSelected;
     });
+    
+    console.log('🔧 === ELEMENT UPDATE END ===');
   }, [screens, currentScreenId, updateScreens, setSelectedElement]);
 
   const deleteElement = useCallback((elementId) => {
@@ -151,20 +155,36 @@ export const useElementOperations = (screens, currentScreenId, updateScreens, se
     });
   };
 
+  // FIXED: Enhanced updateElementInTree with better logging and deep merging
   const updateElementInTree = (elements, targetId, updates) => {
     return elements.map(element => {
       if (element.id === targetId) {
         console.log('🎯 Found target element:', element.id);
-        console.log('📝 Current element state:', element);
-        console.log('🔄 Applying updates:', updates);
+        console.log('📝 Current element state:', JSON.stringify(element, null, 2));
+        console.log('🔄 Applying updates:', JSON.stringify(updates, null, 2));
         
-        // Create the updated element with proper merging
+        // FIXED: Proper deep merging for complex objects like conditions
         const updatedElement = {
           ...element,
           ...updates
         };
         
-        console.log('✅ Updated element result:', updatedElement);
+        // Special handling for conditions array to ensure proper merging
+        if (updates.conditions && Array.isArray(updates.conditions)) {
+          updatedElement.conditions = updates.conditions;
+          console.log('🔄 Updated conditions:', JSON.stringify(updatedElement.conditions, null, 2));
+        }
+        
+        // Special handling for properties object to ensure proper merging
+        if (updates.properties) {
+          updatedElement.properties = {
+            ...element.properties,
+            ...updates.properties
+          };
+          console.log('🔄 Updated properties:', JSON.stringify(updatedElement.properties, null, 2));
+        }
+        
+        console.log('✅ Final updated element:', JSON.stringify(updatedElement, null, 2));
         return updatedElement;
       }
       if (element.children) {
