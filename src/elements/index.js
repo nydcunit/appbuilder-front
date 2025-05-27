@@ -1,4 +1,4 @@
-import { ContainerElement } from './Container';
+import { ContainerElement } from './container/Container';
 import { TextElement } from './Text';
 
 // Export all available elements
