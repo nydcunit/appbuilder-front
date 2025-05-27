@@ -1,4 +1,4 @@
-import React, { useState, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo, useEffect } from 'react';
 import ConditionBlock from '../../components/ConditionBlock';
 import ContainerContentSettings from './ContainerContentSettings';
 import ContainerStyleSettings from './ContainerStyleSettings';
@@ -7,6 +7,15 @@ import ContainerStyleSettings from './ContainerStyleSettings';
 const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = [] }) => {
   const props = element.properties || {};
   const [activeConditionIndex, setActiveConditionIndex] = useState(0);
+
+  // Reset active condition index when element changes or conditions change
+  useEffect(() => {
+    if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
+      setActiveConditionIndex(0);
+    } else if (activeConditionIndex >= element.conditions.length) {
+      setActiveConditionIndex(0);
+    }
+  }, [element.id, element.renderType, element.conditions?.length, activeConditionIndex]);
 
   // FIXED: Get the current properties - either base properties or condition-specific properties
   const getCurrentProperties = useCallback(() => {
@@ -67,21 +76,29 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
     }
   }, [props, onUpdate, element.renderType, element.conditions, activeConditionIndex]);
 
-  // Handle condition updates (these go on the element itself, not properties)
+  // FIXED: Handle condition updates AND manage active condition index
   const handleConditionUpdate = useCallback((updates) => {
     console.log('🔧 Updating conditions:', updates);
     
     // If we're adding a new condition, copy properties from the previous condition
     if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
       const newConditions = updates.conditions.map((condition, index) => {
-        // If this is a new condition and doesn't have properties, copy from previous condition
-        if (!condition.properties && index > 0) {
-          const previousCondition = updates.conditions[index - 1];
-          const copiedProps = previousCondition.properties ? { ...previousCondition.properties } : { ...props };
-          console.log('🔧 Copying properties to new condition:', copiedProps);
+        // If this is a new condition and doesn't have properties, copy from previous condition or base
+        if (!condition.properties) {
+          let sourceProperties = { ...props }; // Start with base properties
+          
+          if (index > 0) {
+            // Copy from previous condition if it exists
+            const previousCondition = updates.conditions[index - 1];
+            if (previousCondition.properties) {
+              sourceProperties = { ...previousCondition.properties };
+            }
+          }
+          
+          console.log('🔧 Copying properties to new condition:', sourceProperties);
           return {
             ...condition,
-            properties: copiedProps
+            properties: sourceProperties
           };
         }
         return condition;
@@ -90,8 +107,19 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
       console.log('🔧 Final conditions with copied properties:', updates.conditions);
     }
     
+    // If conditions were deleted and activeConditionIndex is out of bounds, reset it
+    if (updates.conditions && activeConditionIndex >= updates.conditions.length) {
+      setActiveConditionIndex(0);
+    }
+    
     onUpdate(updates);
-  }, [onUpdate, element.conditions, props]);
+  }, [onUpdate, element.conditions, props, activeConditionIndex]);
+
+  // FIXED: Handle condition selection changes from ConditionBlock
+  const handleConditionSelectionChange = useCallback((conditionIndex) => {
+    console.log('🔧 Condition selection changed to:', conditionIndex);
+    setActiveConditionIndex(conditionIndex);
+  }, []);
 
   // Handle input changes with immediate updates
   const handleInputChange = useCallback((key, value) => {
@@ -123,71 +151,6 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
       console.error('Failed to copy element ID:', err);
     }
   }, [element.id]);
-
-  // FIXED: Render condition selector for properties
-  const renderConditionSelector = () => {
-    if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
-      return null;
-    }
-
-    return (
-      <div style={{
-        marginBottom: '20px',
-        padding: '16px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
-        border: '1px solid #e0e0e0'
-      }}>
-        <h4 style={{ 
-          marginBottom: '12px', 
-          color: '#333', 
-          fontSize: '14px',
-          fontWeight: '500'
-        }}>
-          Condition Properties
-        </h4>
-        
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flexWrap: 'wrap',
-          marginBottom: '12px'
-        }}>
-          {element.conditions.map((condition, index) => (
-            <button
-              key={condition.id || index}
-              onClick={() => {
-                console.log('🔧 Switching to condition index:', index);
-                setActiveConditionIndex(index);
-              }}
-              style={{
-                backgroundColor: activeConditionIndex === index ? '#007bff' : '#ffffff',
-                color: activeConditionIndex === index ? 'white' : '#333',
-                border: `1px solid ${activeConditionIndex === index ? '#007bff' : '#ddd'}`,
-                borderRadius: '6px',
-                padding: '8px 12px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: '500',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              Condition {index + 1}
-            </button>
-          ))}
-        </div>
-        
-        <div style={{
-          fontSize: '12px',
-          color: '#666',
-          fontStyle: 'italic'
-        }}>
-          Configure how this container appears when Condition {activeConditionIndex + 1} is true.
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div>
@@ -248,15 +211,34 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         </div>
       </div>
 
-      {/* Condition Block */}
+      {/* FIXED: Condition Block with callback for condition selection changes */}
       <ConditionBlock
         element={element}
         onUpdate={handleConditionUpdate}
+        onConditionSelectionChange={handleConditionSelectionChange}
+        activeConditionIndex={activeConditionIndex}
         availableElements={availableElements}
       />
 
-      {/* Condition Properties Selector - FIXED: Show this for conditional containers */}
-      {renderConditionSelector()}
+      {/* REMOVED: Redundant "Condition Properties" selector box */}
+
+      {/* Show indicator of which condition's properties are being edited */}
+      {element.renderType === 'conditional' && element.conditions && element.conditions.length > 0 && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '12px',
+          backgroundColor: '#e3f2fd',
+          borderRadius: '8px',
+          border: '1px solid #2196f3',
+          fontSize: '14px',
+          color: '#1976d2'
+        }}>
+          <strong>📝 Editing properties for Condition {activeConditionIndex + 1}</strong>
+          <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
+            All style settings below will apply to this condition.
+          </div>
+        </div>
+      )}
 
       {/* Content Section */}
       <ContainerContentSettings
@@ -264,7 +246,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         onUpdate={onUpdate}
       />
       
-      {/* Style Settings - FIXED: Pass correct functions */}
+      {/* Style Settings - These now automatically use the correct condition properties */}
       <ContainerStyleSettings
         getValue={getValue}
         handleInputChange={handleInputChange}

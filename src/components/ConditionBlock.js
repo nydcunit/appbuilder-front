@@ -1,16 +1,37 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ValueSelector, OperationSelector, CONDITION_OPERATIONS } from './SharedValueSelector';
 
 const ConditionBlock = ({ 
   element, 
   onUpdate, 
+  onConditionSelectionChange, // NEW: Callback for when condition selection changes
+  activeConditionIndex: propActiveConditionIndex, // NEW: Controlled active condition index
   availableElements = [] 
 }) => {
   const [activeTab, setActiveTab] = useState(element.renderType || 'fixed');
-  const [activeConditionIndex, setActiveConditionIndex] = useState(0);
+  // Use controlled activeConditionIndex if provided, otherwise manage internally
+  const [internalActiveConditionIndex, setInternalActiveConditionIndex] = useState(0);
+  
+  // Use prop value if provided (controlled), otherwise use internal state
+  const activeConditionIndex = propActiveConditionIndex !== undefined ? propActiveConditionIndex : internalActiveConditionIndex;
+  
   const conditions = element.conditions || [];
 
+  // Reset active condition index when conditions change
+  useEffect(() => {
+    if (activeConditionIndex >= conditions.length && conditions.length > 0) {
+      const newIndex = 0;
+      if (propActiveConditionIndex === undefined) {
+        setInternalActiveConditionIndex(newIndex);
+      }
+      if (onConditionSelectionChange) {
+        onConditionSelectionChange(newIndex);
+      }
+    }
+  }, [conditions.length, activeConditionIndex, propActiveConditionIndex, onConditionSelectionChange]);
+
   const handleTabChange = useCallback((tab) => {
+    console.log('🎯 Condition tab changed to:', tab);
     setActiveTab(tab);
     onUpdate({
       renderType: tab,
@@ -41,8 +62,14 @@ const ConditionBlock = ({
     onUpdate({ conditions: newConditions });
     
     // Set the new condition as active
-    setActiveConditionIndex(newConditions.length - 1);
-  }, [conditions, onUpdate]);
+    const newActiveIndex = newConditions.length - 1;
+    if (propActiveConditionIndex === undefined) {
+      setInternalActiveConditionIndex(newActiveIndex);
+    }
+    if (onConditionSelectionChange) {
+      onConditionSelectionChange(newActiveIndex);
+    }
+  }, [conditions, onUpdate, propActiveConditionIndex, onConditionSelectionChange]);
 
   const handleRemoveCondition = useCallback((conditionIndex) => {
     if (conditions.length <= 1) return; // Don't allow removing the last condition
@@ -51,12 +78,31 @@ const ConditionBlock = ({
     onUpdate({ conditions: newConditions });
     
     // Adjust active condition index if needed
+    let newActiveIndex = activeConditionIndex;
     if (activeConditionIndex >= newConditions.length) {
-      setActiveConditionIndex(Math.max(0, newConditions.length - 1));
+      newActiveIndex = Math.max(0, newConditions.length - 1);
     } else if (activeConditionIndex > conditionIndex) {
-      setActiveConditionIndex(activeConditionIndex - 1);
+      newActiveIndex = activeConditionIndex - 1;
     }
-  }, [conditions, onUpdate, activeConditionIndex]);
+    
+    if (propActiveConditionIndex === undefined) {
+      setInternalActiveConditionIndex(newActiveIndex);
+    }
+    if (onConditionSelectionChange) {
+      onConditionSelectionChange(newActiveIndex);
+    }
+  }, [conditions, onUpdate, activeConditionIndex, propActiveConditionIndex, onConditionSelectionChange]);
+
+  // FIXED: Handle condition selection change
+  const handleConditionSelection = useCallback((index) => {
+    console.log('🎯 Condition selected:', index);
+    if (propActiveConditionIndex === undefined) {
+      setInternalActiveConditionIndex(index);
+    }
+    if (onConditionSelectionChange) {
+      onConditionSelectionChange(index);
+    }
+  }, [propActiveConditionIndex, onConditionSelectionChange]);
 
   const handleAddConditionStep = useCallback((conditionIndex) => {
     const newConditions = conditions.map((condition, index) => {
@@ -160,7 +206,7 @@ const ConditionBlock = ({
               }}
             >
               <button
-                onClick={() => setActiveConditionIndex(index)}
+                onClick={() => handleConditionSelection(index)}
                 style={{
                   background: 'none',
                   border: 'none',
