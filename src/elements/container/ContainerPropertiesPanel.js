@@ -6,18 +6,37 @@ import ContainerStyleSettings from './ContainerStyleSettings';
 // Separate memoized properties panel component
 const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = [] }) => {
   const props = element.properties || {};
-  const [activeConditionIndex, setActiveConditionIndex] = useState(0);
+  
+  // FIXED: Initialize activeConditionIndex based on element's conditional state
+  const [activeConditionIndex, setActiveConditionIndex] = useState(() => {
+    // If element has conditional rendering and conditions, default to first condition
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      return 0; // Default to first condition for editing
+    }
+    return 0;
+  });
 
-  // Reset active condition index when element changes or conditions change
+  // FIXED: Update activeConditionIndex when element changes, but preserve user selection
   useEffect(() => {
+    console.log('🔧 Element changed, checking condition state:', {
+      elementId: element.id,
+      renderType: element.renderType,
+      conditionsCount: element.conditions?.length || 0,
+      currentActiveIndex: activeConditionIndex
+    });
+
+    // Only reset if the current activeConditionIndex is out of bounds
     if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
+      console.log('🔧 No conditional rendering, resetting to 0');
       setActiveConditionIndex(0);
     } else if (activeConditionIndex >= element.conditions.length) {
+      console.log('🔧 Active condition index out of bounds, resetting to 0');
       setActiveConditionIndex(0);
     }
-  }, [element.id, element.renderType, element.conditions?.length, activeConditionIndex]);
+    // Otherwise, preserve the current activeConditionIndex to maintain user's selection
+  }, [element.id, element.renderType, element.conditions?.length]); // Only depend on essential changes
 
-  // FIXED: Get the current properties - either base properties or condition-specific properties
+  // FIXED: Get the current properties - enhanced logic for condition property inheritance
   const getCurrentProperties = useCallback(() => {
     console.log('🔧 Getting current properties for element:', element.id);
     console.log('🔧 Render type:', element.renderType);
@@ -28,10 +47,17 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
       const activeCondition = element.conditions[activeConditionIndex];
       console.log('🔧 Active condition:', activeCondition);
       console.log('🔧 Active condition properties:', activeCondition?.properties);
-      const conditionProps = activeCondition?.properties || {};
-      const mergedProps = { ...props, ...conditionProps };
-      console.log('🔧 Merged properties:', mergedProps);
-      return mergedProps;
+      
+      // FIXED: Return condition properties if they exist, otherwise return base properties
+      if (activeCondition?.properties) {
+        const mergedProps = { ...props, ...activeCondition.properties };
+        console.log('🔧 Merged properties:', mergedProps);
+        return mergedProps;
+      } else {
+        // If condition doesn't have properties yet, return base properties
+        console.log('🔧 No condition properties, using base properties:', props);
+        return props;
+      }
     }
     console.log('🔧 Using base properties:', props);
     return props;
@@ -80,19 +106,16 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
   const handleConditionUpdate = useCallback((updates) => {
     console.log('🔧 Updating conditions:', updates);
     
-    // If we're adding a new condition, copy properties from the previous condition
+    // If we're adding a new condition, copy properties from the active condition or base
     if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
       const newConditions = updates.conditions.map((condition, index) => {
-        // If this is a new condition and doesn't have properties, copy from previous condition or base
+        // If this is a new condition and doesn't have properties, copy from active condition or base
         if (!condition.properties) {
           let sourceProperties = { ...props }; // Start with base properties
           
-          if (index > 0) {
-            // Copy from previous condition if it exists
-            const previousCondition = updates.conditions[index - 1];
-            if (previousCondition.properties) {
-              sourceProperties = { ...previousCondition.properties };
-            }
+          // If we have an active condition with properties, copy from there
+          if (element.conditions && element.conditions[activeConditionIndex]?.properties) {
+            sourceProperties = { ...element.conditions[activeConditionIndex].properties };
           }
           
           console.log('🔧 Copying properties to new condition:', sourceProperties);
@@ -109,6 +132,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
     
     // If conditions were deleted and activeConditionIndex is out of bounds, reset it
     if (updates.conditions && activeConditionIndex >= updates.conditions.length) {
+      console.log('🔧 Resetting active condition index due to condition deletion');
       setActiveConditionIndex(0);
     }
     
@@ -220,9 +244,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         availableElements={availableElements}
       />
 
-      {/* REMOVED: Redundant "Condition Properties" selector box */}
-
-      {/* Show indicator of which condition's properties are being edited */}
+      {/* FIXED: Show indicator of which condition's properties are being edited */}
       {element.renderType === 'conditional' && element.conditions && element.conditions.length > 0 && (
         <div style={{
           marginBottom: '20px',
@@ -235,7 +257,10 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         }}>
           <strong>📝 Editing properties for Condition {activeConditionIndex + 1}</strong>
           <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
-            All style settings below will apply to this condition.
+            All style settings below will apply to this condition. Switch between conditions using the tabs above.
+          </div>
+          <div style={{ fontSize: '11px', marginTop: '8px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+            <strong>💡 Tip:</strong> Changes are automatically saved. The background color and other properties you set here will be applied when this condition evaluates to true during preview/execution.
           </div>
         </div>
       )}
