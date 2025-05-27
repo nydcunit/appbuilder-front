@@ -157,26 +157,137 @@ const DatabaseDetail = () => {
     }
   };
 
-  // Parse value into capsules for editing - ALL comma-separated items become capsules
+  // Parse value into capsules for editing - properly handle file objects
   const parseValueToCapsules = (value) => {
     if (Array.isArray(value)) {
       return { capsules: value, text: '' };
     }
-    if (typeof value === 'string' && value.includes(',')) {
-      const parts = value.split(',').map(part => part.trim()).filter(part => part);
-      // ALL parts become capsules, text field starts empty for new item
-      return { capsules: parts, text: '' };
+    
+    // Handle single file object (already parsed)
+    if (typeof value === 'object' && value?.isFile) {
+      return { capsules: [value], text: '' };
     }
-    // Single value without comma - keep as text for editing
-    return { capsules: [], text: value || '' };
+    
+    // Handle string that might contain file objects or regular text
+    if (typeof value === 'string') {
+      // First, try to parse the entire string as a single JSON object
+      if (value.includes('"isFile":true')) {
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed && typeof parsed === 'object' && parsed.isFile) {
+            return { capsules: [parsed], text: '' };
+          }
+        } catch (e) {
+          console.log('Failed to parse as single JSON in edit mode:', e);
+          // Continue to other parsing methods
+        }
+      }
+      
+      // Handle comma-separated values - BUT be smart about JSON objects with commas
+      if (value.includes(',')) {
+        // Smart splitting: don't split on commas that are inside JSON objects
+        const parts = [];
+        let currentPart = '';
+        let braceCount = 0;
+        let inQuotes = false;
+        let escapeNext = false;
+        
+        for (let i = 0; i < value.length; i++) {
+          const char = value[i];
+          
+          if (escapeNext) {
+            currentPart += char;
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            currentPart += char;
+            continue;
+          }
+          
+          if (char === '"' && !escapeNext) {
+            inQuotes = !inQuotes;
+          }
+          
+          if (!inQuotes) {
+            if (char === '{') {
+              braceCount++;
+            } else if (char === '}') {
+              braceCount--;
+            }
+          }
+          
+          if (char === ',' && braceCount === 0 && !inQuotes) {
+            // This comma is a separator, not part of a JSON object
+            parts.push(currentPart.trim());
+            currentPart = '';
+          } else {
+            currentPart += char;
+          }
+        }
+        
+        // Add the last part
+        if (currentPart.trim()) {
+          parts.push(currentPart.trim());
+        }
+        
+        // Only treat as multiple parts if we actually have multiple parts
+        if (parts.length > 1) {
+          const capsules = [];
+          
+          parts.forEach(part => {
+            // Try to parse each part as JSON
+            if (part.includes('"isFile":true')) {
+              try {
+                const parsed = JSON.parse(part);
+                if (parsed && typeof parsed === 'object' && parsed.isFile) {
+                  capsules.push(parsed);
+                } else {
+                  capsules.push(part);
+                }
+              } catch (e) {
+                console.log('Failed to parse part in edit mode:', part, e);
+                capsules.push(part);
+              }
+            } else {
+              capsules.push(part);
+            }
+          });
+          
+          return { capsules, text: '' };
+        }
+      }
+      
+      // Single text value
+      return { capsules: [], text: value || '' };
+    }
+    
+    return { capsules: [], text: '' };
   };
 
-  // Convert capsules back to value for saving - includes commas in the saved value
+  // Convert capsules back to value for saving - properly handle file objects
   const capsulesAndTextToValue = (capsules, text) => {
     const allParts = [...capsules, ...(text.trim() ? [text.trim()] : [])];
     if (allParts.length === 0) return '';
-    if (allParts.length === 1) return allParts[0];
-    return allParts.join(', '); // Save with commas for proper display
+    if (allParts.length === 1) {
+      const part = allParts[0];
+      // If it's a file object, save as JSON string
+      if (typeof part === 'object' && part?.isFile) {
+        return JSON.stringify(part);
+      }
+      return part;
+    }
+    
+    // For multiple items, convert file objects to JSON strings and join with commas
+    const processedParts = allParts.map(part => {
+      if (typeof part === 'object' && part?.isFile) {
+        return JSON.stringify(part);
+      }
+      return part;
+    });
+    return processedParts.join(', ');
   };
 
   const startEditing = (recordId, columnName, currentValue) => {
@@ -236,7 +347,13 @@ const DatabaseDetail = () => {
     saveEdit();
   };
 
-  // Enhanced key handler with CMD+A support
+  // FIXED: Remove capsule function for proper file deletion
+  const removeCapsule = (indexToRemove) => {
+    const newCapsules = editingCapsules.filter((_, index) => index !== indexToRemove);
+    setEditingCapsules(newCapsules);
+  };
+
+  // Enhanced key handler with CMD+A support and FIXED file deletion
   const handleKeyPress = (e) => {
     console.log('Key pressed:', e.key, 'isAllSelected:', isAllSelected);
     
@@ -318,11 +435,18 @@ const DatabaseDetail = () => {
         setEditingValue('');
       }
     } else if (e.key === 'Backspace' && editingValue === '' && editingCapsules.length > 0) {
+      // FIXED: When backspace is pressed and input is empty, remove the last capsule
       e.preventDefault();
       const newCapsules = [...editingCapsules];
       const removedCapsule = newCapsules.pop();
       setEditingCapsules(newCapsules);
-      setEditingValue(removedCapsule);
+      
+      // FIXED: For file objects, don't put them back in the text field
+      // Only put text back for regular string capsules
+      if (typeof removedCapsule === 'string' && !isFileCapsule(removedCapsule)) {
+        setEditingValue(removedCapsule);
+      }
+      // For file objects, just remove them completely (don't set editingValue)
     }
   };
 
@@ -449,8 +573,38 @@ const DatabaseDetail = () => {
     return false;
   };
 
-  // Function to render file capsule with thumbnail
-  const renderFileCapsule = (capsule, index) => {
+  // Function to get file type label from file object
+  const getFileTypeLabel = (capsule) => {
+    if (typeof capsule === 'object' && capsule?.isFile) {
+      if (capsule.isImage) {
+        return 'Image';
+      }
+      
+      // Get file type from extension or MIME type
+      const extension = capsule.extension?.toLowerCase();
+      const mimeType = capsule.type?.toLowerCase();
+      
+      // Common file types
+      if (extension === 'pdf' || mimeType?.includes('pdf')) return 'PDF';
+      if (['doc', 'docx'].includes(extension) || mimeType?.includes('word')) return 'Document';
+      if (['xls', 'xlsx'].includes(extension) || mimeType?.includes('sheet')) return 'Spreadsheet';
+      if (['ppt', 'pptx'].includes(extension) || mimeType?.includes('presentation')) return 'Presentation';
+      if (['txt'].includes(extension) || mimeType?.includes('text')) return 'Text';
+      if (['zip', 'rar', '7z'].includes(extension) || mimeType?.includes('zip')) return 'Archive';
+      if (['mp4', 'avi', 'mov', 'mkv'].includes(extension) || mimeType?.includes('video')) return 'Video';
+      if (['mp3', 'wav', 'flac', 'aac'].includes(extension) || mimeType?.includes('audio')) return 'Audio';
+      if (['json'].includes(extension) || mimeType?.includes('json')) return 'JSON';
+      if (['csv'].includes(extension) || mimeType?.includes('csv')) return 'CSV';
+      
+      // Fallback to extension or generic file
+      return extension ? extension.toUpperCase() : 'File';
+    }
+    
+    return 'File';
+  };
+
+  // Function to render file capsule with thumbnail (used in both edit and display modes)
+  const renderFileCapsule = (capsule, index, isInEditMode = false) => {
     if (typeof capsule === 'object' && capsule?.isFile) {
       return (
         <div
@@ -483,7 +637,7 @@ const DatabaseDetail = () => {
             {capsule.isImage ? (
               <img 
                 src={capsule.thumbnailUrl} 
-                alt={capsule.name}
+                alt={getFileTypeLabel(capsule)}
                 style={{
                   width: '100%',
                   height: '100%',
@@ -491,8 +645,12 @@ const DatabaseDetail = () => {
                   borderRadius: '4px'
                 }}
                 onError={(e) => {
+                  // Hide the broken image and show extension fallback
                   e.target.style.display = 'none';
-                  e.target.nextSibling.style.display = 'block';
+                  const parent = e.target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `<span style="color: white; font-size: 8px; font-weight: bold;">${capsule.extension || 'IMG'}</span>`;
+                  }
                 }}
               />
             ) : (
@@ -500,14 +658,14 @@ const DatabaseDetail = () => {
             )}
           </div>
           
-          {/* File name (truncated) */}
+          {/* File type label instead of file name */}
           <span style={{
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
             maxWidth: '140px'
           }}>
-            {capsule.name}
+            {getFileTypeLabel(capsule)}
           </span>
         </div>
       );
@@ -543,7 +701,7 @@ const DatabaseDetail = () => {
           fontSize: '12px'
         }}
       >
-        {capsule}
+        {typeof capsule === 'object' ? JSON.stringify(capsule) : capsule}
       </span>
     );
   };
@@ -551,12 +709,18 @@ const DatabaseDetail = () => {
   const renderCellContent = (record, column) => {
     const value = record[column.name];
     
+    // Handle null/undefined values
+    if (!value) {
+      return <span style={{ color: '#999' }}>Empty</span>;
+    }
+    
+    // Handle array values
     if (Array.isArray(value)) {
       return (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
           {value.map((item, index) => (
             <React.Fragment key={index}>
-              {renderFileCapsule(item, index)}
+              {renderFileCapsule(item, index, false)}
               {index < value.length - 1 && (
                 <span style={{ color: '#666', fontSize: '12px' }}>,</span>
               )}
@@ -566,23 +730,90 @@ const DatabaseDetail = () => {
       );
     }
     
-    if (typeof value === 'string' && value.includes(',')) {
-      const parts = value.split(',').map(part => part.trim()).filter(part => part);
-      return (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-          {parts.map((part, index) => (
-            <React.Fragment key={index}>
-              {renderFileCapsule(part, index)}
-              {index < parts.length - 1 && (
-                <span style={{ color: '#666', fontSize: '12px' }}>,</span>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      );
+    // Handle single file object
+    if (typeof value === 'object' && value?.isFile) {
+      return renderFileCapsule(value, 0, false);
     }
     
-    return <span style={{ color: value ? '#333' : '#999' }}>{value || 'Empty'}</span>;
+    // Handle string values
+    if (typeof value === 'string') {
+      // Try to parse as single JSON object first (check for full JSON structure)
+      if (value.trim().startsWith('{"') && value.trim().endsWith('"}') && value.includes('"isFile":true')) {
+        try {
+          const parsed = JSON.parse(value);
+          if (parsed && typeof parsed === 'object' && parsed.isFile) {
+            return renderFileCapsule(parsed, 0, false);
+          }
+        } catch (e) {
+          console.log('Failed to parse single JSON:', e);
+          // If parsing fails, fall through to string handling
+        }
+      }
+      
+      // Handle comma-separated values that may contain JSON objects
+      if (value.includes(',')) {
+        const parts = value.split(',').map(part => part.trim()).filter(part => part);
+        return (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+            {parts.map((part, index) => {
+              // Try to parse each part as JSON (look for file object indicators)
+              let parsedPart = part;
+              if (part.startsWith('{"') && part.endsWith('"}') && part.includes('"isFile":true')) {
+                try {
+                  const parsed = JSON.parse(part);
+                  if (parsed && typeof parsed === 'object' && parsed.isFile) {
+                    parsedPart = parsed;
+                  }
+                } catch (e) {
+                  console.log('Failed to parse part:', part, e);
+                  // If parsing fails, treat as regular string
+                  parsedPart = part;
+                }
+              }
+              
+              return (
+                <React.Fragment key={index}>
+                  {renderFileCapsule(parsedPart, index, false)}
+                  {index < parts.length - 1 && (
+                    <span style={{ color: '#666', fontSize: '12px' }}>,</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        );
+      }
+      
+      // Check if the entire string might be a JSON object that got malformed
+      if (value.includes('"name"') && value.includes('"isFile"') && value.includes('true')) {
+        try {
+          // Try to clean up common JSON parsing issues
+          let cleanedValue = value;
+          
+          // Fix common issues with JSON strings
+          if (!cleanedValue.startsWith('{')) {
+            cleanedValue = '{' + cleanedValue;
+          }
+          if (!cleanedValue.endsWith('}')) {
+            cleanedValue = cleanedValue + '}';
+          }
+          
+          const parsed = JSON.parse(cleanedValue);
+          if (parsed && typeof parsed === 'object' && parsed.isFile) {
+            return renderFileCapsule(parsed, 0, false);
+          }
+        } catch (e) {
+          console.log('Failed to parse cleaned JSON:', e);
+          // If still fails, fall through to regular string display
+        }
+      }
+      
+      // Single string value - display as regular text
+      return <span style={{ color: '#333' }}>{value}</span>;
+    }
+    
+    // Fallback for any other data types
+    return <span style={{ color: '#333' }}>{String(value)}</span>;
   };
 
   const renderEditingCell = () => {
@@ -637,19 +868,27 @@ const DatabaseDetail = () => {
                       {capsule.isImage ? (
                         <img 
                           src={capsule.thumbnailUrl} 
-                          alt={capsule.name}
+                          alt={getFileTypeLabel(capsule)}
                           style={{
                             width: '100%',
                             height: '100%',
                             objectFit: 'cover',
                             borderRadius: '2px'
                           }}
+                          onError={(e) => {
+                            // Hide the broken image and show extension fallback
+                            e.target.style.display = 'none';
+                            const parent = e.target.parentElement;
+                            if (parent) {
+                              parent.innerHTML = `<span style="color: #333; font-size: 6px; font-weight: bold;">${capsule.extension || 'IMG'}</span>`;
+                            }
+                          }}
                         />
                       ) : (
                         <span>{capsule.extension}</span>
                       )}
                     </div>
-                    <span style={{ fontSize: '12px' }}>{capsule.name}</span>
+                    <span style={{ fontSize: '12px' }}>{getFileTypeLabel(capsule)}</span>
                   </div>
                 ) : (
                   <span style={{ color: '#333' }}>{capsule}</span>
@@ -731,7 +970,7 @@ const DatabaseDetail = () => {
       );
     }
 
-    // Normal editing view with capsules
+    // Normal editing view with capsules and FIXED individual file deletion
     return (
       <div style={{
         display: 'flex',
@@ -747,7 +986,32 @@ const DatabaseDetail = () => {
       }}>
         {editingCapsules.map((capsule, index) => (
           <React.Fragment key={index}>
-            {renderFileCapsule(capsule, index)}
+            <div style={{ position: 'relative', display: 'inline-flex' }}>
+              {renderFileCapsule(capsule, index, true)}
+              {/* FIXED: Add delete button for each capsule */}
+              <button
+                onMouseDown={(e) => e.preventDefault()} // Prevent blur
+                onClick={() => removeCapsule(index)}
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  width: '16px',
+                  height: '16px',
+                  borderRadius: '50%',
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  fontSize: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
+            </div>
             {/* Always show comma after each capsule */}
             <span style={{ color: '#666', fontSize: '12px', flexShrink: 0 }}>,</span>
           </React.Fragment>
