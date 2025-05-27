@@ -603,7 +603,7 @@ const DatabaseDetail = () => {
     return 'File';
   };
 
-  // Function to render file capsule with thumbnail (used in both edit and display modes)
+  // FIXED: Function to render file capsule with thumbnail (used in both edit and display modes)
   const renderFileCapsule = (capsule, index, isInEditMode = false) => {
     if (typeof capsule === 'object' && capsule?.isFile) {
       return (
@@ -618,7 +618,8 @@ const DatabaseDetail = () => {
             borderRadius: '12px',
             fontSize: '12px',
             gap: '6px',
-            maxWidth: '200px'
+            maxWidth: '200px',
+            margin: '2px'
           }}
         >
           {/* Thumbnail or Extension */}
@@ -681,7 +682,8 @@ const DatabaseDetail = () => {
             color: 'white',
             padding: '2px 8px',
             borderRadius: '12px',
-            fontSize: '12px'
+            fontSize: '12px',
+            margin: '2px'
           }}
         >
           {capsule}
@@ -698,7 +700,8 @@ const DatabaseDetail = () => {
           color: '#333',
           padding: '2px 8px',
           borderRadius: '12px',
-          fontSize: '12px'
+          fontSize: '12px',
+          margin: '2px'
         }}
       >
         {typeof capsule === 'object' ? JSON.stringify(capsule) : capsule}
@@ -706,6 +709,7 @@ const DatabaseDetail = () => {
     );
   };
 
+  // FIXED: Main render function for cell content - Enhanced to handle multiple files properly
   const renderCellContent = (record, column) => {
     const value = record[column.name];
     
@@ -735,7 +739,7 @@ const DatabaseDetail = () => {
       return renderFileCapsule(value, 0, false);
     }
     
-    // Handle string values
+    // FIXED: Handle string values - Enhanced multiple file parsing
     if (typeof value === 'string') {
       // Try to parse as single JSON object first (check for full JSON structure)
       if (value.trim().startsWith('{"') && value.trim().endsWith('"}') && value.includes('"isFile":true')) {
@@ -750,41 +754,142 @@ const DatabaseDetail = () => {
         }
       }
       
-      // Handle comma-separated values that may contain JSON objects
-      if (value.includes(',')) {
-        const parts = value.split(',').map(part => part.trim()).filter(part => part);
-        return (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
-            {parts.map((part, index) => {
-              // Try to parse each part as JSON (look for file object indicators)
-              let parsedPart = part;
-              if (part.startsWith('{"') && part.endsWith('"}') && part.includes('"isFile":true')) {
-                try {
-                  const parsed = JSON.parse(part);
-                  if (parsed && typeof parsed === 'object' && parsed.isFile) {
-                    parsedPart = parsed;
+      // ENHANCED: Better detection and parsing of multiple file objects
+      if (value.includes('"isFile":true')) {
+        // This contains file objects, let's parse them properly
+        const parts = [];
+        let currentPart = '';
+        let braceCount = 0;
+        let inQuotes = false;
+        let escapeNext = false;
+        
+        for (let i = 0; i < value.length; i++) {
+          const char = value[i];
+          
+          if (escapeNext) {
+            currentPart += char;
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            currentPart += char;
+            continue;
+          }
+          
+          if (char === '"' && !escapeNext) {
+            inQuotes = !inQuotes;
+          }
+          
+          if (!inQuotes) {
+            if (char === '{') {
+              braceCount++;
+            } else if (char === '}') {
+              braceCount--;
+              
+              // When we close a JSON object (braceCount becomes 0), 
+              // we might have a complete file object
+              if (braceCount === 0 && currentPart.trim().startsWith('{')) {
+                const potentialJson = currentPart + char;
+                if (potentialJson.includes('"isFile":true')) {
+                  try {
+                    const parsed = JSON.parse(potentialJson);
+                    if (parsed && typeof parsed === 'object' && parsed.isFile) {
+                      parts.push(parsed);
+                      currentPart = '';
+                      continue;
+                    }
+                  } catch (e) {
+                    // Continue building the current part
                   }
-                } catch (e) {
-                  console.log('Failed to parse part:', part, e);
-                  // If parsing fails, treat as regular string
-                  parsedPart = part;
                 }
               }
-              
-              return (
+            }
+          }
+          
+          // Handle comma separators when not inside JSON objects
+          if (char === ',' && braceCount === 0 && !inQuotes) {
+            const trimmedPart = currentPart.trim();
+            if (trimmedPart) {
+              // Try to parse as JSON first
+              if (trimmedPart.includes('"isFile":true')) {
+                try {
+                  const parsed = JSON.parse(trimmedPart);
+                  if (parsed && typeof parsed === 'object' && parsed.isFile) {
+                    parts.push(parsed);
+                  } else {
+                    parts.push(trimmedPart);
+                  }
+                } catch (e) {
+                  parts.push(trimmedPart);
+                }
+              } else {
+                parts.push(trimmedPart);
+              }
+            }
+            currentPart = '';
+          } else {
+            currentPart += char;
+          }
+        }
+        
+        // Handle the last part
+        const trimmedPart = currentPart.trim();
+        if (trimmedPart) {
+          if (trimmedPart.includes('"isFile":true')) {
+            try {
+              const parsed = JSON.parse(trimmedPart);
+              if (parsed && typeof parsed === 'object' && parsed.isFile) {
+                parts.push(parsed);
+              } else {
+                parts.push(trimmedPart);
+              }
+            } catch (e) {
+              parts.push(trimmedPart);
+            }
+          } else {
+            parts.push(trimmedPart);
+          }
+        }
+        
+        // If we successfully parsed multiple parts, render them
+        if (parts.length > 0) {
+          return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+              {parts.map((part, index) => (
                 <React.Fragment key={index}>
-                  {renderFileCapsule(parsedPart, index, false)}
+                  {renderFileCapsule(part, index, false)}
                   {index < parts.length - 1 && (
                     <span style={{ color: '#666', fontSize: '12px' }}>,</span>
                   )}
                 </React.Fragment>
-              );
-            })}
-          </div>
-        );
+              ))}
+            </div>
+          );
+        }
       }
       
-      // Check if the entire string might be a JSON object that got malformed
+      // Handle regular comma-separated values (non-file objects)
+      if (value.includes(',') && !value.includes('"isFile":true')) {
+        const parts = value.split(',').map(part => part.trim()).filter(part => part);
+        if (parts.length > 1) {
+          return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+              {parts.map((part, index) => (
+                <React.Fragment key={index}>
+                  {renderFileCapsule(part, index, false)}
+                  {index < parts.length - 1 && (
+                    <span style={{ color: '#666', fontSize: '12px' }}>,</span>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          );
+        }
+      }
+      
+      // Check if the entire string might be a malformed JSON object
       if (value.includes('"name"') && value.includes('"isFile"') && value.includes('true')) {
         try {
           // Try to clean up common JSON parsing issues
@@ -1206,6 +1311,7 @@ const DatabaseDetail = () => {
                 </option>
               ))}
             </select>
+            
             <button
               onClick={() => setShowCreateTableModal(true)}
               style={{
