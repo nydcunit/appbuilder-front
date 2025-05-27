@@ -8,6 +8,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
   const currentScreen = screens.find(screen => screen.id === currentScreenId);
   const [calculationResults, setCalculationResults] = useState({});
   const [visibleElements, setVisibleElements] = useState([]);
+  const [elementConditionMatches, setElementConditionMatches] = useState({}); // NEW: Track which condition matched for each element
   const [repeatingContainerData, setRepeatingContainerData] = useState({});
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionErrors, setExecutionErrors] = useState({});
@@ -37,11 +38,14 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       const expandedElements = await expandRepeatingContainers(currentScreen.elements, containerData);
       console.log('Expanded elements:', expandedElements);
       
-      // Step 3: Execute conditional rendering on expanded elements
+      // Step 3: Execute conditional rendering on expanded elements - ENHANCED to track condition matches
       console.log('🔄 Executing conditional rendering...');
-      const filteredElements = await getVisibleElements(expandedElements, allElements);
+      const { visibleElements: filteredElements, conditionMatches } = await getVisibleElementsWithMatches(expandedElements, allElements);
       console.log('Visible elements after conditions:', filteredElements);
+      console.log('Condition matches:', conditionMatches);
+      
       setVisibleElements(filteredElements);
+      setElementConditionMatches(conditionMatches); // NEW: Store condition matches
       
       // Step 4: Execute calculations on visible elements
       console.log('🔄 Executing calculations...');
@@ -80,6 +84,88 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     } finally {
       setIsExecuting(false);
     }
+  };
+
+  // ENHANCED: Get visible elements AND track which condition matched for each element
+  const getVisibleElementsWithMatches = async (elements, availableElements) => {
+    const { getVisibleElements } = await import('../../../../utils/ConditionEngine');
+    
+    // We need to modify the ConditionEngine to return condition match info
+    // For now, let's implement a simple version here
+    const visibleElements = [];
+    const conditionMatches = {};
+    
+    for (const element of elements) {
+      if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+        // Import and use the ConditionEngine
+        const { ConditionEngine } = await import('../../../../utils/ConditionEngine');
+        
+        // Extract repeating context from the element
+        let repeatingContext = null;
+        if (element.repeatingContext) {
+          repeatingContext = element.repeatingContext;
+        } else if (element.parentRepeatingContext) {
+          repeatingContext = element.parentRepeatingContext;
+        }
+        
+        // Create ConditionEngine with the repeating context
+        const conditionEngine = new ConditionEngine(availableElements, repeatingContext);
+        
+        const evaluationResult = await conditionEngine.shouldRenderElement(element);
+        
+        let shouldRender, matchedConditionIndex;
+        if (typeof evaluationResult === 'boolean') {
+          shouldRender = evaluationResult;
+          matchedConditionIndex = evaluationResult ? 0 : -1;
+        } else {
+          shouldRender = evaluationResult.shouldRender;
+          matchedConditionIndex = evaluationResult.conditionIndex;
+        }
+        
+        if (shouldRender) {
+          // Store which condition matched
+          conditionMatches[element.id] = matchedConditionIndex;
+          
+          // Create element with the matched condition's properties
+          let elementToRender = { ...element };
+          
+          if (matchedConditionIndex >= 0 && element.conditions[matchedConditionIndex]?.properties) {
+            const matchedCondition = element.conditions[matchedConditionIndex];
+            elementToRender.properties = {
+              ...element.properties,
+              ...matchedCondition.properties
+            };
+          }
+          
+          // Recursively process children
+          if (elementToRender.children && elementToRender.children.length > 0) {
+            const { visibleElements: visibleChildren, conditionMatches: childMatches } = 
+              await getVisibleElementsWithMatches(elementToRender.children, availableElements);
+            elementToRender.children = visibleChildren;
+            // Merge child condition matches
+            Object.assign(conditionMatches, childMatches);
+          }
+          
+          visibleElements.push(elementToRender);
+        }
+      } else {
+        // Non-conditional element - always include
+        let elementToRender = { ...element };
+        
+        // Recursively process children
+        if (elementToRender.children && elementToRender.children.length > 0) {
+          const { visibleElements: visibleChildren, conditionMatches: childMatches } = 
+            await getVisibleElementsWithMatches(elementToRender.children, availableElements);
+          elementToRender.children = visibleChildren;
+          // Merge child condition matches
+          Object.assign(conditionMatches, childMatches);
+        }
+        
+        visibleElements.push(elementToRender);
+      }
+    }
+    
+    return { visibleElements, conditionMatches };
   };
 
   // Load data for all repeating containers
@@ -263,6 +349,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     return allElements;
   };
 
+  // FIXED: Enhanced renderPreviewElement to use matched condition index
   const renderPreviewElement = (element, depth = 0) => {
     const elementDef = getElementByType(element.type);
     if (!elementDef) return null;
@@ -282,14 +369,20 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       ? element.children.map(child => renderPreviewElement(child, depth + 1))
       : null;
 
-    // Render without edit handlers for preview
+    // FIXED: Get the matched condition index for this element
+    const matchedConditionIndex = elementConditionMatches[element.id] ?? null;
+    
+    console.log(`🎨 Rendering element ${element.id} with matched condition index:`, matchedConditionIndex);
+
+    // FIXED: Render with matched condition index passed as additional parameter
     const renderedElement = elementDef.render(
       executedElement, 
       depth, 
       false, // not selected
       false, // not drop zone
       {}, // no handlers
-      children
+      children,
+      matchedConditionIndex // FIXED: Pass the matched condition index
     );
     
     // Add debug info for repeating container instances
@@ -401,7 +494,8 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
             {/* Debug Info */}
             <div style={{ fontSize: '12px', color: '#666' }}>
               Visible: {visibleElements.length} elements | 
-              Repeating Containers: {Object.keys(repeatingContainerData).length}
+              Repeating Containers: {Object.keys(repeatingContainerData).length} |
+              Condition Matches: {Object.keys(elementConditionMatches).length}
             </div>
           </div>
           
@@ -452,6 +546,23 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           </div>
         )}
 
+        {/* Condition Matches Display */}
+        {Object.keys(elementConditionMatches).length > 0 && (
+          <div style={{
+            padding: '10px 20px',
+            backgroundColor: '#e3f2fd',
+            borderBottom: '1px solid #2196f3',
+            fontSize: '12px',
+            color: '#1976d2'
+          }}>
+            🎯 Conditional Elements: {
+              Object.entries(elementConditionMatches).map(([elementId, conditionIndex]) => 
+                `${elementId.slice(-6)}→C${conditionIndex + 1}`
+              ).join(', ')
+            }
+          </div>
+        )}
+
         {/* Preview Content */}
         <div style={{
           flex: 1,
@@ -496,6 +607,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           )}
           <br />
           🔄 Repeating containers are outlined in green. Elements inside show data from each record.
+          🎯 Conditional elements show which condition matched (C1, C2, etc.).
         </div>
       </div>
     </div>

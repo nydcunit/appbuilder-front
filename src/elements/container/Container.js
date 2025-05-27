@@ -1,20 +1,29 @@
 import React from 'react';
 import ContainerPropertiesPanel from './ContainerPropertiesPanel';
 
-// FIXED: Get properties for rendering - properly handle conditional properties
-const getRenderProperties = (element) => {
+// FIXED: Get properties for rendering - now correctly handles conditional properties based on evaluation
+const getRenderProperties = (element, matchedConditionIndex = null) => {
   console.log('🎨 Getting render properties for element:', element.id);
   console.log('🎨 Element renderType:', element.renderType);
   console.log('🎨 Element conditions:', element.conditions?.length || 0);
+  console.log('🎨 Matched condition index:', matchedConditionIndex);
   
   if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
-    // For conditional rendering, use the first condition's properties (first true condition in actual rendering)
-    const firstCondition = element.conditions[0];
-    console.log('🎨 First condition:', firstCondition);
-    console.log('🎨 First condition properties:', firstCondition.properties);
+    // FIXED: Use the matched condition index if provided
+    let conditionIndex = matchedConditionIndex;
     
-    if (firstCondition.properties) {
-      const mergedProperties = { ...element.properties, ...firstCondition.properties };
+    // Fallback to first condition if no specific match provided (for builder mode)
+    if (conditionIndex === null || conditionIndex === undefined) {
+      conditionIndex = 0;
+      console.log('🎨 No matched condition index provided, defaulting to first condition for builder mode');
+    }
+    
+    const selectedCondition = element.conditions[conditionIndex];
+    console.log(`🎨 Using condition ${conditionIndex + 1}:`, selectedCondition);
+    console.log(`🎨 Condition ${conditionIndex + 1} properties:`, selectedCondition?.properties);
+    
+    if (selectedCondition && selectedCondition.properties) {
+      const mergedProperties = { ...element.properties, ...selectedCondition.properties };
       console.log('🎨 Merged properties:', mergedProperties);
       return mergedProperties;
     }
@@ -81,12 +90,12 @@ export const ContainerElement = {
   
   getDefaultChildren: () => ([]),
 
-  // Render the element in the canvas
-  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null) => {
+  // FIXED: Render function now accepts matchedConditionIndex parameter
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null) => {
     const { onClick, onDelete, onDragOver, onDragLeave, onDrop, onDragStart } = handlers;
     
-    // FIXED: Use the fixed getRenderProperties function
-    const props = getRenderProperties(element);
+    // FIXED: Use the fixed getRenderProperties function with matched condition index
+    const props = getRenderProperties(element, matchedConditionIndex);
     const contentType = element.contentType || 'fixed';
     
     console.log('🎨 Rendering container with props:', props);
