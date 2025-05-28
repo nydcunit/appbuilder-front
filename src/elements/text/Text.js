@@ -138,8 +138,46 @@ export const TextElement = {
     // FIXED: Use the fixed getRenderProperties function with matched condition index
     let props = getRenderProperties(element, matchedConditionIndex);
     
+    // Check if this element is in an active slide by checking parent hierarchy
+    const checkIfInActiveSlide = () => {
+      if (!isExecuteMode) return false;
+      
+      // Check if any parent element indicates this is in an active slide
+      // This works by checking the element's ID pattern for repeating containers
+      if (element.id && element.id.includes('_instance_')) {
+        // Extract the instance number from repeating container ID
+        const match = element.id.match(/_instance_(\d+)/);
+        if (match) {
+          const instanceIndex = parseInt(match[1]);
+          // Check if there's a parent slider container tracking this
+          const parentMatch = element.id.match(/^([^_]+)_instance/);
+          if (parentMatch) {
+            const parentId = parentMatch[1];
+            // Check if this parent has active slide info
+            if (window.__activeSlides && window.__activeSlides[parentId] === instanceIndex) {
+              return true;
+            }
+          }
+        }
+      }
+      
+      // For non-repeating elements, check if they're in a slide that's active
+      // by looking at the global active slides tracker
+      if (window.__activeSlideElements) {
+        // Check each slider to see if this element is in its active slide
+        for (const [sliderId, activeIndex] of Object.entries(window.__activeSlideElements)) {
+          // This is a simplified check - in practice we'd need to traverse the tree
+          // For now, just use the passed isActiveSlide prop
+          return isActiveSlide;
+        }
+      }
+      
+      return isActiveSlide;
+    };
+    
     // Apply active styles if this element is in the active slide
-    if (isActiveSlide && isExecuteMode) {
+    const effectiveIsActiveSlide = checkIfInActiveSlide();
+    if (effectiveIsActiveSlide && isExecuteMode) {
       console.log('✅ Applying active styles for text:', element.id);
       // Merge active properties over default properties
       const activeProps = {};
@@ -154,9 +192,9 @@ export const TextElement = {
       console.log('🎨 Final text props after active merge:', props);
     } else {
       console.log('❌ NOT applying active text styles:', {
-        isActiveSlide,
+        isActiveSlide: effectiveIsActiveSlide,
         isExecuteMode,
-        reason: !isActiveSlide ? 'not active slide' : 'not execute mode'
+        reason: !effectiveIsActiveSlide ? 'not active slide' : 'not execute mode'
       });
     }
     
