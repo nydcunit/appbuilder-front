@@ -2,73 +2,184 @@ import React, { useState, useCallback, memo } from 'react';
 import SuperText from '../components/SuperText';
 import ConditionBlock from '../components/ConditionBlock';
 
-// Updated Text Properties Panel with Conditional Properties Support
+// FIXED: Get properties for rendering - now correctly handles conditional properties based on evaluation
+const getRenderProperties = (element, matchedConditionIndex = null) => {
+  console.log('🎨 Getting render properties for text element:', element.id);
+  console.log('🎨 Element renderType:', element.renderType);
+  console.log('🎨 Element conditions:', element.conditions?.length || 0);
+  console.log('🎨 Matched condition index:', matchedConditionIndex);
+  
+  if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+    // FIXED: Use the matched condition index if provided
+    let conditionIndex = matchedConditionIndex;
+    
+    // Fallback to first condition if no specific match provided (for builder mode)
+    if (conditionIndex === null || conditionIndex === undefined) {
+      conditionIndex = 0;
+      console.log('🎨 No matched condition index provided, defaulting to first condition for builder mode');
+    }
+    
+    const selectedCondition = element.conditions[conditionIndex];
+    console.log(`🎨 Using condition ${conditionIndex + 1}:`, selectedCondition);
+    console.log(`🎨 Condition ${conditionIndex + 1} properties:`, selectedCondition?.properties);
+    
+    if (selectedCondition && selectedCondition.properties) {
+      const mergedProperties = { ...element.properties, ...selectedCondition.properties };
+      console.log('🎨 Merged properties:', mergedProperties);
+      return mergedProperties;
+    }
+  }
+  
+  const baseProperties = element.properties || {};
+  console.log('🎨 Using base properties:', baseProperties);
+  return baseProperties;
+};
+
+// Updated Text Properties Panel with Enhanced Conditional Properties Support
 const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] }) => {
   const props = element.properties || {};
-  const [activeConditionIndex, setActiveConditionIndex] = useState(0);
+  
+  // FIXED: Initialize activeConditionIndex based on element's conditional state
+  const [activeConditionIndex, setActiveConditionIndex] = useState(() => {
+    // If element has conditional rendering and conditions, default to first condition
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      return 0; // Default to first condition for editing
+    }
+    return 0;
+  });
 
-  // Get the current properties - either base properties or condition-specific properties
+  // FIXED: Update activeConditionIndex when element changes, but preserve user selection
+  React.useEffect(() => {
+    console.log('🔧 Element changed, checking condition state:', {
+      elementId: element.id,
+      renderType: element.renderType,
+      conditionsCount: element.conditions?.length || 0,
+      currentActiveIndex: activeConditionIndex
+    });
+
+    // Only reset if the current activeConditionIndex is out of bounds
+    if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
+      console.log('🔧 No conditional rendering, resetting to 0');
+      setActiveConditionIndex(0);
+    } else if (activeConditionIndex >= element.conditions.length) {
+      console.log('🔧 Active condition index out of bounds, resetting to 0');
+      setActiveConditionIndex(0);
+    }
+    // Otherwise, preserve the current activeConditionIndex to maintain user's selection
+  }, [element.id, element.renderType, element.conditions?.length]); // Only depend on essential changes
+
+  // FIXED: Get the current properties - enhanced logic for condition property inheritance
   const getCurrentProperties = useCallback(() => {
+    console.log('🔧 Getting current properties for element:', element.id);
+    console.log('🔧 Render type:', element.renderType);
+    console.log('🔧 Active condition index:', activeConditionIndex);
+    console.log('🔧 Conditions:', element.conditions?.length || 0);
+    
     if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
       const activeCondition = element.conditions[activeConditionIndex];
-      return activeCondition?.properties || props;
+      console.log('🔧 Active condition:', activeCondition);
+      console.log('🔧 Active condition properties:', activeCondition?.properties);
+      
+      // FIXED: Return condition properties if they exist, otherwise return base properties
+      if (activeCondition?.properties) {
+        const mergedProps = { ...props, ...activeCondition.properties };
+        console.log('🔧 Merged properties:', mergedProps);
+        return mergedProps;
+      } else {
+        // If condition doesn't have properties yet, return base properties
+        console.log('🔧 No condition properties, using base properties:', props);
+        return props;
+      }
     }
+    console.log('🔧 Using base properties:', props);
     return props;
   }, [element.renderType, element.conditions, activeConditionIndex, props]);
 
-  // Stable update function
+  // FIXED: Stable update function for properties
   const updateProperty = useCallback((key, value) => {
+    console.log('🔧 Updating property:', key, '=', value);
+    console.log('🔧 Element render type:', element.renderType);
+    console.log('🔧 Active condition index:', activeConditionIndex);
+    
     if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
       // Update condition-specific properties
+      console.log('🔧 Updating condition-specific property');
       const newConditions = element.conditions.map((condition, index) => {
         if (index === activeConditionIndex) {
-          return {
+          const updatedCondition = {
             ...condition,
             properties: {
               ...condition.properties,
               [key]: value
             }
           };
+          console.log('🔧 Updated condition:', updatedCondition);
+          return updatedCondition;
         }
         return condition;
       });
+      console.log('🔧 All updated conditions:', newConditions);
       onUpdate({ conditions: newConditions });
     } else {
       // Update base properties
+      console.log('🔧 Updating base property');
+      const updatedProps = {
+        ...props,
+        [key]: value
+      };
+      console.log('🔧 Updated base properties:', updatedProps);
       onUpdate({
-        properties: {
-          ...props,
-          [key]: value
-        }
+        properties: updatedProps
       });
     }
   }, [props, onUpdate, element.renderType, element.conditions, activeConditionIndex]);
 
-  // Handle condition updates (these go on the element itself, not properties)
+  // FIXED: Handle condition updates AND manage active condition index
   const handleConditionUpdate = useCallback((updates) => {
-    console.log('Updating conditions:', updates);
+    console.log('🔧 Updating conditions:', updates);
     
-    // If we're adding a new condition, copy properties from the previous condition
+    // If we're adding a new condition, copy properties from the active condition or base
     if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
       const newConditions = updates.conditions.map((condition, index) => {
-        // If this is a new condition and doesn't have properties, copy from previous condition
-        if (!condition.properties && index > 0) {
-          const previousCondition = updates.conditions[index - 1];
+        // If this is a new condition and doesn't have properties, copy from active condition or base
+        if (!condition.properties) {
+          let sourceProperties = { ...props }; // Start with base properties
+          
+          // If we have an active condition with properties, copy from there
+          if (element.conditions && element.conditions[activeConditionIndex]?.properties) {
+            sourceProperties = { ...element.conditions[activeConditionIndex].properties };
+          }
+          
+          console.log('🔧 Copying properties to new condition:', sourceProperties);
           return {
             ...condition,
-            properties: previousCondition.properties ? { ...previousCondition.properties } : { ...props }
+            properties: sourceProperties
           };
         }
         return condition;
       });
       updates.conditions = newConditions;
+      console.log('🔧 Final conditions with copied properties:', updates.conditions);
+    }
+    
+    // If conditions were deleted and activeConditionIndex is out of bounds, reset it
+    if (updates.conditions && activeConditionIndex >= updates.conditions.length) {
+      console.log('🔧 Resetting active condition index due to condition deletion');
+      setActiveConditionIndex(0);
     }
     
     onUpdate(updates);
-  }, [onUpdate, element.conditions, props]);
+  }, [onUpdate, element.conditions, props, activeConditionIndex]);
+
+  // FIXED: Handle condition selection changes from ConditionBlock
+  const handleConditionSelectionChange = useCallback((conditionIndex) => {
+    console.log('🔧 Condition selection changed to:', conditionIndex);
+    setActiveConditionIndex(conditionIndex);
+  }, []);
 
   // Handle input changes with immediate updates
   const handleInputChange = useCallback((key, value) => {
+    console.log('🔧 Handle input change:', key, '=', value);
     updateProperty(key, value);
   }, [updateProperty]);
 
@@ -82,7 +193,9 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
   // Get current value directly from current properties
   const getValue = useCallback((key) => {
     const currentProps = getCurrentProperties();
-    return currentProps[key] ?? '';
+    const value = currentProps[key] ?? '';
+    console.log('🔧 Getting value for', key, '=', value);
+    return value;
   }, [getCurrentProperties]);
 
   // Handle copying element ID to clipboard
@@ -94,68 +207,6 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
       console.error('Failed to copy element ID:', err);
     }
   }, [element.id]);
-
-  // Render condition selector for properties
-  const renderConditionSelector = () => {
-    if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
-      return null;
-    }
-
-    return (
-      <div style={{
-        marginBottom: '20px',
-        padding: '16px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
-        border: '1px solid #e0e0e0'
-      }}>
-        <h4 style={{ 
-          marginBottom: '12px', 
-          color: '#333', 
-          fontSize: '14px',
-          fontWeight: '500'
-        }}>
-          Condition Properties
-        </h4>
-        
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          flexWrap: 'wrap',
-          marginBottom: '12px'
-        }}>
-          {element.conditions.map((condition, index) => (
-            <button
-              key={condition.id || index}
-              onClick={() => setActiveConditionIndex(index)}
-              style={{
-                backgroundColor: activeConditionIndex === index ? '#007bff' : '#ffffff',
-                color: activeConditionIndex === index ? 'white' : '#333',
-                border: `1px solid ${activeConditionIndex === index ? '#007bff' : '#ddd'}`,
-                borderRadius: '6px',
-                padding: '8px 12px',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: '500',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              Condition {index + 1}
-            </button>
-          ))}
-        </div>
-        
-        <div style={{
-          fontSize: '12px',
-          color: '#666',
-          fontStyle: 'italic'
-        }}>
-          Configure how this element appears when Condition {activeConditionIndex + 1} is true.
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div>
@@ -216,15 +267,35 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
         </div>
       </div>
 
-      {/* Condition Block */}
+      {/* FIXED: Condition Block with callback for condition selection changes */}
       <ConditionBlock
         element={element}
         onUpdate={handleConditionUpdate}
+        onConditionSelectionChange={handleConditionSelectionChange}
+        activeConditionIndex={activeConditionIndex}
         availableElements={availableElements}
       />
 
-      {/* Condition Properties Selector */}
-      {renderConditionSelector()}
+      {/* FIXED: Show indicator of which condition's properties are being edited */}
+      {element.renderType === 'conditional' && element.conditions && element.conditions.length > 0 && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '12px',
+          backgroundColor: '#e3f2fd',
+          borderRadius: '8px',
+          border: '1px solid #2196f3',
+          fontSize: '14px',
+          color: '#1976d2'
+        }}>
+          <strong>📝 Editing properties for Condition {activeConditionIndex + 1}</strong>
+          <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
+            All style settings below will apply to this condition. Switch between conditions using the tabs above.
+          </div>
+          <div style={{ fontSize: '11px', marginTop: '8px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+            <strong>💡 Tip:</strong> Changes are automatically saved. The text color, font size, and other properties you set here will be applied when this condition evaluates to true during preview/execution.
+          </div>
+        </div>
+      )}
 
       {/* Content Section with SuperText */}
       <div style={{ marginBottom: '20px' }}>
@@ -493,6 +564,8 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
   );
 });
 
+TextPropertiesPanel.displayName = 'TextPropertiesPanel';
+
 // FIX: Helper function to render text with calculation capsules in Canvas
 const renderTextWithCalculationCapsules = (textValue) => {
   if (!textValue || typeof textValue !== 'string') {
@@ -535,17 +608,6 @@ const renderTextWithCalculationCapsules = (textValue) => {
   });
 };
 
-// Get properties for rendering - use condition 1 properties if conditional
-const getRenderProperties = (element) => {
-  if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
-    const firstCondition = element.conditions[0];
-    if (firstCondition.properties) {
-      return { ...element.properties, ...firstCondition.properties };
-    }
-  }
-  return element.properties || {};
-};
-
 export const TextElement = {
   type: 'text',
   label: 'Text',
@@ -578,10 +640,14 @@ export const TextElement = {
   
   getDefaultChildren: () => ([]),
 
-  // Render the element in the canvas
-  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null) => {
+  // FIXED: Render function now accepts matchedConditionIndex parameter
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null) => {
     const { onClick, onDelete, onDragStart } = handlers;
-    const props = getRenderProperties(element); // Use condition 1 properties if conditional
+    
+    // FIXED: Use the fixed getRenderProperties function with matched condition index
+    const props = getRenderProperties(element, matchedConditionIndex);
+    
+    console.log('🎨 Rendering text with props:', props);
     
     // Build styles from properties
     const textStyle = {
@@ -728,6 +794,6 @@ export const TextElement = {
     );
   },
 
-  // Use the memoized properties panel
+  // Use the updated properties panel
   PropertiesPanel: TextPropertiesPanel
 };
