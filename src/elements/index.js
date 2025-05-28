@@ -1,5 +1,5 @@
 import { ContainerElement } from './container/Container';
-import { TextElement } from './Text';
+import { TextElement } from './text/Text';
 
 // Export all available elements
 export const availableElements = [
