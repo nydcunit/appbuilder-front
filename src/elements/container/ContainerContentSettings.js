@@ -10,6 +10,13 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
 
   // FIXED: Content settings with proper defaults and initialization
   const contentType = element.contentType || 'fixed';
+  const containerType = element.containerType || 'basic';
+  const sliderConfig = element.sliderConfig || {
+    autoPlay: false,
+    loop: false,
+    slidesToScroll: 1,
+    activeTab: '1'
+  };
   const repeatingConfig = element.repeatingConfig || {
     databaseId: null,
     tableId: null,
@@ -19,8 +26,12 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
   console.log('Container Content Settings - Current State:', {
     elementId: element.id,
     contentType,
+    containerType,
+    sliderConfig,
     repeatingConfig,
     elementContentType: element.contentType,
+    elementContainerType: element.containerType,
+    elementSliderConfig: element.sliderConfig,
     elementRepeatingConfig: element.repeatingConfig
   });
 
@@ -97,6 +108,44 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
       setLoading(false);
     }
   };
+
+  // Handle container type change
+  const handleContainerTypeChange = useCallback((type) => {
+    console.log('Changing container type to:', type, 'for element:', element.id);
+    
+    const updates = {
+      containerType: type
+    };
+
+    // If switching to slider, initialize slider config
+    if (type === 'slider') {
+      updates.sliderConfig = {
+        autoPlay: false,
+        loop: false,
+        slidesToScroll: 1,
+        activeTab: '1'
+      };
+    }
+
+    console.log('Container type update payload:', updates);
+    onUpdate(updates);
+  }, [onUpdate, element.id]);
+
+  // Handle slider config updates
+  const updateSliderConfig = useCallback((updates) => {
+    console.log('Updating slider config:', updates, 'current:', sliderConfig);
+    
+    const newSliderConfig = {
+      ...sliderConfig,
+      ...updates
+    };
+    
+    console.log('New slider config:', newSliderConfig);
+    
+    onUpdate({
+      sliderConfig: newSliderConfig
+    });
+  }, [sliderConfig, onUpdate]);
 
   // FIXED: Handle content type change - update element directly, not properties
   const handleContentTypeChange = useCallback((type) => {
@@ -184,6 +233,174 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
     );
     updateRepeatingConfig({ filters: newFilters });
   }, [repeatingConfig.filters, updateRepeatingConfig]);
+
+  const renderContainerTypeTabs = () => (
+    <div style={{
+      marginBottom: '20px'
+    }}>
+      <label style={{
+        display: 'block',
+        fontSize: '14px',
+        fontWeight: '500',
+        color: '#333',
+        marginBottom: '8px'
+      }}>
+        Container Type
+      </label>
+      <div style={{
+        display: 'flex',
+        backgroundColor: '#f0f0f0',
+        borderRadius: '8px',
+        padding: '4px',
+        marginBottom: '16px'
+      }}>
+        {['basic', 'slider', 'tabs'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => handleContainerTypeChange(tab)}
+            style={{
+              flex: 1,
+              padding: '8px 16px',
+              border: 'none',
+              backgroundColor: containerType === tab ? 'white' : 'transparent',
+              color: containerType === tab ? '#333' : '#666',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: containerType === tab ? '500' : '400',
+              transition: 'all 0.2s ease',
+              textTransform: 'capitalize'
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderSliderOptions = () => {
+    if (containerType !== 'slider') return null;
+
+    return (
+      <div style={{
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e0e0e0'
+      }}>
+        <h4 style={{
+          marginBottom: '16px',
+          color: '#333',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          Slider Options
+        </h4>
+        
+        {/* Auto Play Checkbox */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '12px'
+        }}>
+          <input
+            type="checkbox"
+            id="slider-autoplay"
+            checked={sliderConfig.autoPlay}
+            onChange={(e) => updateSliderConfig({ autoPlay: e.target.checked })}
+            style={{
+              marginRight: '8px'
+            }}
+          />
+          <label htmlFor="slider-autoplay" style={{
+            fontSize: '14px',
+            color: '#333',
+            cursor: 'pointer'
+          }}>
+            Auto Play
+          </label>
+        </div>
+
+        {/* Loop Checkbox */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '12px'
+        }}>
+          <input
+            type="checkbox"
+            id="slider-loop"
+            checked={sliderConfig.loop}
+            onChange={(e) => updateSliderConfig({ loop: e.target.checked })}
+            style={{
+              marginRight: '8px'
+            }}
+          />
+          <label htmlFor="slider-loop" style={{
+            fontSize: '14px',
+            color: '#333',
+            cursor: 'pointer'
+          }}>
+            Loop
+          </label>
+        </div>
+
+        {/* Slides to Scroll */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '4px'
+          }}>
+            Slides to Scroll
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={sliderConfig.slidesToScroll}
+            onChange={(e) => updateSliderConfig({ slidesToScroll: parseInt(e.target.value) || 1 })}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
+        </div>
+
+        {/* Active Tab */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '4px'
+          }}>
+            Active Tab (Slide value or order number)
+          </label>
+          <input
+            type="text"
+            value={sliderConfig.activeTab}
+            onChange={(e) => updateSliderConfig({ activeTab: e.target.value })}
+            placeholder="Enter slide value or number (e.g., 1, 2, 3)"
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
+        </div>
+      </div>
+    );
+  };
 
   const renderContentTabs = () => (
     <div style={{
@@ -510,8 +727,15 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
         backgroundColor: '#f8f9fa',
         borderRadius: '4px'
       }}>
-        Debug: contentType={contentType}, has repeatingConfig={!!element.repeatingConfig}
+        Debug: contentType={contentType}, containerType={containerType}, has repeatingConfig={!!element.repeatingConfig}
       </div>
+      
+      {renderContainerTypeTabs()}
+      {renderSliderOptions()}
+      
+      <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        Content Mode
+      </h4>
       
       {renderContentTabs()}
       

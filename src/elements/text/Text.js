@@ -103,17 +103,62 @@ export const TextElement = {
     paddingTop: 8,
     paddingBottom: 8,
     paddingLeft: 12,
-    paddingRight: 12
+    paddingRight: 12,
+    
+    // Active state properties (for when inside slider)
+    activeFontSize: 16,
+    activeFontWeight: '400',
+    activeTextAlignment: 'left',
+    activeTextColor: '#333333',
+    activeTextBackgroundColor: 'transparent',
+    activeMarginTop: 0,
+    activeMarginBottom: 0,
+    activeMarginLeft: 0,
+    activeMarginRight: 0,
+    activePaddingTop: 8,
+    activePaddingBottom: 8,
+    activePaddingLeft: 12,
+    activePaddingRight: 12
   }),
   
   getDefaultChildren: () => ([]),
 
   // FIXED: Render function now accepts matchedConditionIndex parameter
-  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null) => {
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false) => {
     const { onClick, onDelete, onDragStart } = handlers;
     
+    console.log('🔍 Text render called:', {
+      elementId: element.id,
+      isExecuteMode,
+      isActiveSlide,
+      hasActiveProps: !!element.properties?.activeFontSize,
+      value: element.properties?.value
+    });
+    
     // FIXED: Use the fixed getRenderProperties function with matched condition index
-    const props = getRenderProperties(element, matchedConditionIndex);
+    let props = getRenderProperties(element, matchedConditionIndex);
+    
+    // Apply active styles if this element is in the active slide
+    if (isActiveSlide && isExecuteMode) {
+      console.log('✅ Applying active styles for text:', element.id);
+      // Merge active properties over default properties
+      const activeProps = {};
+      Object.keys(props).forEach(key => {
+        const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+        if (props[activeKey] !== undefined) {
+          activeProps[key] = props[activeKey];
+        }
+      });
+      console.log('🎨 Active text props to apply:', activeProps);
+      props = { ...props, ...activeProps };
+      console.log('🎨 Final text props after active merge:', props);
+    } else {
+      console.log('❌ NOT applying active text styles:', {
+        isActiveSlide,
+        isExecuteMode,
+        reason: !isActiveSlide ? 'not active slide' : 'not execute mode'
+      });
+    }
     
     console.log('🎨 Rendering text with props:', props);
     
@@ -143,8 +188,6 @@ export const TextElement = {
       cursor: 'grab',
       transition: 'all 0.2s ease',
       display: 'inline-block',
-      minWidth: '50px',
-      minHeight: '20px',
       border: isSelected ? '2px solid #007bff' : '1px dashed transparent',
       borderRadius: '2px',
       

@@ -72,6 +72,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       source: option,
       value: '',
       elementId: null,
+      containerValueType: null,
       // Clear database-specific fields when switching away from database
       databaseId: null,
       tableId: null,
@@ -90,6 +91,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       value: value,
       // Clear other source-specific fields
       elementId: null,
+      containerValueType: null,
       databaseId: null,
       tableId: null,
       filters: [],
@@ -102,10 +104,13 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
 
   const handleElementSelect = useCallback((elementId) => {
     const selectedElement = availableElements.find(el => el.id === elementId);
-    onUpdate({
+    const isSliderContainer = selectedElement?.type === 'container' && selectedElement?.containerType === 'slider';
+    
+    // Only set containerValueType if it's not already set (preserve existing value)
+    const updates = {
       source: 'element',
       elementId: elementId,
-      value: selectedElement ? `Text (${elementId.slice(-6)})` : '',
+      value: selectedElement ? `${selectedElement.type === 'text' ? 'Text' : 'Container'} (${elementId.slice(-6)})` : '',
       // Clear other source-specific fields
       databaseId: null,
       tableId: null,
@@ -114,8 +119,18 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       selectedColumn: null,
       repeatingContainerId: null,
       repeatingColumn: null
-    });
-  }, [availableElements, onUpdate]);
+    };
+    
+    // Only set containerValueType if it's a slider and not already set
+    if (isSliderContainer) {
+      // Preserve existing containerValueType if it exists, otherwise default to 'active_slide_number'
+      updates.containerValueType = config.containerValueType || 'active_slide_number';
+    } else {
+      updates.containerValueType = null;
+    }
+    
+    onUpdate(updates);
+  }, [availableElements, onUpdate, config.containerValueType]);
 
   const handleRepeatingContainerSelect = useCallback((containerId) => {
     onUpdate({
@@ -125,6 +140,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       value: `Repeating Container (${containerId.slice(-6)})`,
       // Clear other source-specific fields
       elementId: null,
+      containerValueType: null,
       databaseId: null,
       tableId: null,
       filters: [],
@@ -146,8 +162,11 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
     });
   }, [config, onUpdate, repeatingContainers]);
 
-  // Filter available elements to only show text elements
-  const textElements = availableElements.filter(element => element.type === 'text');
+  // Filter available elements to show text elements and slider containers
+  const valueElements = availableElements.filter(element => 
+    element.type === 'text' || 
+    (element.type === 'container' && element.containerType === 'slider')
+  );
 
   const renderCustomValue = () => (
     <div style={{ marginTop: '16px' }}>
@@ -232,14 +251,19 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
         }}
       >
         <option value="">Select Element</option>
-        {textElements.map((element) => (
-          <option key={element.id} value={element.id}>
-            Text ({element.id.slice(-6)})
-          </option>
-        ))}
+        {valueElements.map((element) => {
+          const label = element.type === 'text' 
+            ? `Text (${element.id.slice(-6)})`
+            : `Slider Container (${element.id.slice(-6)})`;
+          return (
+            <option key={element.id} value={element.id}>
+              {label}
+            </option>
+          );
+        })}
       </select>
 
-      {textElements.length === 0 && (
+      {valueElements.length === 0 && (
         <div style={{
           marginTop: '8px',
           padding: '12px',
@@ -249,7 +273,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
           color: '#666',
           textAlign: 'center'
         }}>
-          No text elements found in current screen
+          No text elements or slider containers found in current screen
         </div>
       )}
 
@@ -278,16 +302,50 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
             ID: {config.elementId}
           </div>
           {(() => {
-            const element = textElements.find(el => el.id === config.elementId);
-            return element && (
-              <div style={{
-                fontSize: '12px',
-                color: '#666',
-                marginTop: '2px'
-              }}>
-                Current Value: "{element.properties?.value || ''}"
-              </div>
-            );
+            const element = valueElements.find(el => el.id === config.elementId);
+            if (!element) return null;
+            
+            if (element.type === 'text') {
+              return (
+                <div style={{
+                  fontSize: '12px',
+                  color: '#666',
+                  marginTop: '2px'
+                }}>
+                  Current Value: "{element.properties?.value || ''}"
+                </div>
+              );
+            } else if (element.type === 'container' && element.containerType === 'slider') {
+              return (
+                <div style={{ marginTop: '8px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    color: '#555',
+                    marginBottom: '4px'
+                  }}>
+                    Container Value Type
+                  </label>
+                  <select
+                    value={config.containerValueType || 'active_slide_number'}
+                    onChange={(e) => onUpdate({ ...config, containerValueType: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="active_slide_number">Get active slide number</option>
+                    <option value="active_slide_value">Get active slide value</option>
+                  </select>
+                </div>
+              );
+            }
+            return null;
           })()}
         </div>
       )}
@@ -510,7 +568,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
               opacity: 0.8,
               marginTop: '2px'
             }}>
-              Get value from a text element in the current screen
+              Get value from a text element or slider container
             </div>
           </div>
           {selectedOption === 'element' && (

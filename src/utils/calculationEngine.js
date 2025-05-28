@@ -55,7 +55,7 @@ export class CalculationEngine {
         return await this.executeCustomValue(config.value);
       
       case 'element':
-        return this.executeElementValue(config.elementId);
+        return this.executeElementValue(config.elementId, config.containerValueType);
       
       case 'database':
         return await this.executeDatabaseQuery(config);
@@ -75,6 +75,79 @@ export class CalculationEngine {
       default:
         throw new Error(`Unknown source type: ${config.source}`);
     }
+  }
+
+  // Execute slider container value
+  executeSliderContainerValue(element, valueType) {
+    console.log('\n🎡 === SLIDER CONTAINER VALUE EXECUTION ===');
+    console.log('Element:', element.id);
+    console.log('Value type:', valueType);
+    
+    const sliderConfig = element.sliderConfig || {
+      autoPlay: false,
+      loop: false,
+      slidesToScroll: 1,
+      activeTab: '1'
+    };
+    
+    console.log('Slider config:', sliderConfig);
+    
+    if (valueType === 'active_slide_number') {
+      // Return the active slide number (1-based)
+      const activeSlideNumber = parseInt(sliderConfig.activeTab) || 1;
+      console.log('✅ Active slide number:', activeSlideNumber);
+      console.log('🎡 === SLIDER CONTAINER END ===\n');
+      return activeSlideNumber;
+    }
+    
+    if (valueType === 'active_slide_value') {
+      // Find the active slide's text value
+      const activeSlideIndex = (parseInt(sliderConfig.activeTab) || 1) - 1; // Convert to 0-based
+      
+      // Helper function to find text elements marked as slide text within a container
+      const findSlideTextInContainer = (container, slideIndex) => {
+        if (!container.children || container.children.length <= slideIndex) {
+          return null;
+        }
+        
+        // Get the slide element (first level child at slideIndex)
+        const slideElement = container.children[slideIndex];
+        if (!slideElement) return null;
+        
+        // Recursively search for text elements with isSlideText = true
+        const findSlideText = (element) => {
+          if (element.type === 'text' && element.properties?.isSlideText === true) {
+            return element.properties?.value || '';
+          }
+          
+          if (element.children) {
+            for (const child of element.children) {
+              const result = findSlideText(child);
+              if (result !== null) return result;
+            }
+          }
+          
+          return null;
+        };
+        
+        return findSlideText(slideElement);
+      };
+      
+      const slideValue = findSlideTextInContainer(element, activeSlideIndex);
+      
+      if (slideValue === null) {
+        console.log('❌ No slide text element found for slide:', activeSlideIndex + 1);
+        // Return empty string instead of throwing error
+        return '';
+      }
+      
+      console.log('✅ Active slide value:', slideValue);
+      console.log('🎡 === SLIDER CONTAINER END ===\n');
+      
+      return slideValue;
+    }
+    
+    throw new Error(`Unknown slider container value type: ${valueType}`);
   }
 
   // Execute repeating container value
@@ -174,11 +247,23 @@ export class CalculationEngine {
   }
 
   // Execute element value reference
-  executeElementValue(elementId) {
+  executeElementValue(elementId, containerValueType = null) {
     if (!elementId) {
       throw new Error('No element ID provided');
     }
 
+    // Find the element in availableElements to check if it's a slider container
+    const element = this.availableElements.find(el => el.id === elementId);
+    
+    if (!element) {
+      throw new Error(`Element with ID ${elementId} not found`);
+    }
+    
+    // Handle slider container calculations
+    if (element.type === 'container' && element.containerType === 'slider') {
+      return this.executeSliderContainerValue(element, containerValueType);
+    }
+    
     const elementValue = this.elementValues[elementId];
     if (elementValue === undefined) {
       throw new Error(`Element with ID ${elementId} not found`);

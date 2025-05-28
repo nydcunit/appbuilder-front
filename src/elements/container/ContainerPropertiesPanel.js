@@ -176,6 +176,40 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
     }
   }, [element.id]);
 
+  // Check if this container element is inside a slider container
+  const checkIfInsideSliderContainer = useCallback(() => {
+    // Helper function to check if an element exists anywhere in a container's tree
+    const isElementInContainer = (elementId, container) => {
+      if (!container.children || container.children.length === 0) {
+        return false;
+      }
+      
+      // Check all children recursively
+      for (const child of container.children) {
+        if (child.id === elementId) {
+          return true;
+        }
+        // Recursively check if this child contains the element
+        if (child.type === 'container' && isElementInContainer(elementId, child)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    // Check all containers to see if any slider contains this element
+    for (const container of availableElements) {
+      if (container.type === 'container' && container.containerType === 'slider') {
+        if (isElementInContainer(element.id, container)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [element.id, availableElements]);
+
   return (
     <div>
       <h3 style={{ marginBottom: '20px', color: '#333' }}>Container Properties</h3>
@@ -277,6 +311,8 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         handleInputChange={handleInputChange}
         handleKeyPress={handleKeyPress}
         updateProperty={updateProperty}
+        element={element}
+        isInsideSliderContainer={checkIfInsideSliderContainer()}
       />
     </div>
   );

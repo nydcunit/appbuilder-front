@@ -382,7 +382,9 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       false, // not drop zone
       {}, // no handlers
       children,
-      matchedConditionIndex // FIXED: Pass the matched condition index
+      matchedConditionIndex, // FIXED: Pass the matched condition index
+      true, // isExecuteMode - this is preview/execute mode
+      false // isActiveSlide - this will be set by the slider component itself
     );
     
     // Add debug info for repeating container instances

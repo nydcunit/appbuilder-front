@@ -13,7 +13,7 @@ const Canvas = ({
   const isCanvasDropZone = dropZone === 'canvas';
 
   return (
-    <div style={{ flex: 1, padding: '20px', backgroundColor: '#f8f9fa' }}>
+    <div style={{ flex: 1, padding: '20px', backgroundColor: '#f8f9fa', minWidth: 0 }}>
       <h3>Canvas - {currentScreen?.name}</h3>
       <div 
         onClick={handleCanvasClick}

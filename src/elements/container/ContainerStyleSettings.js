@@ -1,27 +1,126 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 
 const ContainerStyleSettings = ({ 
   getValue, 
   handleInputChange, 
   handleKeyPress, 
-  updateProperty 
+  updateProperty,
+  element, // Add element prop to check if this is inside a slider container
+  isInsideSliderContainer = false // Flag to indicate if this container is inside a slider container
 }) => {
+  // Check if this element should have active mode (if it's a child in a slider container or is a slider container itself)
+  const containerType = element?.containerType || 'basic';
+  const shouldShowActiveMode = isInsideSliderContainer || containerType === 'slider';
+  
+  // State for active mode toggle
+  const [isActiveMode, setIsActiveMode] = useState(false);
+  
+  // Helper function to get property name (with active prefix if in active mode)
+  const getPropertyName = useCallback((baseName) => {
+    return isActiveMode ? `active${baseName.charAt(0).toUpperCase()}${baseName.slice(1)}` : baseName;
+  }, [isActiveMode]);
+  
+  // Helper function to get value with active mode support
+  const getValueWithActiveMode = useCallback((baseName) => {
+    const propertyName = getPropertyName(baseName);
+    return getValue(propertyName);
+  }, [getValue, getPropertyName]);
+  
+  // Helper function to handle input change with active mode support
+  const handleInputChangeWithActiveMode = useCallback((baseName, value) => {
+    const propertyName = getPropertyName(baseName);
+    handleInputChange(propertyName, value);
+  }, [handleInputChange, getPropertyName]);
+  
+  // Helper function to update property with active mode support
+  const updatePropertyWithActiveMode = useCallback((baseName, value) => {
+    const propertyName = getPropertyName(baseName);
+    updateProperty(propertyName, value);
+  }, [updateProperty, getPropertyName]);
+  
+  // Style for labels in active mode
+  const labelStyle = {
+    minWidth: '80px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    color: isActiveMode ? '#8b5cf6' : '#555'
+  };
+  
+  // Style for section headers in active mode
+  const headerStyle = {
+    marginBottom: '10px',
+    color: isActiveMode ? '#8b5cf6' : '#333',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '5px'
+  };
+
   return (
     <>
+      {/* Active Mode Toggle for Slider Containers */}
+      {shouldShowActiveMode && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px',
+            backgroundColor: isActiveMode ? '#f3f4f6' : 'transparent',
+            borderRadius: '4px',
+            border: isActiveMode ? '1px solid #8b5cf6' : '1px solid transparent'
+          }}>
+            <button
+              onClick={() => setIsActiveMode(!isActiveMode)}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                backgroundColor: isActiveMode ? '#8b5cf6' : '#e5e7eb',
+                color: isActiveMode ? 'white' : '#374151',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Active
+            </button>
+            <span style={{
+              fontSize: '12px',
+              color: isActiveMode ? '#8b5cf6' : '#6b7280',
+              fontWeight: isActiveMode ? '500' : '400'
+            }}>
+              {isActiveMode ? 'Editing active slide styles' : 'Editing default styles'}
+            </span>
+          </div>
+          {isActiveMode && (
+            <div style={{
+              fontSize: '11px',
+              color: '#8b5cf6',
+              marginTop: '4px',
+              padding: '4px 8px',
+              backgroundColor: '#faf5ff',
+              borderRadius: '3px'
+            }}>
+              These styles will only apply when this element is the active slide
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Layout Properties */}
       <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        <h4 style={headerStyle}>
           Layout
         </h4>
         
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={{ minWidth: '80px', fontSize: '12px', fontWeight: 'bold', color: '#555' }}>
+          <label style={labelStyle}>
             Width:
           </label>
           <input
             type="text"
-            value={getValue('width')}
-            onChange={(e) => handleInputChange('width', e.target.value)}
+            value={getValueWithActiveMode('width')}
+            onChange={(e) => handleInputChangeWithActiveMode('width', e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="auto, 100px, 50%"
             style={{
@@ -35,13 +134,13 @@ const ContainerStyleSettings = ({
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={{ minWidth: '80px', fontSize: '12px', fontWeight: 'bold', color: '#555' }}>
+          <label style={labelStyle}>
             Height:
           </label>
           <input
             type="text"
-            value={getValue('height')}
-            onChange={(e) => handleInputChange('height', e.target.value)}
+            value={getValueWithActiveMode('height')}
+            onChange={(e) => handleInputChangeWithActiveMode('height', e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="auto, 100px, 50%"
             style={{
@@ -55,12 +154,12 @@ const ContainerStyleSettings = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={{ minWidth: '80px', fontSize: '12px', fontWeight: 'bold', color: '#555' }}>
+          <label style={labelStyle}>
             Direction:
           </label>
           <select
-            value={getValue('orientation')}
-            onChange={(e) => updateProperty('orientation', e.target.value)}
+            value={getValueWithActiveMode('orientation')}
+            onChange={(e) => updatePropertyWithActiveMode('orientation', e.target.value)}
             style={{
               width: '100%',
               padding: '4px 8px',
@@ -75,12 +174,12 @@ const ContainerStyleSettings = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={{ minWidth: '80px', fontSize: '12px', fontWeight: 'bold', color: '#555' }}>
+          <label style={labelStyle}>
             V-Align:
           </label>
           <select
-            value={getValue('verticalAlignment')}
-            onChange={(e) => updateProperty('verticalAlignment', e.target.value)}
+            value={getValueWithActiveMode('verticalAlignment')}
+            onChange={(e) => updatePropertyWithActiveMode('verticalAlignment', e.target.value)}
             style={{
               width: '100%',
               padding: '4px 8px',
@@ -98,12 +197,12 @@ const ContainerStyleSettings = ({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={{ minWidth: '80px', fontSize: '12px', fontWeight: 'bold', color: '#555' }}>
+          <label style={labelStyle}>
             H-Align:
           </label>
           <select
-            value={getValue('horizontalAlignment')}
-            onChange={(e) => updateProperty('horizontalAlignment', e.target.value)}
+            value={getValueWithActiveMode('horizontalAlignment')}
+            onChange={(e) => updatePropertyWithActiveMode('horizontalAlignment', e.target.value)}
             style={{
               width: '100%',
               padding: '4px 8px',
@@ -122,18 +221,18 @@ const ContainerStyleSettings = ({
 
       {/* Styling */}
       <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        <h4 style={headerStyle}>
           Styling
         </h4>
         
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={{ minWidth: '80px', fontSize: '12px', fontWeight: 'bold', color: '#555' }}>
+          <label style={labelStyle}>
             Background:
           </label>
           <input
             type="color"
-            value={getValue('backgroundColor')}
-            onChange={(e) => updateProperty('backgroundColor', e.target.value)}
+            value={getValueWithActiveMode('backgroundColor')}
+            onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
             style={{
               width: '100%',
               height: '30px',
@@ -147,19 +246,25 @@ const ContainerStyleSettings = ({
 
       {/* Spacing - Margin */}
       <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        <h4 style={headerStyle}>
           Spacing
         </h4>
         
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? '#8b5cf6' : '#555' 
+          }}>
             Margin:
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
             <input
               type="number"
-              value={getValue('marginTop')}
-              onChange={(e) => handleInputChange('marginTop', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('marginTop')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginTop', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Top"
               style={{
@@ -171,8 +276,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('marginBottom')}
-              onChange={(e) => handleInputChange('marginBottom', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('marginBottom')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginBottom', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Bottom"
               style={{
@@ -184,8 +289,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('marginLeft')}
-              onChange={(e) => handleInputChange('marginLeft', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('marginLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginLeft', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Left"
               style={{
@@ -197,8 +302,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('marginRight')}
-              onChange={(e) => handleInputChange('marginRight', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('marginRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginRight', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Right"
               style={{
@@ -212,14 +317,20 @@ const ContainerStyleSettings = ({
         </div>
 
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? '#8b5cf6' : '#555' 
+          }}>
             Padding:
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
             <input
               type="number"
-              value={getValue('paddingTop')}
-              onChange={(e) => handleInputChange('paddingTop', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('paddingTop')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingTop', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Top"
               style={{
@@ -231,8 +342,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('paddingBottom')}
-              onChange={(e) => handleInputChange('paddingBottom', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('paddingBottom')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingBottom', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Bottom"
               style={{
@@ -244,8 +355,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('paddingLeft')}
-              onChange={(e) => handleInputChange('paddingLeft', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('paddingLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingLeft', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Left"
               style={{
@@ -257,8 +368,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('paddingRight')}
-              onChange={(e) => handleInputChange('paddingRight', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('paddingRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingRight', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Right"
               style={{
@@ -274,19 +385,25 @@ const ContainerStyleSettings = ({
 
       {/* Border Radius */}
       <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        <h4 style={headerStyle}>
           Border Radius
         </h4>
         
         <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px', color: '#555' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? '#8b5cf6' : '#555' 
+          }}>
             Corners:
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
             <input
               type="number"
-              value={getValue('borderRadiusTopLeft')}
-              onChange={(e) => handleInputChange('borderRadiusTopLeft', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('borderRadiusTopLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusTopLeft', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Top Left"
               style={{
@@ -298,8 +415,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('borderRadiusTopRight')}
-              onChange={(e) => handleInputChange('borderRadiusTopRight', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('borderRadiusTopRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusTopRight', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Top Right"
               style={{
@@ -311,8 +428,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('borderRadiusBottomLeft')}
-              onChange={(e) => handleInputChange('borderRadiusBottomLeft', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('borderRadiusBottomLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusBottomLeft', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Bottom Left"
               style={{
@@ -324,8 +441,8 @@ const ContainerStyleSettings = ({
             />
             <input
               type="number"
-              value={getValue('borderRadiusBottomRight')}
-              onChange={(e) => handleInputChange('borderRadiusBottomRight', parseInt(e.target.value) || 0)}
+              value={getValueWithActiveMode('borderRadiusBottomRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusBottomRight', parseInt(e.target.value) || 0)}
               onKeyPress={handleKeyPress}
               placeholder="Bottom Right"
               style={{
@@ -341,18 +458,18 @@ const ContainerStyleSettings = ({
 
       {/* Shadow */}
       <div style={{ marginBottom: '20px' }}>
-        <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        <h4 style={headerStyle}>
           Shadow
         </h4>
         
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={{ minWidth: '80px', fontSize: '12px', fontWeight: 'bold', color: '#555' }}>
+          <label style={labelStyle}>
             Color:
           </label>
           <input
             type="color"
-            value={getValue('shadowColor')}
-            onChange={(e) => updateProperty('shadowColor', e.target.value)}
+            value={getValueWithActiveMode('shadowColor')}
+            onChange={(e) => updatePropertyWithActiveMode('shadowColor', e.target.value)}
             style={{
               width: '100%',
               height: '30px',
@@ -366,8 +483,8 @@ const ContainerStyleSettings = ({
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px' }}>
           <input
             type="number"
-            value={getValue('shadowX')}
-            onChange={(e) => handleInputChange('shadowX', parseInt(e.target.value) || 0)}
+            value={getValueWithActiveMode('shadowX')}
+            onChange={(e) => handleInputChangeWithActiveMode('shadowX', parseInt(e.target.value) || 0)}
             onKeyPress={handleKeyPress}
             placeholder="X"
             style={{
@@ -379,8 +496,8 @@ const ContainerStyleSettings = ({
           />
           <input
             type="number"
-            value={getValue('shadowY')}
-            onChange={(e) => handleInputChange('shadowY', parseInt(e.target.value) || 0)}
+            value={getValueWithActiveMode('shadowY')}
+            onChange={(e) => handleInputChangeWithActiveMode('shadowY', parseInt(e.target.value) || 0)}
             onKeyPress={handleKeyPress}
             placeholder="Y"
             style={{
@@ -392,8 +509,8 @@ const ContainerStyleSettings = ({
           />
           <input
             type="number"
-            value={getValue('shadowBlur')}
-            onChange={(e) => handleInputChange('shadowBlur', parseInt(e.target.value) || 0)}
+            value={getValueWithActiveMode('shadowBlur')}
+            onChange={(e) => handleInputChangeWithActiveMode('shadowBlur', parseInt(e.target.value) || 0)}
             onKeyPress={handleKeyPress}
             placeholder="Blur"
             style={{
