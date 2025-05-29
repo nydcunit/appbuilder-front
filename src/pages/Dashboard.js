@@ -3,12 +3,15 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import axios from 'axios';
 import CreateAppWizardModal from '../components/CreateAppWizardModal';
+import AppSettingsModal from '../components/AppSettingsModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showCreateWizard, setShowCreateWizard] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [selectedApp, setSelectedApp] = useState(null);
 
   useEffect(() => {
     fetchApps();
@@ -30,6 +33,20 @@ const Dashboard = () => {
 
   const handleAppCreated = (newApp) => {
     setApps([...apps, newApp]);
+  };
+
+  const handleAppUpdated = (updatedApp) => {
+    setApps(apps.map(app => app._id === updatedApp._id ? updatedApp : app));
+  };
+
+  const openSettings = (app) => {
+    setSelectedApp(app);
+    setShowSettingsModal(true);
+  };
+
+  const closeSettings = () => {
+    setSelectedApp(null);
+    setShowSettingsModal(false);
   };
 
   const deleteApp = async (appId) => {
@@ -117,14 +134,53 @@ const Dashboard = () => {
               padding: '2rem',
               borderRadius: '8px',
               boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
-              textAlign: 'center'
+              textAlign: 'center',
+              position: 'relative'
             }}>
+              {/* Settings Button */}
+              <button
+                onClick={() => openSettings(app)}
+                style={{
+                  position: 'absolute',
+                  top: '1rem',
+                  right: '1rem',
+                  backgroundColor: '#f8f9fa',
+                  border: '1px solid #ddd',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '14px',
+                  color: '#666',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#e9ecef';
+                  e.target.style.color = '#333';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = '#f8f9fa';
+                  e.target.style.color = '#666';
+                }}
+                title="App Settings"
+              >
+                ⚙️
+              </button>
+              
               <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📱</div>
               <h3 style={{ marginBottom: '0.5rem', color: '#333' }}>{app.name}</h3>
-              <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                 Created: {new Date(app.createdAt).toLocaleDateString()}
               </p>
-              <p style={{ fontSize: '12px', color: '#888' }}>
+              {app.subdomain && (
+                <p style={{ color: '#667eea', fontSize: '0.8rem', marginBottom: '1rem' }}>
+                  {app.subdomain}.localhost:3000
+                </p>
+              )}
+              <p style={{ fontSize: '12px', color: '#888', marginBottom: '1.5rem' }}>
                 {app.screens?.length || 1} screen{(app.screens?.length || 1) !== 1 ? 's' : ''}
               </p>
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
@@ -163,6 +219,13 @@ const Dashboard = () => {
         isOpen={showCreateWizard}
         onClose={() => setShowCreateWizard(false)}
         onAppCreated={handleAppCreated}
+      />
+      
+      <AppSettingsModal
+        isOpen={showSettingsModal}
+        onClose={closeSettings}
+        app={selectedApp}
+        onAppUpdated={handleAppUpdated}
       />
     </div>
   );

@@ -91,7 +91,13 @@ class WebSocketService {
   }
 
   openPreviewWindow(appSubdomain) {
-    const previewUrl = `http://${appSubdomain}.localhost:3000`;
+    // Get auth token and pass it via URL parameter
+    const authToken = localStorage.getItem('token');
+    const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
+    const previewUrl = `http://${appSubdomain}.localhost:3000${tokenParam}`;
+    
+    console.log('🔐 Opening preview with URL:', previewUrl.replace(authToken || '', '[TOKEN]'));
+    
     const previewWindow = window.open(
       previewUrl,
       `preview-${appSubdomain}`,
@@ -102,6 +108,90 @@ class WebSocketService {
       alert('Preview window was blocked by your browser. Please allow popups for this site.');
       return null;
     }
+
+    // Wait for the window to load, then send calculation data
+    const sendCalculationData = () => {
+      try {
+        // Collect all calculation data from localStorage and global storage
+        const calculationData = {};
+        
+        console.log('🔧 Collecting calculation data from parent window...');
+        console.log('🔧 Global storage:', window.superTextCalculations);
+        
+        // Get from global storage
+        if (window.superTextCalculations) {
+          Object.assign(calculationData, window.superTextCalculations);
+          console.log('✅ Added from global storage:', Object.keys(window.superTextCalculations).length, 'calculations');
+        }
+        
+        // Get from localStorage
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('calc_')) {
+            try {
+              const calcId = key.replace('calc_', '');
+              const calcData = JSON.parse(localStorage.getItem(key));
+              calculationData[calcId] = calcData;
+              console.log(`✅ Added from localStorage: ${calcId}`);
+            } catch (error) {
+              console.error(`❌ Error parsing calculation ${key}:`, error);
+            }
+          }
+        }
+        
+        // Get active tabs state
+        const activeTabsData = window.__activeTabs || {};
+        
+        // Get authentication token from localStorage
+        const authToken = localStorage.getItem('token');
+        
+        console.log('📊 Final calculation data to send:', calculationData);
+        console.log('📊 Active tabs data to send:', activeTabsData);
+        console.log('🔐 Auth token to send:', authToken ? 'Token found' : 'No token');
+        
+        // Send data to preview window
+        previewWindow.postMessage({
+          type: 'CALCULATION_DATA',
+          calculations: calculationData,
+          activeTabs: activeTabsData,
+          authToken: authToken
+        }, '*');
+        
+        console.log('📊 Sent calculation data to preview window:', Object.keys(calculationData).length, 'calculations');
+      } catch (error) {
+        console.error('❌ Error sending calculation data to preview window:', error);
+      }
+    };
+    
+    // Listen for requests from the child window
+    const handleMessage = (event) => {
+      console.log('📨 Received message from:', event.origin, 'Data:', event.data);
+      
+      // Check for CORS issues
+      if (event.origin !== `http://${appSubdomain}.localhost:3000`) {
+        console.warn('⚠️ CORS: Message from unexpected origin:', event.origin, 'Expected:', `http://${appSubdomain}.localhost:3000`);
+      }
+      
+      if (event.data && event.data.type === 'REQUEST_CALCULATION_DATA') {
+        console.log('📨 Received request for calculation data from child window');
+        sendCalculationData();
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    
+    // Add error handling for postMessage
+    window.addEventListener('error', (error) => {
+      console.error('❌ Window error (possible CORS issue):', error);
+    });
+    
+    // Send data when window loads
+    previewWindow.addEventListener('load', sendCalculationData);
+    
+    // Also try sending after a short delay in case load event is missed
+    setTimeout(sendCalculationData, 1000);
+    setTimeout(sendCalculationData, 3000);
+    setTimeout(sendCalculationData, 5000);
 
     return previewWindow;
   }
