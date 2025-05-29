@@ -2,14 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import axios from 'axios';
+import CreateAppWizardModal from '../components/CreateAppWizardModal';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newAppName, setNewAppName] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [showCreateWizard, setShowCreateWizard] = useState(false);
 
   useEffect(() => {
     fetchApps();
@@ -29,27 +28,8 @@ const Dashboard = () => {
     }
   };
 
-  const createApp = async () => {
-    if (!newAppName.trim()) return;
-    
-    setCreating(true);
-    try {
-      const response = await axios.post('/api/apps', { 
-        name: newAppName,
-        description: '' 
-      });
-      
-      if (response.data.success) {
-        setApps([...apps, response.data.data]);
-        setNewAppName('');
-        setShowCreateModal(false);
-      }
-    } catch (error) {
-      console.error('Error creating app:', error);
-      alert('Error creating app: ' + (error.response?.data?.message || 'Unknown error'));
-    } finally {
-      setCreating(false);
-    }
+  const handleAppCreated = (newApp) => {
+    setApps([...apps, newApp]);
   };
 
   const deleteApp = async (appId) => {
@@ -91,7 +71,7 @@ const Dashboard = () => {
       }}>
         <h1>My Apps</h1>
         <button 
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => setShowCreateWizard(true)}
           style={{
             backgroundColor: '#667eea',
             color: 'white',
@@ -111,7 +91,7 @@ const Dashboard = () => {
           <h3 style={{ color: '#666', marginBottom: '1rem' }}>No apps yet</h3>
           <p style={{ color: '#999', marginBottom: '2rem' }}>Get started by creating your first app.</p>
           <button 
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => setShowCreateWizard(true)}
             style={{
               backgroundColor: '#667eea',
               color: 'white',
@@ -179,77 +159,11 @@ const Dashboard = () => {
         </div>
       )}
 
-      {showCreateModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            padding: '2rem',
-            borderRadius: '8px',
-            width: '90%',
-            maxWidth: '400px'
-          }}>
-            <h3 style={{ marginBottom: '1.5rem', color: '#333' }}>Create New App</h3>
-            <input
-              type="text"
-              placeholder="App name"
-              value={newAppName}
-              onChange={(e) => setNewAppName(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                marginBottom: '1.5rem',
-                fontSize: '1rem'
-              }}
-              onKeyPress={(e) => e.key === 'Enter' && createApp()}
-            />
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button 
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setNewAppName('');
-                }}
-                style={{
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              <button 
-                onClick={createApp}
-                disabled={creating || !newAppName.trim()}
-                style={{
-                  backgroundColor: creating || !newAppName.trim() ? '#ccc' : '#667eea',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '4px',
-                  cursor: creating || !newAppName.trim() ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {creating ? 'Creating...' : 'Create'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateAppWizardModal
+        isOpen={showCreateWizard}
+        onClose={() => setShowCreateWizard(false)}
+        onAppCreated={handleAppCreated}
+      />
     </div>
   );
 };
