@@ -79,6 +79,7 @@ const BuilderHeader = ({
             alignItems: 'center',
             gap: '5px'
           }}
+          title="Open app in new window - auto-updates when you save"
         >
           ▶️ Execute
         </button>

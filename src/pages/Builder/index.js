@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ZIndexProvider } from '../../components/ZIndexContext';
 import { getElementByType } from '../../elements';
+import websocketService from '../../services/websocketService';
 
 // Import components
 import BuilderHeader from './components/Header/BuilderHeader';
@@ -68,6 +69,36 @@ const Builder = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewScreenId, setPreviewScreenId] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [previewWindow, setPreviewWindow] = useState(null);
+
+  // WebSocket setup
+  useEffect(() => {
+    if (app?._id) {
+      // Connect to WebSocket and join app room
+      websocketService.connect();
+      websocketService.joinApp(app._id);
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (app?._id) {
+        websocketService.leaveApp(app._id);
+      }
+    };
+  }, [app?._id]);
+
+  // Enhanced save function that notifies WebSocket
+  const handleSaveApp = async () => {
+    try {
+      await saveApp();
+      // Notify WebSocket that app was saved
+      if (app?._id) {
+        websocketService.notifyAppSaved(app._id);
+      }
+    } catch (error) {
+      console.error('Error saving app:', error);
+    }
+  };
 
   // Element rendering logic
   const renderElement = (element, depth = 0) => {
@@ -106,8 +137,30 @@ const Builder = () => {
 
   // Action handlers
   const handleExecute = () => {
-    setPreviewScreenId(currentScreenId);
-    setShowPreviewModal(true);
+    if (!app?.subdomain) {
+      alert('App subdomain not found. Please ensure the app has a subdomain configured.');
+      return;
+    }
+
+    // Check if preview window is already open and still valid
+    if (previewWindow && !previewWindow.closed) {
+      previewWindow.focus();
+      return;
+    }
+
+    // Open new preview window with app runtime
+    const newPreviewWindow = websocketService.openPreviewWindow(app.subdomain);
+    if (newPreviewWindow) {
+      setPreviewWindow(newPreviewWindow);
+      
+      // Monitor when window is closed
+      const checkClosed = setInterval(() => {
+        if (newPreviewWindow.closed) {
+          setPreviewWindow(null);
+          clearInterval(checkClosed);
+        }
+      }, 1000);
+    }
   };
 
   const handleCopyCanvas = async () => {
@@ -195,7 +248,7 @@ const Builder = () => {
           copyCanvasToClipboard={handleCopyCanvas}
           copySuccess={copySuccess}
           handleExecute={handleExecute}
-          saveApp={saveApp}
+          saveApp={handleSaveApp}
           saving={saving}
         />
 

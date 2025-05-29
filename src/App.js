@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Databases from './pages/Databases/index';
 import DatabaseDetail from './pages/Databases/DatabaseDetail';
 import Builder from './pages/Builder';
+import AppRuntime from './components/AppRuntime';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -19,6 +20,16 @@ function PrivateRoute({ children }) {
 }
 
 function AppRoutes() {
+  // Check if we're on a subdomain
+  const hostname = window.location.hostname;
+  const isSubdomain = hostname !== 'localhost' && hostname.includes('.localhost');
+  
+  // If on subdomain, show app runtime
+  if (isSubdomain) {
+    return <AppRuntime />;
+  }
+  
+  // Otherwise show normal routes
   return (
     <Routes>
       <Route path="/" element={<Home />} />
