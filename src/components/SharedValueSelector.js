@@ -9,7 +9,9 @@ export const ValueSelector = ({
   onUpdate, 
   availableElements = [], 
   parentZIndex = 1000,
-  label = "Value"
+  label = "Value",
+  screens = [],
+  currentScreenId = null
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
     // Better detection of active tab based on config
@@ -89,7 +91,9 @@ export const ValueSelector = ({
       config,
       onUpdate,
       availableElements,
-      parentZIndex
+      parentZIndex,
+      screens,
+      currentScreenId
     };
 
     switch (activeTab) {

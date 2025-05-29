@@ -9,7 +9,9 @@ const PropertiesPanel = ({
   handlePopupMouseDown,
   setShowPropertiesPopup,
   updateElement,
-  availableElementsForCalculations
+  availableElementsForCalculations,
+  screens = [],
+  currentScreenId = null
 }) => {
   const popupRef = useRef(null);
 
@@ -95,13 +97,15 @@ const PropertiesPanel = ({
           element={selectedElement}
           onUpdate={(updates) => updateElement(selectedElement.id, updates)}
           availableElements={availableElementsForCalculations}
+          screens={screens}
+          currentScreenId={currentScreenId}
         />
       </div>
     </div>
   );
 };
 
-const ElementProperties = ({ element, onUpdate, availableElements }) => {
+const ElementProperties = ({ element, onUpdate, availableElements, screens, currentScreenId }) => {
   const elementDef = getElementByType(element.type);
   if (!elementDef || !elementDef.PropertiesPanel) {
     return <div>No properties available</div>;
@@ -113,6 +117,8 @@ const ElementProperties = ({ element, onUpdate, availableElements }) => {
       element={element} 
       onUpdate={onUpdate}
       availableElements={availableElements}
+      screens={screens}
+      currentScreenId={currentScreenId}
     />
   );
 };

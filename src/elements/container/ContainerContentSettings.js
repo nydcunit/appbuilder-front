@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import SuperText from '../../components/SuperText';
 
-const ContainerContentSettings = ({ element, onUpdate }) => {
+const ContainerContentSettings = ({ element, onUpdate, availableElements = [], availableScreens = [], screens = [], currentScreenId = null }) => {
   const [databases, setDatabases] = useState([]);
   const [tables, setTables] = useState([]);
   const [columns, setColumns] = useState([]);
@@ -25,6 +25,10 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
     databaseId: null,
     tableId: null,
     filters: []
+  };
+  const pageConfig = element.pageConfig || {
+    selectedPageId: null,
+    parameters: []
   };
 
   console.log('Container Content Settings - Current State:', {
@@ -199,6 +203,17 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
       updates.repeatingConfig = null;
     }
 
+    // If switching to page, initialize page config
+    if (type === 'page') {
+      updates.pageConfig = {
+        selectedPageId: null,
+        parameters: []
+      };
+    } else {
+      // If switching away from page, remove page config
+      updates.pageConfig = null;
+    }
+
     console.log('Content type update payload:', updates);
     onUpdate(updates);
   }, [onUpdate, element.id]);
@@ -265,6 +280,54 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
     );
     updateRepeatingConfig({ filters: newFilters });
   }, [repeatingConfig.filters, updateRepeatingConfig]);
+
+  // Handle page config updates
+  const updatePageConfig = useCallback((updates) => {
+    console.log('Updating page config:', updates, 'current:', pageConfig);
+    
+    const newPageConfig = {
+      ...pageConfig,
+      ...updates
+    };
+    
+    console.log('New page config:', newPageConfig);
+    
+    onUpdate({
+      pageConfig: newPageConfig
+    });
+  }, [pageConfig, onUpdate]);
+
+  // Handle page selection
+  const handlePageSelect = useCallback((pageId) => {
+    console.log('Selecting page:', pageId);
+    updatePageConfig({
+      selectedPageId: pageId
+    });
+  }, [updatePageConfig]);
+
+  // Handle parameter updates
+  const handleAddParameter = useCallback(() => {
+    const newParameter = {
+      id: Date.now().toString(),
+      name: '',
+      value: ''
+    };
+    updatePageConfig({
+      parameters: [...pageConfig.parameters, newParameter]
+    });
+  }, [pageConfig.parameters, updatePageConfig]);
+
+  const handleRemoveParameter = useCallback((parameterId) => {
+    const newParameters = pageConfig.parameters.filter(p => p.id !== parameterId);
+    updatePageConfig({ parameters: newParameters });
+  }, [pageConfig.parameters, updatePageConfig]);
+
+  const handleParameterUpdate = useCallback((parameterId, field, value) => {
+    const newParameters = pageConfig.parameters.map(parameter => 
+      parameter.id === parameterId ? { ...parameter, [field]: value } : parameter
+    );
+    updatePageConfig({ parameters: newParameters });
+  }, [pageConfig.parameters, updatePageConfig]);
 
   const renderContainerTypeTabs = () => (
     <div style={{
@@ -413,6 +476,8 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
             value={sliderConfig.activeTab}
             onChange={(value) => updateSliderConfig({ activeTab: value })}
             availableElements={[]}
+            screens={screens}
+            currentScreenId={currentScreenId}
           />
         </div>
       </div>
@@ -447,6 +512,8 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
             value={tabsConfig.activeTab}
             onChange={(value) => updateTabsConfig({ activeTab: value })}
             availableElements={[]}
+            screens={screens}
+            currentScreenId={currentScreenId}
           />
         </div>
       </div>
@@ -461,7 +528,7 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
       padding: '4px',
       marginBottom: '16px'
     }}>
-      {['fixed', 'repeating'].map((tab) => (
+      {['fixed', 'repeating', 'page'].map((tab) => (
         <button
           key={tab}
           onClick={() => handleContentTypeChange(tab)}
@@ -763,6 +830,191 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
     </div>
   );
 
+  const renderPageConfig = () => (
+    <div>
+      {/* Page Selection */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          display: 'block',
+          fontSize: '14px',
+          fontWeight: '500',
+          color: '#333',
+          marginBottom: '8px'
+        }}>
+          Select Page
+        </label>
+
+        <select
+          value={pageConfig.selectedPageId || ''}
+          onChange={(e) => handlePageSelect(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            fontSize: '14px',
+            backgroundColor: 'white',
+            marginBottom: '8px'
+          }}
+        >
+          <option value="">
+            Select a page to display
+          </option>
+          {availableScreens.map((screen) => (
+            <option key={screen.id} value={screen.id}>
+              {screen.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Parameters */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '12px'
+        }}>
+          <label style={{
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#333'
+          }}>
+            Parameters (Optional)
+          </label>
+          <div>
+            <button
+              onClick={handleAddParameter}
+              style={{
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                marginRight: '8px'
+              }}
+            >
+              Add Parameter
+            </button>
+            {pageConfig.parameters.length > 0 && (
+              <button
+                onClick={() => updatePageConfig({ parameters: [] })}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+
+        {pageConfig.parameters.map((parameter, index) => (
+          <div key={parameter.id} style={{
+            backgroundColor: '#f0f8ff',
+            padding: '16px',
+            borderRadius: '8px',
+            marginBottom: '12px',
+            border: '1px solid #b3d9ff'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px'
+            }}>
+              <span style={{
+                fontSize: '12px',
+                fontWeight: '500',
+                color: '#333'
+              }}>
+                Parameter {index + 1}
+              </span>
+              <button
+                onClick={() => handleRemoveParameter(parameter.id)}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Parameter Name */}
+            <input
+              type="text"
+              value={parameter.name}
+              onChange={(e) => handleParameterUpdate(parameter.id, 'name', e.target.value)}
+              placeholder="Parameter name (e.g., userId, productId)"
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '12px',
+                marginBottom: '8px'
+              }}
+            />
+
+            {/* Parameter Value - Using SuperText */}
+            <SuperText
+              label="Parameter Value"
+              placeholder="Enter parameter value or select from elements"
+              value={parameter.value}
+              onChange={(value) => handleParameterUpdate(parameter.id, 'value', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+        ))}
+
+        {pageConfig.parameters.length === 0 && (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#f0f8ff',
+            borderRadius: '8px',
+            textAlign: 'center',
+            color: '#666',
+            fontSize: '14px',
+            border: '1px solid #b3d9ff'
+          }}>
+            No parameters added. Click "Add Parameter" to pass data to the nested page.
+          </div>
+        )}
+      </div>
+
+      {/* Info Box */}
+      <div style={{
+        padding: '12px',
+        backgroundColor: '#fff3cd',
+        border: '1px solid #ffeaa7',
+        borderRadius: '6px',
+        fontSize: '12px',
+        color: '#856404'
+      }}>
+        <strong>Note:</strong> The selected page will be rendered inside this container. 
+        You cannot modify elements within the nested page from this view - 
+        please navigate to the page itself to make changes.
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ marginBottom: '20px' }}>
       <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
@@ -805,6 +1057,8 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
       )}
       
       {contentType === 'repeating' && renderRepeatingConfig()}
+      
+      {contentType === 'page' && renderPageConfig()}
     </div>
   );
 };

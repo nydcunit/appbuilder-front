@@ -64,6 +64,9 @@ export class CalculationEngine {
       case 'repeating_container':
         return this.executeRepeatingContainerValue(config);
       
+      case 'passed_parameter':
+        return this.executePassedParameter(config);
+      
       case 'timestamp':
         return new Date().toISOString();
       
@@ -477,6 +480,126 @@ export class CalculationEngine {
     }
     
     throw new Error(`Unknown slider container value type: ${valueType}`);
+  }
+
+  // Execute passed parameter value
+  executePassedParameter(config) {
+    console.log('\n📨 === PASSED PARAMETER EXECUTION ===');
+    console.log('Config:', JSON.stringify(config, null, 2));
+    
+    const { passedParameterName, passedParameterFromScreen } = config;
+    
+    if (!passedParameterName) {
+      throw new Error('Parameter name must be specified');
+    }
+    
+    // Look up the parameter value from page containers
+    const parameterValue = this.findParameterValue(passedParameterName, passedParameterFromScreen);
+    
+    console.log('✅ Parameter value found:', parameterValue);
+    console.log('📨 === PASSED PARAMETER END ===\n');
+    
+    return parameterValue;
+  }
+
+  // Helper method to find parameter value from page containers
+  async findParameterValue(parameterName, fromScreenName) {
+    console.log('🔍 Looking for parameter:', parameterName, 'from screen:', fromScreenName);
+    
+    // ENHANCED: Check if this calculation engine is for a nested page element
+    if (this.nestedPageContext && this.nestedPageContext.parentPageContainer) {
+      console.log('🔍 This is a nested page element, checking parent page container parameters');
+      const parentContainer = this.nestedPageContext.parentPageContainer;
+      
+      // Look for the parameter in the parent page container
+      for (const param of parentContainer.parameters) {
+        if (param.name === parameterName) {
+          console.log('✅ Found parameter in parent page container:', param);
+          let paramValue = param.executedValue || param.value || '';
+          
+          // If we have an executed value, use it directly
+          if (param.executedValue !== undefined) {
+            console.log('✅ Using pre-executed parameter value:', param.executedValue);
+            return param.executedValue;
+          }
+          
+          // Otherwise execute the calculation if needed
+          if (paramValue && paramValue.includes('{{CALC:')) {
+            try {
+              console.log('🧮 Executing parameter calculation:', paramValue);
+              paramValue = await this.executeNestedCalculations(paramValue);
+              console.log('🧮 Parameter calculation result:', paramValue);
+            } catch (error) {
+              console.error('Error executing parameter calculation:', error);
+              paramValue = `[Error: ${error.message}]`;
+            }
+          }
+          
+          return paramValue;
+        }
+      }
+      
+      console.log('❌ Parameter not found in parent page container');
+      return '';
+    }
+    
+    // Original logic for non-nested page elements
+    // Search through all available elements to find page containers
+    const searchForPageContainers = async (elements) => {
+      if (!elements) return null;
+      
+      for (const element of elements) {
+        // Check if this is a page container with parameters
+        if (element.type === 'container' && 
+            element.contentType === 'page' && 
+            element.pageConfig && 
+            element.pageConfig.parameters) {
+          
+          console.log('🔍 Found page container:', element.id, 'with parameters:', element.pageConfig.parameters);
+          
+          // Look for the specific parameter
+          for (const param of element.pageConfig.parameters) {
+            if (param.name === parameterName) {
+              console.log('✅ Found matching parameter:', param);
+              let paramValue = param.value || '';
+              
+              // Execute calculation if parameter value contains calculation tokens
+              if (paramValue && paramValue.includes('{{CALC:')) {
+                try {
+                  console.log('🧮 Executing parameter calculation:', paramValue);
+                  paramValue = await this.executeNestedCalculations(paramValue);
+                  console.log('🧮 Parameter calculation result:', paramValue);
+                } catch (error) {
+                  console.error('Error executing parameter calculation:', error);
+                  paramValue = `[Error: ${error.message}]`;
+                }
+              }
+              
+              return paramValue;
+            }
+          }
+        }
+        
+        // Recursively search children
+        if (element.children) {
+          const result = await searchForPageContainers(element.children);
+          if (result !== null) return result;
+        }
+      }
+      
+      return null;
+    };
+    
+    // Search through all available elements
+    const parameterValue = await searchForPageContainers(this.availableElements);
+    
+    if (parameterValue !== null) {
+      console.log('✅ Parameter value found:', parameterValue);
+      return parameterValue;
+    }
+    
+    console.log('❌ Parameter not found, returning empty string');
+    return '';
   }
 
   // Execute repeating container value

@@ -6,7 +6,9 @@ const ConditionBlock = ({
   onUpdate, 
   onConditionSelectionChange, // NEW: Callback for when condition selection changes
   activeConditionIndex: propActiveConditionIndex, // NEW: Controlled active condition index
-  availableElements = [] 
+  availableElements = [],
+  screens = [],
+  currentScreenId = null
 }) => {
   const [activeTab, setActiveTab] = useState(element.renderType || 'fixed');
   // Use controlled activeConditionIndex if provided, otherwise manage internally
@@ -331,6 +333,8 @@ const ConditionBlock = ({
           onUpdate={(config) => handleStepUpdate(activeConditionIndex, step.id, { config })}
           availableElements={availableElements}
           label=""
+          screens={screens}
+          currentScreenId={currentScreenId}
         />
       </div>
     );

@@ -1,6 +1,233 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ContainerPropertiesPanel from './ContainerPropertiesPanel';
 import { getElementByType } from '../../elements';
+import { executeTextCalculations } from '../../utils/calculationEngine';
+
+// Page Content Container component with hover overlay
+const PageContentContainer = ({ pageElements, selectedScreenName, isExecuteMode, props }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div 
+      style={{ 
+        flex: 1, 
+        display: 'flex', 
+        flexDirection: props.orientation || 'column',
+        alignItems: props.horizontalAlignment || 'flex-start',
+        justifyContent: props.verticalAlignment || 'flex-start',
+        marginTop: isExecuteMode ? '0px' : '20px',
+        gap: props.orientation === 'row' ? '10px' : '5px',
+        position: 'relative'
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {pageElements}
+      
+      {/* Hover overlay for builder mode */}
+      {!isExecuteMode && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10,
+            pointerEvents: 'none',
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease'
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
+              color: 'white',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              fontSize: '14px',
+              textAlign: 'center',
+              maxWidth: '300px',
+              lineHeight: '1.4'
+            }}
+          >
+            <strong>📄 Nested Page Content</strong>
+            <br />
+            <span style={{ fontSize: '12px', opacity: 0.9 }}>
+              Elements from "{selectedScreenName}" are displayed here.
+              To edit them, navigate to that page directly.
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Component to handle parameter execution and page content rendering
+const PageContainerWithParameters = ({ element, selectedScreen, availableScreens, isExecuteMode, depth, calculationResults = {} }) => {
+  // Execute parameter calculations in execute mode
+  const [executedParameters, setExecutedParameters] = React.useState([]);
+  
+  React.useEffect(() => {
+    if (isExecuteMode && element.pageConfig && element.pageConfig.parameters) {
+      const executeParameterCalculations = async () => {
+        const executed = [];
+        
+        // Get all elements from all screens for calculation context
+        const getAllElementsFromScreens = () => {
+          const allElements = [];
+          availableScreens.forEach(screen => {
+            if (screen.elements) {
+              const traverse = (elementList) => {
+                elementList.forEach(el => {
+                  allElements.push(el);
+                  if (el.children && el.children.length > 0) {
+                    traverse(el.children);
+                  }
+                });
+              };
+              traverse(screen.elements);
+            }
+          });
+          return allElements;
+        };
+        
+        const allElements = getAllElementsFromScreens();
+        
+        for (const param of element.pageConfig.parameters) {
+          let executedValue = param.value;
+          
+          // Execute calculation if parameter value contains calculation tokens
+          if (param.value && param.value.includes('{{CALC:')) {
+            try {
+              console.log('🧮 Executing parameter calculation:', param.name, param.value);
+              executedValue = await executeTextCalculations(
+                param.value,
+                allElements,
+                {},
+                null
+              );
+              console.log('🧮 Parameter calculation result:', param.name, executedValue);
+            } catch (error) {
+              console.error('Error executing parameter calculation:', error);
+              executedValue = `[Error: ${error.message}]`;
+            }
+          }
+          
+          executed.push({
+            ...param,
+            executedValue
+          });
+        }
+        
+        setExecutedParameters(executed);
+      };
+      
+      executeParameterCalculations();
+    } else {
+      setExecutedParameters(element.pageConfig?.parameters || []);
+    }
+  }, [isExecuteMode, element.pageConfig?.parameters, availableScreens]);
+  
+  // Render the PageContentWithCalculations with executed parameters and calculation results
+  return React.createElement(PageContentWithCalculations, {
+    selectedScreen,
+    availableScreens,
+    isExecuteMode,
+    depth,
+    pageParameters: executedParameters,
+    calculationResults: calculationResults,
+    parentContainerId: element.id
+  });
+};
+
+// Component to handle page content with calculations
+const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecuteMode, depth, pageParameters = [], calculationResults = {}, parentContainerId = null }) => {
+  console.log('🔄 PageContentWithCalculations received calculation results:', Object.keys(calculationResults).length);
+  console.log('🔄 PageContentWithCalculations parentContainerId:', parentContainerId);
+  
+  // Helper function to apply calculated values to elements
+  const applyCalculatedValues = (elements, parentContainerId) => {
+    return elements.map(pageElement => {
+      let processedElement = { ...pageElement };
+      
+      // Apply calculated values for text elements if available
+      if (pageElement.type === 'text' && pageElement.properties?.value) {
+        // Check multiple possible nested element ID patterns
+        const possibleIds = [
+          `nested_${parentContainerId}_${pageElement.id}`,
+          `nested_${pageElement.id}`,
+          pageElement.id
+        ];
+        
+        let calculatedValue = undefined;
+        let foundId = null;
+        
+        for (const id of possibleIds) {
+          if (calculationResults[id] !== undefined) {
+            calculatedValue = calculationResults[id];
+            foundId = id;
+            break;
+          }
+        }
+        
+        if (calculatedValue !== undefined) {
+          console.log('✅ Applying calculated value for', pageElement.id, 'from', foundId, ':', calculatedValue);
+          processedElement = {
+            ...pageElement,
+            properties: {
+              ...pageElement.properties,
+              value: calculatedValue
+            }
+          };
+        } else {
+          console.log('❌ No calculated value found for', pageElement.id, 'checked IDs:', possibleIds);
+          console.log('❌ Available calculation results:', Object.keys(calculationResults));
+        }
+      }
+      
+      // Recursively process children
+      if (pageElement.children && pageElement.children.length > 0) {
+        processedElement.children = applyCalculatedValues(pageElement.children, parentContainerId);
+      }
+      
+      return processedElement;
+    });
+  };
+
+  // Apply calculated values to elements
+  const processedElements = isExecuteMode ? applyCalculatedValues(selectedScreen.elements, parentContainerId) : selectedScreen.elements;
+
+  // Render the page elements with calculated values
+  return processedElements.map((pageElement, index) => {
+    const elementDef = getElementByType(pageElement.type);
+    if (!elementDef) return null;
+    
+    // Render the page element
+    const renderedPageElement = elementDef.render(
+      pageElement,
+      depth + 1,
+      false, // not selected
+      false, // not drop zone
+      {}, // no handlers for nested page elements
+      pageElement.children ? pageElement.children.map(child => {
+        const childDef = getElementByType(child.type);
+        return childDef ? childDef.render(child, depth + 2, false, false, {}, null, null, isExecuteMode) : null;
+      }) : null,
+      null, // matchedConditionIndex
+      isExecuteMode
+    );
+    
+    return React.cloneElement(renderedPageElement, {
+      key: `page-${pageElement.id}-${index}`
+    });
+  });
+};
 
 // FIXED: Get properties for rendering - now correctly handles conditional properties based on evaluation
 const getRenderProperties = (element, matchedConditionIndex = null) => {
@@ -51,6 +278,18 @@ export const ContainerElement = {
     
     // Styling
     backgroundColor: '#ffffff',
+    
+    // Content configuration
+    contentType: 'fixed',
+    pageConfig: {
+      selectedPageId: null,
+      parameters: []
+    },
+    repeatingConfig: {
+      databaseId: null,
+      tableId: null,
+      filters: []
+    },
     
     // Spacing
     marginTop: 0,
@@ -123,7 +362,7 @@ export const ContainerElement = {
   getDefaultChildren: () => ([]),
 
   // FIXED: Render function now accepts matchedConditionIndex parameter
-  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false) => {
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false, availableScreens = [], calculationResults = {}) => {
     const { onClick, onDelete, onDragOver, onDragLeave, onDrop, onDragStart } = handlers;
     
     console.log('🔍 Container render called:', {
@@ -942,6 +1181,306 @@ export const ContainerElement = {
         </div>
       );
     };
+    
+    // Helper function to execute calculations for nested page elements
+    const executePageElementCalculations = async (elements, allElements) => {
+      const processedElements = [];
+      
+      for (const pageElement of elements) {
+        let processedElement = { ...pageElement };
+        
+        // Execute calculations for text elements
+        if (pageElement.type === 'text' && pageElement.properties?.value && isExecuteMode) {
+          try {
+            console.log('🧮 Executing calculation for nested page element:', pageElement.id, pageElement.properties.value);
+            
+            // Extract calculation storage (simplified)
+            const calculationStorage = {};
+            
+            // Execute the calculation
+            const executedValue = await executeTextCalculations(
+              pageElement.properties.value,
+              allElements, // Use all available elements for calculations
+              calculationStorage,
+              null // No repeating context for nested pages
+            );
+            
+            console.log('🧮 Calculation result for', pageElement.id, ':', executedValue);
+            
+            // Update the element with the calculated value
+            processedElement = {
+              ...pageElement,
+              properties: {
+                ...pageElement.properties,
+                value: executedValue
+              }
+            };
+          } catch (error) {
+            console.error(`Error executing calculation for nested page element ${pageElement.id}:`, error);
+            // Keep original value if calculation fails
+            processedElement = {
+              ...pageElement,
+              properties: {
+                ...pageElement.properties,
+                value: `[Error: ${error.message}]`
+              }
+            };
+          }
+        }
+        
+        // Recursively process children
+        if (pageElement.children && pageElement.children.length > 0) {
+          processedElement.children = await executePageElementCalculations(pageElement.children, allElements);
+        }
+        
+        processedElements.push(processedElement);
+      }
+      
+      return processedElements;
+    };
+    
+    // Handle page content type - render selected page elements
+    if (contentType === 'page' && element.pageConfig && element.pageConfig.selectedPageId) {
+      const selectedScreen = availableScreens.find(screen => screen.id == element.pageConfig.selectedPageId);
+      
+      if (selectedScreen && selectedScreen.elements) {
+        // Use the PageContainerWithParameters component to handle parameter execution and page content
+        const pageElements = React.createElement(PageContainerWithParameters, {
+          element,
+          selectedScreen,
+          availableScreens,
+          isExecuteMode,
+          depth,
+          calculationResults
+        });
+        
+        return (
+          <div
+            key={element.id}
+            draggable={!isExecuteMode}
+            onClick={(e) => {
+              if (!isExecuteMode) {
+                onClick && onClick(element, e);
+              }
+            }}
+            onDragStart={(e) => {
+              if (!isExecuteMode) {
+                e.stopPropagation();
+                onDragStart && onDragStart(e);
+              }
+            }}
+            onDragOver={(e) => {
+              if (!isExecuteMode) {
+                e.stopPropagation();
+                onDragOver && onDragOver(e);
+              }
+            }}
+            onDragLeave={(e) => {
+              if (!isExecuteMode) {
+                e.stopPropagation();
+                onDragLeave && onDragLeave(e);
+              }
+            }}
+            onDrop={(e) => {
+              if (!isExecuteMode) {
+                e.stopPropagation();
+                onDrop && onDrop(e);
+              }
+            }}
+            style={{
+              ...containerStyle,
+              position: 'relative',
+              cursor: isExecuteMode ? 'default' : 'grab'
+            }}
+            onMouseDown={(e) => {
+              if (!isExecuteMode) {
+                e.currentTarget.style.cursor = 'grabbing';
+              }
+            }}
+            onMouseUp={(e) => {
+              if (!isExecuteMode) {
+                e.currentTarget.style.cursor = 'grab';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isExecuteMode) {
+                e.currentTarget.style.cursor = 'grab';
+              }
+            }}
+          >
+            {/* Container Label - Hide in execute mode */}
+            {!isExecuteMode && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '4px',
+                  left: '4px',
+                  fontSize: '10px',
+                  color: '#6f42c1',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  border: '1px solid #6f42c1',
+                  zIndex: 1,
+                  pointerEvents: 'none',
+                  fontWeight: 'bold'
+                }}
+              >
+                Container (Page: {selectedScreen.name})
+                {element.renderType === 'conditional' && (
+                  <span style={{ color: '#007bff', marginLeft: '4px' }}>• Conditional</span>
+                )}
+              </div>
+            )}
+            
+            {/* Delete Button - Hide in execute mode */}
+            {!isExecuteMode && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete && onDelete(element.id);
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '4px',
+                  right: '4px',
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  borderRadius: '50%',
+                  zIndex: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
+            )}
+            
+            {/* Page Content */}
+            <PageContentContainer 
+              pageElements={pageElements}
+              selectedScreenName={selectedScreen.name}
+              isExecuteMode={isExecuteMode}
+              props={props}
+            />
+          </div>
+        );
+      } else {
+        // No page selected or page not found
+        return (
+          <div
+            key={element.id}
+            style={{
+              ...containerStyle,
+              cursor: isExecuteMode ? 'default' : containerStyle.cursor
+            }}
+          >
+            {/* Container Label - Hide in execute mode */}
+            {!isExecuteMode && (
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '4px',
+                  left: '4px',
+                  fontSize: '10px',
+                  color: '#6f42c1',
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  border: '1px solid #6f42c1',
+                  zIndex: 1,
+                  pointerEvents: 'none',
+                  fontWeight: 'bold'
+                }}
+              >
+                Container (Page - No Page Selected)
+                {element.renderType === 'conditional' && (
+                  <span style={{ color: '#007bff', marginLeft: '4px' }}>• Conditional</span>
+                )}
+              </div>
+            )}
+            
+            {/* Delete Button - Hide in execute mode */}
+            {!isExecuteMode && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete && onDelete(element.id);
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '4px',
+                  right: '4px',
+                  background: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  width: '18px',
+                  height: '18px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  borderRadius: '50%',
+                  zIndex: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
+            )}
+            
+            {/* Content Area */}
+            <div style={{ 
+              flex: 1, 
+              display: 'flex', 
+              flexDirection: props.orientation || 'column',
+              alignItems: props.horizontalAlignment || 'flex-start',
+              justifyContent: props.verticalAlignment || 'flex-start',
+              marginTop: isExecuteMode ? '0px' : '20px',
+              gap: props.orientation === 'row' ? '10px' : '5px'
+            }}>
+              <div 
+                style={{ 
+                  color: '#6f42c1', 
+                  fontSize: '14px', 
+                  textAlign: 'center',
+                  alignSelf: 'center',
+                  margin: 'auto',
+                  padding: '20px',
+                  border: '2px dashed #6f42c1',
+                  borderRadius: '8px',
+                  backgroundColor: '#f8f9ff',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ fontSize: '24px' }}>📄</div>
+                <div style={{ fontWeight: 'bold' }}>Page Container</div>
+                <div style={{ fontSize: '12px', opacity: 0.8 }}>
+                  {selectedScreen ? 'Selected page has no elements' : 'Select a page in the properties panel to display its content here'}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+    }
     
     // Handle tabs container in execute mode - elements are clickable tabs
     if (isExecuteMode && isTabsContainer && children && children.length > 0) {

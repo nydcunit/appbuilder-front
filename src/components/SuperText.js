@@ -254,7 +254,9 @@ const SuperText = ({
   value = "", 
   onChange,
   disabled = false,
-  availableElements = []
+  availableElements = [],
+  screens = [],
+  currentScreenId = null
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [textValue, setTextValue] = useState(value);
@@ -612,6 +614,8 @@ const SuperText = ({
         position={{ x: 0, y: 0 }}
         zIndex={popupZIndex || 1000}
         availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
       />
     </>
   );

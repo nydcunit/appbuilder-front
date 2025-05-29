@@ -91,7 +91,7 @@ const Builder = () => {
       ? element.children.map(child => renderElement(child, depth + 1))
       : null;
 
-    const renderedElement = elementDef.render(element, depth, isSelected, isDropZone, handlers, children);
+    const renderedElement = elementDef.render(element, depth, isSelected, isDropZone, handlers, children, null, false, false, false, screens);
     
     return React.cloneElement(renderedElement, {
       key: element.id,
@@ -229,6 +229,8 @@ const Builder = () => {
           setShowPropertiesPopup={setShowPropertiesPopup}
           updateElement={elementOperations.updateElement}
           availableElementsForCalculations={availableElementsForCalculations}
+          screens={screens}
+          currentScreenId={currentScreenId}
         />
 
         {/* Preview Modal */}

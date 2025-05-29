@@ -7,7 +7,9 @@ const TextContentSettings = ({
   availableElements = [],
   element,
   isInsideSliderContainer = false, // Flag to indicate if this text is inside a slider container
-  isInsideTabsContainer = false // Flag to indicate if this text is inside a tabs container
+  isInsideTabsContainer = false, // Flag to indicate if this text is inside a tabs container
+  screens = [],
+  currentScreenId = null
 }) => {
   
   // Handle slide text toggle
@@ -126,6 +128,8 @@ const TextContentSettings = ({
         value={getValue('value')}
         onChange={(value) => handleInputChange('value', value)}
         availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
       />
     </div>
   );

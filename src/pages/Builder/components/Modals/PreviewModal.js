@@ -47,13 +47,20 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       setVisibleElements(filteredElements);
       setElementConditionMatches(conditionMatches); // NEW: Store condition matches
       
-      // Step 4: Execute calculations on visible elements
+      // Step 4: Execute calculations on visible elements AND nested page elements
       console.log('🔄 Executing calculations...');
       const results = {};
       const errors = {};
       const visibleFlatElements = getAllElementsInScreen(filteredElements);
       
-      for (const element of visibleFlatElements) {
+      // ENHANCED: Also get elements from nested pages
+      const nestedPageElements = await getNestedPageElements(filteredElements, screens);
+      console.log('🔄 Found nested page elements:', nestedPageElements.length);
+      
+      // Combine visible elements with nested page elements
+      const allElementsToProcess = [...visibleFlatElements, ...nestedPageElements];
+      
+      for (const element of allElementsToProcess) {
         if (element.type === 'text' && element.properties?.value) {
           try {
             const calculationStorage = extractCalculationStorage(element.properties.value);
@@ -61,15 +68,64 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
             // Get repeating context if element is inside a repeating container
             const repeatingContext = getRepeatingContextForElement(element, containerData);
             
-            // ENHANCED: Execute calculations with expanded elements for tabs container support
-            const executedValue = await executeTextCalculations(
-              element.properties.value, 
-              allElements, // Use all elements for calculations
-              calculationStorage,
-              repeatingContext, // Pass repeating context
-              filteredElements // ENHANCED: Pass expanded elements for tabs container searches
-            );
-            results[element.id] = executedValue;
+            // ENHANCED: For nested page elements, create a custom calculation engine with parameter context
+            if (element.parentPageContainer) {
+              console.log('🔄 Processing nested page element with parameter context:', element.id);
+              
+              // Import and create custom calculation engine
+              const { CalculationEngine } = await import('../../../../utils/calculationEngine');
+              const calculationEngine = new CalculationEngine(allElements, repeatingContext, filteredElements);
+              
+              // Set the nested page context for parameter resolution
+              calculationEngine.nestedPageContext = {
+                parentPageContainer: element.parentPageContainer
+              };
+              
+              // Execute calculations with the custom engine
+              let result = element.properties.value;
+              const calcMatches = result.match(/{{CALC:([^}]+)}}/g);
+              
+              if (calcMatches) {
+                for (const match of calcMatches) {
+                  const calculationId = match.match(/{{CALC:([^}]+)}}/)[1];
+                  
+                  try {
+                    // Get calculation from storage
+                    let calculation = null;
+                    if (window.superTextCalculations && window.superTextCalculations[calculationId]) {
+                      calculation = window.superTextCalculations[calculationId];
+                    } else {
+                      const stored = localStorage.getItem(`calc_${calculationId}`);
+                      if (stored) {
+                        calculation = JSON.parse(stored);
+                      }
+                    }
+                    
+                    if (calculation && calculation.steps) {
+                      const calculatedValue = await calculationEngine.executeCalculation(calculation.steps);
+                      result = result.replace(match, calculatedValue);
+                    } else {
+                      result = result.replace(match, `[Missing: ${calculationId.slice(-6)}]`);
+                    }
+                  } catch (error) {
+                    console.error(`Error executing nested calculation ${calculationId}:`, error);
+                    result = result.replace(match, `[Error: ${error.message}]`);
+                  }
+                }
+              }
+              
+              results[element.id] = result;
+            } else {
+              // Regular element calculation
+              const executedValue = await executeTextCalculations(
+                element.properties.value, 
+                allElements, // Use all elements for calculations
+                calculationStorage,
+                repeatingContext, // Pass repeating context
+                filteredElements // ENHANCED: Pass expanded elements for tabs container searches
+              );
+              results[element.id] = executedValue;
+            }
           } catch (error) {
             console.error(`Error executing calculations for element ${element.id}:`, error);
             errors[element.id] = error.message;
@@ -356,6 +412,59 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     return allElements;
   };
 
+  // Get elements from nested pages (for page containers)
+  const getNestedPageElements = async (elements, availableScreens) => {
+    const nestedElements = [];
+    
+    const findPageContainers = (elementList) => {
+      const pageContainers = [];
+      elementList.forEach(element => {
+        if (element.type === 'container' && element.contentType === 'page' && element.pageConfig?.selectedPageId) {
+          pageContainers.push(element);
+        }
+        if (element.children && element.children.length > 0) {
+          pageContainers.push(...findPageContainers(element.children));
+        }
+      });
+      return pageContainers;
+    };
+    
+    const pageContainers = findPageContainers(elements);
+    console.log('🔄 Found page containers:', pageContainers.length);
+    
+    for (const pageContainer of pageContainers) {
+      const selectedScreen = availableScreens.find(screen => screen.id == pageContainer.pageConfig.selectedPageId);
+      
+      if (selectedScreen && selectedScreen.elements) {
+        console.log(`🔄 Processing nested page: ${selectedScreen.name} (${selectedScreen.elements.length} elements)`);
+        
+        // Get all elements from the nested page
+        const pageElements = getAllElementsInScreen(selectedScreen.elements);
+        
+        // Add page container context to each element for parameter resolution
+        pageElements.forEach(element => {
+          if (element.type === 'text' && element.properties?.value) {
+            // Create a unique ID for nested page elements
+            const nestedElement = {
+              ...element,
+              id: `nested_${pageContainer.id}_${element.id}`,
+              originalId: element.id,
+              parentPageContainer: {
+                id: pageContainer.id,
+                parameters: pageContainer.pageConfig?.parameters || []
+              }
+            };
+            nestedElements.push(nestedElement);
+            console.log(`🔄 Added nested element: ${nestedElement.id} with ${nestedElement.parentPageContainer.parameters.length} parameters`);
+          }
+        });
+      }
+    }
+    
+    console.log(`🔄 Total nested page elements found: ${nestedElements.length}`);
+    return nestedElements;
+  };
+
   // Check if an element should have active tab styling
   const checkIfElementIsActiveTab = (element) => {
     // Helper function to extract original ID from repeating container instance ID
@@ -481,6 +590,194 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     return false;
   };
 
+  // Copy focused debug data for parameter passing issue
+  const copyDebugData = async () => {
+    try {
+      // Get current processing data
+      const visibleFlatElements = getAllElementsInScreen(visibleElements);
+      const nestedPageElements = await getNestedPageElements(visibleElements, screens);
+      const allElementsToProcess = [...visibleFlatElements, ...nestedPageElements];
+      
+      // Find page containers with parameters
+      const findPageContainers = (elements) => {
+        const pageContainers = [];
+        const traverse = (elementList) => {
+          elementList.forEach(el => {
+            if (el.type === 'container' && el.contentType === 'page') {
+              pageContainers.push({
+                id: el.id,
+                selectedPageId: el.pageConfig?.selectedPageId,
+                parameters: el.pageConfig?.parameters || []
+              });
+            }
+            if (el.children && el.children.length > 0) {
+              traverse(el.children);
+            }
+          });
+        };
+        traverse(elements);
+        return pageContainers;
+      };
+
+      // Find tabs containers
+      const findTabsContainers = (elements) => {
+        const tabsContainers = [];
+        const traverse = (elementList) => {
+          elementList.forEach(el => {
+            if (el.type === 'container' && el.containerType === 'tabs') {
+              tabsContainers.push({
+                id: el.id,
+                tabsConfig: el.tabsConfig,
+                activeTabValue: window.__activeTabs?.[el.id]
+              });
+            }
+            if (el.children && el.children.length > 0) {
+              traverse(el.children);
+            }
+          });
+        };
+        traverse(elements);
+        return tabsContainers;
+      };
+
+      const pageContainers = findPageContainers(currentScreen?.elements || []);
+      const tabsContainers = findTabsContainers(currentScreen?.elements || []);
+      
+      // Get only relevant calculations
+      const getRelevantCalculations = () => {
+        const relevantCalcs = {};
+        
+        // Get parameter calculations
+        pageContainers.forEach(pc => {
+          pc.parameters.forEach(param => {
+            if (param.value && param.value.includes('{{CALC:')) {
+              const calcMatches = param.value.match(/{{CALC:([^}]+)}}/g) || [];
+              calcMatches.forEach(match => {
+                const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+                if (window.superTextCalculations?.[calcId]) {
+                  relevantCalcs[calcId] = window.superTextCalculations[calcId];
+                } else {
+                  const stored = localStorage.getItem(`calc_${calcId}`);
+                  if (stored) {
+                    try {
+                      relevantCalcs[calcId] = JSON.parse(stored);
+                    } catch (e) {}
+                  }
+                }
+              });
+            }
+          });
+        });
+        
+        // Get nested page element calculations
+        nestedPageElements.forEach(el => {
+          if (el.properties?.value?.includes('{{CALC:')) {
+            const calcMatches = el.properties.value.match(/{{CALC:([^}]+)}}/g) || [];
+            calcMatches.forEach(match => {
+              const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+              if (window.superTextCalculations?.[calcId]) {
+                relevantCalcs[calcId] = window.superTextCalculations[calcId];
+              } else {
+                const stored = localStorage.getItem(`calc_${calcId}`);
+                if (stored) {
+                  try {
+                    relevantCalcs[calcId] = JSON.parse(stored);
+                  } catch (e) {}
+                }
+              }
+            });
+          }
+        });
+        
+        return relevantCalcs;
+      };
+
+      const debugData = {
+        timestamp: new Date().toISOString(),
+        issue: "Parameter passing in nested page containers",
+        
+        // 1. Current screen info
+        currentScreen: {
+          id: currentScreen?.id,
+          name: currentScreen?.name
+        },
+        
+        // 2. Tabs containers (source of parameter values)
+        tabsContainers: tabsContainers,
+        
+        // 3. Page containers (consumers of parameters)
+        pageContainers: pageContainers.filter(pc => pc.parameters.length > 0),
+        
+        // 4. Nested page elements discovered
+        nestedPageElements: nestedPageElements.map(el => ({
+          id: el.id,
+          originalId: el.originalId,
+          originalValue: el.properties?.value,
+          parentPageContainer: el.parentPageContainer
+        })),
+        
+        // 5. Calculation results for nested elements
+        nestedCalculationResults: Object.keys(calculationResults)
+          .filter(key => key.startsWith('nested_'))
+          .reduce((acc, key) => {
+            acc[key] = calculationResults[key];
+            return acc;
+          }, {}),
+        
+        // 6. Parameter calculations
+        parameterCalculations: pageContainers.reduce((acc, pc) => {
+          pc.parameters.forEach(param => {
+            if (param.value && param.value.includes('{{CALC:')) {
+              acc.push({
+                containerId: pc.id,
+                parameterName: param.name,
+                parameterValue: param.value,
+                calculationTokens: param.value.match(/{{CALC:([^}]+)}}/g) || []
+              });
+            }
+          });
+          return acc;
+        }, []),
+        
+        // 7. Relevant calculations only
+        relevantCalculations: getRelevantCalculations(),
+        
+        // 8. Global state
+        globalTabsState: window.__activeTabs || {},
+        
+        // 9. Container processing debug
+        containerProcessingDebug: {
+          expectedLookupId: `nested_1748526128133_1748519695843`,
+          actualCalculationResultKeys: Object.keys(calculationResults),
+          containerIdPassedToPageContent: pageContainers.length > 0 ? pageContainers[0].id : 'none'
+        },
+        
+        // 10. Execution errors (if any)
+        executionErrors: Object.keys(executionErrors).length > 0 ? executionErrors : "No errors"
+      };
+
+      const debugJson = JSON.stringify(debugData, null, 2);
+      await navigator.clipboard.writeText(debugJson);
+      
+      // Show success feedback
+      const button = document.querySelector('button[style*="#6f42c1"]');
+      if (button) {
+        const originalText = button.textContent;
+        button.textContent = '✅ Copied!';
+        button.style.backgroundColor = '#28a745';
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.backgroundColor = '#6f42c1';
+        }, 2000);
+      }
+      
+      console.log('🐛 Focused debug data copied to clipboard:', debugData);
+    } catch (error) {
+      console.error('Failed to copy debug data:', error);
+      alert('Failed to copy debug data. Check console for details.');
+    }
+  };
+
   // FIXED: Enhanced renderPreviewElement to use matched condition index
   const renderPreviewElement = (element, depth = 0) => {
     const elementDef = getElementByType(element.type);
@@ -520,7 +817,9 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       matchedConditionIndex, // FIXED: Pass the matched condition index
       true, // isExecuteMode - this is preview/execute mode
       false, // isActiveSlide - this will be set by the slider component itself
-      isActiveTab // isActiveTab - check if this element is in the active tab
+      isActiveTab, // isActiveTab - check if this element is in the active tab
+      screens, // availableScreens - needed for page containers to render nested pages
+      calculationResults // calculationResults - pass calculation results to containers
     );
     
     // Add debug info for repeating container instances
@@ -627,6 +926,22 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
               }}
             >
               {isExecuting ? '🔄' : '🔄 Refresh'}
+            </button>
+
+            {/* Debug Data Copy Button */}
+            <button
+              onClick={copyDebugData}
+              style={{
+                padding: '5px 10px',
+                backgroundColor: '#6f42c1',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px'
+              }}
+            >
+              📋 Copy Debug Data
             </button>
 
             {/* Debug Info */}

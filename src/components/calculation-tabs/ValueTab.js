@@ -3,11 +3,12 @@ import SuperText from '../SuperText';
 import { useZIndex } from '../ZIndexContext';
 import axios from 'axios';
 
-const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 1000 }) => {
+const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 1000, screens = [], currentScreenId = null }) => {
   // FIX: Properly initialize selectedOption based on config.source
   const getInitialSelectedOption = () => {
     if (config.source === 'element') return 'element';
     if (config.source === 'repeating_container') return 'repeating_container';
+    if (config.source === 'passed_parameter') return 'passed_parameter';
     if (config.source === 'custom') return 'custom';
     // Default fallback
     return 'custom';
@@ -48,6 +49,59 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       element.repeatingConfig?.tableId
     );
   };
+
+  // Find parameters being passed to the current screen from page containers on other screens
+  const findPassedParameters = () => {
+    const passedParams = [];
+    
+    if (!screens || !currentScreenId) return passedParams;
+    
+    // Look through all screens for page containers that reference the current screen
+    screens.forEach(screen => {
+      if (screen.id === currentScreenId) return; // Skip current screen
+      
+      // Recursively search for page containers in this screen
+      const searchElements = (elements) => {
+        if (!elements) return;
+        
+        elements.forEach(element => {
+          // Check if this is a page container pointing to current screen
+          if (element.type === 'container' && 
+              element.contentType === 'page' && 
+              element.pageConfig && 
+              element.pageConfig.selectedPageId == currentScreenId) {
+            
+            // Add all parameters from this page container
+            if (element.pageConfig.parameters) {
+              element.pageConfig.parameters.forEach(param => {
+                if (param.name && param.name.trim()) {
+                  passedParams.push({
+                    name: param.name,
+                    value: param.value,
+                    fromScreen: screen.name,
+                    fromScreenId: screen.id,
+                    containerId: element.id
+                  });
+                }
+              });
+            }
+          }
+          
+          // Recursively search children
+          if (element.children) {
+            searchElements(element.children);
+          }
+        });
+      };
+      
+      searchElements(screen.elements);
+    });
+    
+    return passedParams;
+  };
+
+  // Get passed parameters
+  const passedParameters = findPassedParameters();
 
   const loadContainerColumns = async (containerId, databaseId, tableId) => {
     try {
@@ -166,6 +220,31 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
     });
   }, [config, onUpdate, repeatingContainers]);
 
+  // Handle passed parameter selection
+  const handlePassedParameterSelect = useCallback((parameterKey) => {
+    const [paramName, fromScreenName] = parameterKey.split('|');
+    const parameter = passedParameters.find(p => p.name === paramName && p.fromScreen === fromScreenName);
+    
+    if (parameter) {
+      onUpdate({
+        source: 'passed_parameter',
+        passedParameterName: parameter.name,
+        passedParameterFromScreen: parameter.fromScreen,
+        value: `${parameter.name} (From: ${parameter.fromScreen})`,
+        // Clear other source-specific fields
+        elementId: null,
+        containerValueType: null,
+        databaseId: null,
+        tableId: null,
+        filters: [],
+        action: 'value',
+        selectedColumn: null,
+        repeatingContainerId: null,
+        repeatingColumn: null
+      });
+    }
+  }, [passedParameters, onUpdate]);
+
   // Filter available elements to show text elements, slider containers, and tabs containers
   const valueElements = availableElements.filter(element => 
     element.type === 'text' || 
@@ -209,6 +288,8 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
         value={config.value || ''}
         onChange={handleCustomValueChange}
         availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
       />
     </div>
   );
@@ -542,6 +623,137 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
     </div>
   );
 
+  const renderPassedParameterValue = () => (
+    <div style={{ marginTop: '16px' }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '12px'
+      }}>
+        <label style={{
+          fontSize: '14px',
+          fontWeight: '500',
+          color: '#333'
+        }}>
+          Passed Parameter
+        </label>
+        <button
+          onClick={() => handleOptionChange('passed_parameter')}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: '#999',
+            cursor: 'pointer',
+            fontSize: '12px',
+            textDecoration: 'underline'
+          }}
+        >
+          Clear
+        </button>
+      </div>
+
+      {/* Parameter Selection */}
+      <select
+        value={config.passedParameterName && config.passedParameterFromScreen ? `${config.passedParameterName}|${config.passedParameterFromScreen}` : ''}
+        onChange={(e) => handlePassedParameterSelect(e.target.value)}
+        style={{
+          width: '100%',
+          padding: '12px',
+          border: '1px solid #ddd',
+          borderRadius: '6px',
+          fontSize: '14px',
+          backgroundColor: 'white',
+          marginBottom: '12px'
+        }}
+      >
+        <option value="">Select Parameter</option>
+        {passedParameters.map((param, index) => {
+          const key = `${param.name}|${param.fromScreen}`;
+          return (
+            <option key={`${key}-${index}`} value={key}>
+              {param.name}, From: {param.fromScreen}
+            </option>
+          );
+        })}
+      </select>
+
+      {/* Show selected parameter info */}
+      {config.passedParameterName && config.passedParameterFromScreen && (
+        <div style={{
+          marginTop: '8px',
+          padding: '8px 12px',
+          backgroundColor: '#f3e8ff',
+          borderRadius: '6px',
+          border: '1px solid #6f42c1'
+        }}>
+          <div style={{
+            fontSize: '12px',
+            fontWeight: '500',
+            color: '#6f42c1',
+            marginBottom: '4px'
+          }}>
+            Selected Parameter:
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#333',
+            marginBottom: '2px'
+          }}>
+            <strong>Name:</strong> {config.passedParameterName}
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#333',
+            marginBottom: '2px'
+          }}>
+            <strong>From Screen:</strong> {config.passedParameterFromScreen}
+          </div>
+          {(() => {
+            const parameter = passedParameters.find(p => 
+              p.name === config.passedParameterName && 
+              p.fromScreen === config.passedParameterFromScreen
+            );
+            if (parameter && parameter.value) {
+              return (
+                <div style={{
+                  fontSize: '12px',
+                  color: '#666',
+                  marginTop: '4px'
+                }}>
+                  <strong>Current Value:</strong> "{parameter.value}"
+                </div>
+              );
+            }
+            return null;
+          })()} 
+          <div style={{
+            fontSize: '11px',
+            color: '#666',
+            marginTop: '4px',
+            fontStyle: 'italic'
+          }}>
+            This parameter is passed from a page container on the "{config.passedParameterFromScreen}" screen
+          </div>
+        </div>
+      )}
+
+      {passedParameters.length === 0 && (
+        <div style={{
+          marginTop: '8px',
+          padding: '12px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '6px',
+          fontSize: '12px',
+          color: '#666',
+          textAlign: 'center'
+        }}>
+          No parameters are being passed to this screen from page containers on other screens.
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div>
       {/* Value Source Selection */}
@@ -683,6 +895,68 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
           </div>
         )}
 
+        {/* Option: Passed Parameter (only show if passed parameters are available) */}
+        {passedParameters.length > 0 && (
+          <div
+            onClick={() => handleOptionChange('passed_parameter')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px',
+              backgroundColor: selectedOption === 'passed_parameter' ? '#6f42c1' : 'white',
+              color: selectedOption === 'passed_parameter' ? 'white' : '#333',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              marginBottom: '8px',
+              border: selectedOption === 'passed_parameter' ? '2px solid #6f42c1' : '1px solid #e0e0e0',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div
+              style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                border: selectedOption === 'passed_parameter' ? '2px solid white' : '2px solid #ddd',
+                marginRight: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {selectedOption === 'passed_parameter' && (
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    backgroundColor: 'white'
+                  }}
+                />
+              )}
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: '14px', fontWeight: '500' }}>
+                Passed Parameter
+              </span>
+              <div style={{
+                fontSize: '12px',
+                opacity: 0.8,
+                marginTop: '2px'
+              }}>
+                Get value from parameters passed to this screen ({passedParameters.length} available)
+              </div>
+            </div>
+            {selectedOption === 'passed_parameter' && (
+              <div style={{ marginLeft: 'auto' }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                </svg>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Option: Custom Value */}
         <div
           onClick={() => handleOptionChange('custom')}
@@ -746,6 +1020,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       {/* Render selected option content */}
       {selectedOption === 'element' && renderElementValue()}
       {selectedOption === 'repeating_container' && renderRepeatingContainerValue()}
+      {selectedOption === 'passed_parameter' && renderPassedParameterValue()}
       {selectedOption === 'custom' && renderCustomValue()}
     </div>
   );

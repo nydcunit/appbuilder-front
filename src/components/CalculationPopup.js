@@ -8,7 +8,9 @@ const CalculationPopup = ({
   initialSteps = [],
   position = { x: 0, y: 0 },
   zIndex = 1000,
-  availableElements = []
+  availableElements = [],
+  screens = [],
+  currentScreenId = null
 }) => {
   const createEmptyStep = useCallback(() => ({
     id: Date.now().toString(),
@@ -200,6 +202,8 @@ const CalculationPopup = ({
                 canRemove={steps.length > 1}
                 availableElements={availableElements}
                 parentZIndex={zIndex}
+                screens={screens}
+                currentScreenId={currentScreenId}
               />
             </div>
           ))}

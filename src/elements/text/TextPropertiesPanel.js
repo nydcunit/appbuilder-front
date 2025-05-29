@@ -4,7 +4,7 @@ import TextContentSettings from './TextContentSettings';
 import TextStyleSettings from './TextStyleSettings';
 
 // Separate memoized properties panel component
-const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] }) => {
+const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], screens = [], currentScreenId = null }) => {
   const props = element.properties || {};
   
   // FIXED: Initialize activeConditionIndex based on element's conditional state
@@ -310,6 +310,8 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
         onConditionSelectionChange={handleConditionSelectionChange}
         activeConditionIndex={activeConditionIndex}
         availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
       />
 
       {/* FIXED: Show indicator of which condition's properties are being edited */}
@@ -341,6 +343,8 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
         element={element}
         isInsideSliderContainer={checkIfInsideSliderContainer()}
         isInsideTabsContainer={checkIfInsideTabsContainer()}
+        screens={screens}
+        currentScreenId={currentScreenId}
       />
       
       {/* Style Settings - These now automatically use the correct condition properties */}

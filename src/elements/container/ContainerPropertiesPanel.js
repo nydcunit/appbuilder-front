@@ -4,7 +4,7 @@ import ContainerContentSettings from './ContainerContentSettings';
 import ContainerStyleSettings from './ContainerStyleSettings';
 
 // Separate memoized properties panel component
-const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = [] }) => {
+const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = [], screens = [], currentScreenId = null }) => {
   const props = element.properties || {};
   
   // FIXED: Initialize activeConditionIndex based on element's conditional state
@@ -310,6 +310,8 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         onConditionSelectionChange={handleConditionSelectionChange}
         activeConditionIndex={activeConditionIndex}
         availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
       />
 
       {/* FIXED: Show indicator of which condition's properties are being edited */}
@@ -337,6 +339,10 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
       <ContainerContentSettings
         element={element}
         onUpdate={onUpdate}
+        availableElements={availableElements}
+        availableScreens={screens}
+        screens={screens}
+        currentScreenId={currentScreenId}
       />
       
       {/* Style Settings - These now automatically use the correct condition properties */}

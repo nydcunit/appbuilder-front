@@ -11,7 +11,9 @@ const CalculationStep = ({
   onRemove, 
   canRemove = true,
   availableElements = [],
-  parentZIndex = 1000
+  parentZIndex = 1000,
+  screens = [],
+  currentScreenId = null
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
     // Better detection of active tab based on step's config
@@ -97,7 +99,9 @@ const CalculationStep = ({
       config: step.config,
       onUpdate,
       availableElements,
-      parentZIndex
+      parentZIndex,
+      screens,
+      currentScreenId
     };
 
     switch (activeTab) {
