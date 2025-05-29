@@ -163,6 +163,11 @@ const Builder = () => {
     }
   };
 
+  const handleOldExecute = () => {
+    setShowPreviewModal(true);
+    setPreviewScreenId(currentScreenId);
+  };
+
   const handleCopyCanvas = async () => {
     try {
       const availableElementsForCalculations = currentScreen ? getAllElementsInScreen(currentScreen.elements) : [];
@@ -248,6 +253,7 @@ const Builder = () => {
           copyCanvasToClipboard={handleCopyCanvas}
           copySuccess={copySuccess}
           handleExecute={handleExecute}
+          handleOldExecute={handleOldExecute}
           saveApp={handleSaveApp}
           saving={saving}
         />

@@ -14,6 +14,7 @@ const BuilderHeader = ({
   copyCanvasToClipboard,
   copySuccess,
   handleExecute,
+  handleOldExecute,
   saveApp,
   saving
 }) => {
@@ -62,6 +63,26 @@ const BuilderHeader = ({
           title="Copy all canvas data to clipboard for sharing/debugging"
         >
           {copySuccess ? '✓ Copied!' : '📋 Copy Canvas'}
+        </button>
+
+        {/* Old Execute Button */}
+        <button
+          onClick={handleOldExecute}
+          style={{
+            padding: '8px 15px',
+            backgroundColor: '#6f42c1',
+            color: 'white',
+            border: 'none',
+            cursor: 'pointer',
+            borderRadius: '4px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}
+          title="Open inbuilder execute popup with calculations and conditions"
+        >
+          🔍 Old Execute
         </button>
 
         {/* Execute Button */}
