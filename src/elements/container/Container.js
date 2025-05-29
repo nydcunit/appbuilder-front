@@ -123,7 +123,7 @@ export const ContainerElement = {
   getDefaultChildren: () => ([]),
 
   // FIXED: Render function now accepts matchedConditionIndex parameter
-  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false) => {
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false) => {
     const { onClick, onDelete, onDragOver, onDragLeave, onDrop, onDragStart } = handlers;
     
     console.log('🔍 Container render called:', {
@@ -175,10 +175,31 @@ export const ContainerElement = {
       return isActiveSlide;
     };
     
-    // Apply active styles if this element is in the active slide
+    // Apply active styles if this element is in the active slide OR active tab
     const effectiveIsActiveSlide = checkIfInActiveSlide();
-    if (effectiveIsActiveSlide && isExecuteMode) {
-      console.log('✅ Applying active styles for container:', element.id);
+    const shouldApplyActiveStyles = (effectiveIsActiveSlide || isActiveTab) && isExecuteMode;
+    
+    // 🔥 ENHANCED DEBUG LOGGING FOR TABS
+    console.log('🔥 CONTAINER ACTIVE STYLING DEBUG:', {
+      elementId: element.id,
+      elementType: element.type,
+      containerType: element.containerType,
+      contentType: element.contentType,
+      isExecuteMode,
+      isActiveSlide: effectiveIsActiveSlide,
+      isActiveTab: isActiveTab,
+      shouldApplyActiveStyles,
+      hasActiveBackgroundColor: !!props.activeBackgroundColor,
+      currentBackgroundColor: props.backgroundColor,
+      activeBackgroundColor: props.activeBackgroundColor
+    });
+    
+    if (shouldApplyActiveStyles) {
+      console.log('✅ Applying active styles for container:', element.id, {
+        isActiveSlide: effectiveIsActiveSlide,
+        isActiveTab: isActiveTab,
+        reason: effectiveIsActiveSlide ? 'active slide' : 'active tab'
+      });
       // Merge active properties over default properties
       const activeProps = {};
       Object.keys(props).forEach(key => {
@@ -193,8 +214,9 @@ export const ContainerElement = {
     } else {
       console.log('❌ NOT applying active styles:', {
         isActiveSlide: effectiveIsActiveSlide,
+        isActiveTab: isActiveTab,
         isExecuteMode,
-        reason: !effectiveIsActiveSlide ? 'not active slide' : 'not execute mode'
+        reason: !shouldApplyActiveStyles ? 'not active slide or tab' : 'not execute mode'
       });
     }
     
@@ -315,8 +337,59 @@ export const ContainerElement = {
       return label;
     };
     
+    // Helper function to find tab index by value for tabs containers
+    const findTabIndexByValue = (value, children) => {
+      if (!value || !children) return -1;
+      
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (!child || !child.props || !child.props.element) continue;
+        
+        // Recursively search for text element with matching value
+        const findTabValue = (element) => {
+          if (element.type === 'text' && element.properties?.isTabValue === true) {
+            return element.properties?.value || '';
+          }
+          
+          if (element.children) {
+            for (const childEl of element.children) {
+              const result = findTabValue(childEl);
+              if (result) return result;
+            }
+          }
+          
+          return null;
+        };
+        
+        const tabValue = findTabValue(child.props.element);
+        if (tabValue === value) {
+          return i;
+        }
+      }
+      
+      return -1;
+    };
+    
+    // Get initial active tab for tabs containers
+    const getInitialActiveTab = (tabsConfig, children) => {
+      const activeTab = tabsConfig.activeTab || '1';
+      
+      // Try to parse as number first
+      const tabNumber = parseInt(activeTab);
+      if (!isNaN(tabNumber) && tabNumber > 0) {
+        return Math.min(tabNumber - 1, (children?.length || 1) - 1);
+      }
+      
+      // Otherwise, try to find by text value
+      const tabIndex = findTabIndexByValue(activeTab, children);
+      return tabIndex >= 0 ? tabIndex : 0;
+    };
+    
     // Check if this container is a slider container
     const isSliderContainer = (element.containerType || 'basic') === 'slider';
+    
+    // Check if this container is a tabs container
+    const isTabsContainer = (element.containerType || 'basic') === 'tabs';
     
     // Get slider configuration - FIXED: Don't override existing config
     const sliderConfig = element.sliderConfig ? {
@@ -331,11 +404,25 @@ export const ContainerElement = {
       activeTab: '1'
     };
     
+    // Get tabs configuration
+    const tabsConfig = element.tabsConfig ? {
+      activeTab: element.tabsConfig.activeTab || '1'
+    } : {
+      activeTab: '1'
+    };
+    
     // Debug logging for slider config
     if (isSliderContainer) {
       console.log('🎡 Slider container config for element:', element.id);
       console.log('🎡 sliderConfig:', sliderConfig);
       console.log('🎡 slidesToScroll:', sliderConfig.slidesToScroll);
+    }
+    
+    // Debug logging for tabs config
+    if (isTabsContainer) {
+      console.log('📑 Tabs container config for element:', element.id);
+      console.log('📑 tabsConfig:', tabsConfig);
+      console.log('📑 activeTab:', tabsConfig.activeTab);
     }
     
     // Store active slide state in a context-like way
@@ -855,6 +942,148 @@ export const ContainerElement = {
         </div>
       );
     };
+    
+    // Handle tabs container in execute mode - elements are clickable tabs
+    if (isExecuteMode && isTabsContainer && children && children.length > 0) {
+      // FIXED: Check if we already have an active tab stored globally, otherwise use initial
+      let currentActiveTab;
+      if (element && element.id && window.__activeTabs && window.__activeTabs[element.id] !== undefined) {
+        // Use the stored active tab
+        currentActiveTab = window.__activeTabs[element.id];
+        console.log('🔥 USING STORED ACTIVE TAB:', currentActiveTab);
+      } else {
+        // Use initial active tab from config
+        currentActiveTab = getInitialActiveTab(tabsConfig, children);
+        console.log('🔥 USING INITIAL ACTIVE TAB:', currentActiveTab);
+        
+        // Store it globally
+        if (element && element.id) {
+          window.__activeTabs = window.__activeTabs || {};
+          window.__activeTabs[element.id] = currentActiveTab;
+        }
+      }
+      
+      // Create click handler for tab activation
+      const handleTabClick = (tabIndex) => {
+        console.log('🔥 TAB CLICK DEBUG:', {
+          tabIndex,
+          elementId: element.id,
+          currentTabsConfig: element.tabsConfig,
+          totalChildren: children?.length
+        });
+        
+        // Initialize tabsConfig if it doesn't exist
+        if (!element.tabsConfig) {
+          element.tabsConfig = {
+            activeTab: '1'
+          };
+          console.log('🔥 INITIALIZED MISSING tabsConfig:', element.tabsConfig);
+        }
+        
+        if (element && element.tabsConfig) {
+          element.tabsConfig.activeTab = String(tabIndex + 1); // Convert to 1-based string
+          
+          // Store active tab globally
+          window.__activeTabs = window.__activeTabs || {};
+          window.__activeTabs[element.id] = tabIndex;
+          
+          console.log('🔥 TAB STATE UPDATED:', {
+            newActiveTab: element.tabsConfig.activeTab,
+            globalTabsState: window.__activeTabs
+          });
+          
+          // Trigger a refresh to update active states
+          setTimeout(() => {
+            const buttons = document.querySelectorAll('button');
+            for (const button of buttons) {
+              const buttonText = button.textContent || '';
+              if (buttonText.includes('Refresh') || buttonText.includes('🔄')) {
+                console.log('🔥 TRIGGERING REFRESH BUTTON');
+                button.click();
+                break;
+              }
+            }
+          }, 50);
+        }
+      };
+      
+      // Render all children with click handlers and active state
+      return (
+        <div
+          key={element.id}
+          style={{
+            ...containerStyle,
+            cursor: 'default'
+          }}
+        >
+          {/* Container Label - Hide in execute mode */}
+          <div style={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: props.orientation || 'column',
+            alignItems: props.horizontalAlignment || 'flex-start',
+            justifyContent: props.verticalAlignment || 'flex-start',
+            gap: props.orientation === 'row' ? '10px' : '5px'
+          }}>
+            {children.map((child, index) => {
+              const isActiveTab = index === currentActiveTab;
+              
+              // Clone child with click handler and active state
+              if (React.isValidElement(child)) {
+                // Get the element definition to call its render function with isActiveTab
+                const elementDef = getElementByType(child.props.element?.type);
+                if (elementDef && elementDef.render) {
+                  // Re-render the child element with isActiveTab prop
+                  return React.cloneElement(
+                    elementDef.render(
+                      child.props.element,
+                      depth + 1,
+                      false, // not selected
+                      false, // not drop zone
+                      {
+                        onClick: (e) => {
+                          e.stopPropagation();
+                          handleTabClick(index);
+                        }
+                      },
+                      child.props.children,
+                      null, // matchedConditionIndex
+                      true, // isExecuteMode
+                      false, // isActiveSlide
+                      isActiveTab // isActiveTab
+                    ),
+                    {
+                      key: child.key || index,
+                      'data-active-tab': isActiveTab ? 'true' : 'false',
+                      style: {
+                        cursor: 'pointer'
+                      }
+                    }
+                  );
+                } else {
+                  // Fallback to simple cloning
+                  return React.cloneElement(child, {
+                    ...child.props,
+                    key: child.key || index,
+                    isActiveTab: isActiveTab,
+                    'data-active-tab': isActiveTab ? 'true' : 'false',
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      handleTabClick(index);
+                    },
+                    style: {
+                      ...child.props.style,
+                      cursor: 'pointer'
+                    }
+                  });
+                }
+              }
+              return child;
+            })}
+          </div>
+        </div>
+      );
+    }
     
     // Render slider component in execute mode, regular container otherwise
     if (isExecuteMode && isSliderContainer && children && children.length > 0) {

@@ -200,6 +200,40 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
     return false;
   }, [element.id, availableElements]);
 
+  // Check if this text element is inside a tabs container
+  const checkIfInsideTabsContainer = useCallback(() => {
+    // Helper function to check if an element exists anywhere in a container's tree
+    const isElementInContainer = (elementId, container) => {
+      if (!container.children || container.children.length === 0) {
+        return false;
+      }
+      
+      // Check all children recursively
+      for (const child of container.children) {
+        if (child.id === elementId) {
+          return true;
+        }
+        // Recursively check if this child contains the element
+        if (child.type === 'container' && isElementInContainer(elementId, child)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    // Check all containers to see if any tabs container contains this element
+    for (const container of availableElements) {
+      if (container.type === 'container' && container.containerType === 'tabs') {
+        if (isElementInContainer(element.id, container)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [element.id, availableElements]);
+
   // Handle copying element ID to clipboard
   const copyElementId = useCallback(async () => {
     try {
@@ -306,6 +340,7 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
         availableElements={availableElements}
         element={element}
         isInsideSliderContainer={checkIfInsideSliderContainer()}
+        isInsideTabsContainer={checkIfInsideTabsContainer()}
       />
       
       {/* Style Settings - These now automatically use the correct condition properties */}
@@ -316,6 +351,7 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [] })
         updateProperty={updateProperty}
         element={element}
         isInsideSliderContainer={checkIfInsideSliderContainer()}
+        isInsideTabsContainer={checkIfInsideTabsContainer()}
       />
     </div>
   );

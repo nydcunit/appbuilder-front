@@ -124,7 +124,7 @@ export const TextElement = {
   getDefaultChildren: () => ([]),
 
   // FIXED: Render function now accepts matchedConditionIndex parameter
-  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false) => {
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false) => {
     const { onClick, onDelete, onDragStart } = handlers;
     
     console.log('🔍 Text render called:', {
@@ -175,10 +175,16 @@ export const TextElement = {
       return isActiveSlide;
     };
     
-    // Apply active styles if this element is in the active slide
+    // Apply active styles if this element is in the active slide OR active tab
     const effectiveIsActiveSlide = checkIfInActiveSlide();
-    if (effectiveIsActiveSlide && isExecuteMode) {
-      console.log('✅ Applying active styles for text:', element.id);
+    const shouldApplyActiveStyles = (effectiveIsActiveSlide || isActiveTab) && isExecuteMode;
+    
+    if (shouldApplyActiveStyles) {
+      console.log('✅ Applying active styles for text:', element.id, {
+        isActiveSlide: effectiveIsActiveSlide,
+        isActiveTab: isActiveTab,
+        reason: effectiveIsActiveSlide ? 'active slide' : 'active tab'
+      });
       // Merge active properties over default properties
       const activeProps = {};
       Object.keys(props).forEach(key => {
@@ -193,8 +199,9 @@ export const TextElement = {
     } else {
       console.log('❌ NOT applying active text styles:', {
         isActiveSlide: effectiveIsActiveSlide,
+        isActiveTab: isActiveTab,
         isExecuteMode,
-        reason: !effectiveIsActiveSlide ? 'not active slide' : 'not execute mode'
+        reason: !shouldApplyActiveStyles ? 'not active slide or tab' : 'not execute mode'
       });
     }
     

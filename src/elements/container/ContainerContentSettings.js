@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import SuperText from '../../components/SuperText';
 
 const ContainerContentSettings = ({ element, onUpdate }) => {
   const [databases, setDatabases] = useState([]);
@@ -15,6 +16,9 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
     autoPlay: false,
     loop: false,
     slidesToScroll: 1,
+    activeTab: '1'
+  };
+  const tabsConfig = element.tabsConfig || {
     activeTab: '1'
   };
   const repeatingConfig = element.repeatingConfig || {
@@ -126,6 +130,18 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
         activeTab: '1'
       };
     }
+    
+    // If switching to tabs, initialize tabs config
+    if (type === 'tabs') {
+      updates.tabsConfig = {
+        activeTab: '1'
+      };
+    }
+    
+    // If switching away from tabs, remove tabs config
+    if (type !== 'tabs' && element.tabsConfig) {
+      updates.tabsConfig = null;
+    }
 
     console.log('Container type update payload:', updates);
     onUpdate(updates);
@@ -146,6 +162,22 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
       sliderConfig: newSliderConfig
     });
   }, [sliderConfig, onUpdate]);
+
+  // Handle tabs config updates
+  const updateTabsConfig = useCallback((updates) => {
+    console.log('Updating tabs config:', updates, 'current:', tabsConfig);
+    
+    const newTabsConfig = {
+      ...tabsConfig,
+      ...updates
+    };
+    
+    console.log('New tabs config:', newTabsConfig);
+    
+    onUpdate({
+      tabsConfig: newTabsConfig
+    });
+  }, [tabsConfig, onUpdate]);
 
   // FIXED: Handle content type change - update element directly, not properties
   const handleContentTypeChange = useCallback((type) => {
@@ -373,29 +405,48 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
           />
         </div>
 
-        {/* Active Tab */}
+        {/* Active Tab - Upgraded to SuperText */}
         <div style={{ marginBottom: '12px' }}>
-          <label style={{
-            display: 'block',
-            fontSize: '13px',
-            fontWeight: '500',
-            color: '#333',
-            marginBottom: '4px'
-          }}>
-            Active Tab (Slide value or order number)
-          </label>
-          <input
-            type="text"
-            value={sliderConfig.activeTab}
-            onChange={(e) => updateSliderConfig({ activeTab: e.target.value })}
+          <SuperText
+            label="Active Tab"
             placeholder="Enter slide value or number (e.g., 1, 2, 3)"
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              fontSize: '14px'
-            }}
+            value={sliderConfig.activeTab}
+            onChange={(value) => updateSliderConfig({ activeTab: value })}
+            availableElements={[]}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderTabsOptions = () => {
+    if (containerType !== 'tabs') return null;
+
+    return (
+      <div style={{
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: '#f0f8ff',
+        borderRadius: '8px',
+        border: '1px solid #b3d9ff'
+      }}>
+        <h4 style={{
+          marginBottom: '16px',
+          color: '#333',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          Tabs Options
+        </h4>
+        
+        {/* Active Tab - Using SuperText */}
+        <div style={{ marginBottom: '12px' }}>
+          <SuperText
+            label="Active Tab"
+            placeholder="Enter tab value or number (e.g., 1, 2, 3)"
+            value={tabsConfig.activeTab}
+            onChange={(value) => updateTabsConfig({ activeTab: value })}
+            availableElements={[]}
           />
         </div>
       </div>
@@ -732,6 +783,7 @@ const ContainerContentSettings = ({ element, onUpdate }) => {
       
       {renderContainerTypeTabs()}
       {renderSliderOptions()}
+      {renderTabsOptions()}
       
       <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
         Content Mode

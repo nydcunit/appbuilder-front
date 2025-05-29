@@ -6,12 +6,18 @@ const TextContentSettings = ({
   handleInputChange, 
   availableElements = [],
   element,
-  isInsideSliderContainer = false // Flag to indicate if this text is inside a slider container
+  isInsideSliderContainer = false, // Flag to indicate if this text is inside a slider container
+  isInsideTabsContainer = false // Flag to indicate if this text is inside a tabs container
 }) => {
   
   // Handle slide text toggle
   const handleSlideTextToggle = (checked) => {
     handleInputChange('isSlideText', checked);
+  };
+  
+  // Handle tab value toggle
+  const handleTabValueToggle = (checked) => {
+    handleInputChange('isTabValue', checked);
   };
   
   return (
@@ -62,6 +68,53 @@ const TextContentSettings = ({
               borderRadius: '3px'
             }}>
               This text value will be used as the slide identifier for navigation
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Set As Tab Value checkbox for text elements inside tabs containers */}
+      {isInsideTabsContainer && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '8px',
+          backgroundColor: '#f0f8ff',
+          borderRadius: '4px',
+          border: '1px solid #b3d9ff'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <input
+              type="checkbox"
+              id="tab-value-checkbox"
+              checked={getValue('isTabValue') || false}
+              onChange={(e) => handleTabValueToggle(e.target.checked)}
+              style={{
+                marginRight: '4px'
+              }}
+            />
+            <label htmlFor="tab-value-checkbox" style={{
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#333',
+              cursor: 'pointer'
+            }}>
+              Set as Tab Value
+            </label>
+          </div>
+          {getValue('isTabValue') && (
+            <div style={{
+              fontSize: '11px',
+              color: '#0066cc',
+              marginTop: '4px',
+              padding: '4px 8px',
+              backgroundColor: '#e6f3ff',
+              borderRadius: '3px'
+            }}>
+              This text value will be used as the tab identifier for navigation
             </div>
           )}
         </div>

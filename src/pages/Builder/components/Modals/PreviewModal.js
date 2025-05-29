@@ -242,9 +242,10 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
               ...element,
               id: instanceId,
               originalId: element.id, // Keep track of original ID
-              // FIXED: Preserve all container configurations including sliderConfig
+              // FIXED: Preserve all container configurations including sliderConfig and tabsConfig
               containerType: element.containerType,
               sliderConfig: element.sliderConfig,
+              tabsConfig: element.tabsConfig,
               repeatingConfig: element.repeatingConfig,
               repeatingContext: {
                 containerId: element.id,
@@ -353,6 +354,131 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     return allElements;
   };
 
+  // Check if an element should have active tab styling
+  const checkIfElementIsActiveTab = (element) => {
+    // Helper function to extract original ID from repeating container instance ID
+    const getOriginalElementId = (elementId) => {
+      // Remove _instance_X suffix if present
+      return elementId.replace(/_instance_\d+$/, '');
+    };
+    
+    // Helper function to get the instance index from repeating container ID
+    const getInstanceIndex = (elementId) => {
+      const match = elementId.match(/_instance_(\d+)$/);
+      return match ? parseInt(match[1]) : -1;
+    };
+    
+    // Find tabs containers in the current screen elements (original structure)
+    const findTabsContainers = (elements) => {
+      const tabsContainers = [];
+      const traverse = (elementList) => {
+        elementList.forEach(el => {
+          if (el.type === 'container' && el.containerType === 'tabs') {
+            tabsContainers.push(el);
+          }
+          if (el.children && el.children.length > 0) {
+            traverse(el.children);
+          }
+        });
+      };
+      traverse(elements);
+      return tabsContainers;
+    };
+    
+    // Get original element ID (strip instance suffix)
+    const originalElementId = getOriginalElementId(element.id);
+    const instanceIndex = getInstanceIndex(element.id);
+    
+    console.log('🔥 ACTIVE TAB CHECK START:', {
+      elementId: element.id,
+      originalElementId,
+      instanceIndex,
+      elementType: element.type,
+      containerType: element.containerType
+    });
+    
+    // Find all tabs containers in the original screen structure
+    const currentScreenElements = currentScreen?.elements || [];
+    const tabsContainers = findTabsContainers(currentScreenElements);
+    
+    console.log('🔥 FOUND TABS CONTAINERS:', tabsContainers.map(tc => ({
+      id: tc.id,
+      childrenIds: tc.children?.map(c => c.id) || []
+    })));
+    
+    // Check each tabs container to see if this element is a child
+    for (const tabsContainer of tabsContainers) {
+      if (!tabsContainer.children || tabsContainer.children.length === 0) continue;
+      
+      // Check if the original element ID is a direct child of this tabs container
+      const childIndex = tabsContainer.children.findIndex(child => child.id === originalElementId);
+      
+      if (childIndex >= 0) {
+        // This element is a child of this tabs container!
+        console.log('🔥 FOUND PARENT TABS CONTAINER:', {
+          tabsContainerId: tabsContainer.id,
+          childIndex,
+          originalElementId,
+          tabsConfig: tabsContainer.tabsConfig
+        });
+        
+        // Get the active tab index from global state or config
+        const globalActiveTab = window.__activeTabs && window.__activeTabs[tabsContainer.id];
+        const configActiveTab = tabsContainer.tabsConfig?.activeTab;
+        
+        // Determine the active tab index (0-based)
+        let activeTabIndex = 0;
+        if (globalActiveTab !== undefined) {
+          activeTabIndex = globalActiveTab;
+        } else if (configActiveTab) {
+          // Convert 1-based string to 0-based index
+          activeTabIndex = Math.max(0, parseInt(configActiveTab) - 1);
+        }
+        
+        // For repeating containers, we need to check if this specific instance should be active
+        let isActive = false;
+        if (instanceIndex >= 0) {
+          // This is a repeating container instance
+          // For tabs with repeating containers, the active tab index should match the instance index
+          // NOT the child index (since all instances have the same child index)
+          isActive = (instanceIndex === activeTabIndex);
+          console.log('🔥 REPEATING CONTAINER INSTANCE CHECK:', {
+            childIndex,
+            activeTabIndex,
+            instanceIndex,
+            isChildActive: childIndex === activeTabIndex,
+            isInstanceActive: instanceIndex === activeTabIndex,
+            finalIsActive: isActive
+          });
+        } else {
+          // This is a regular (non-repeating) element
+          isActive = (childIndex === activeTabIndex);
+          console.log('🔥 REGULAR ELEMENT CHECK:', {
+            childIndex,
+            activeTabIndex,
+            isActive
+          });
+        }
+        
+        console.log('🔥 ACTIVE TAB CHECK RESULT:', {
+          elementId: element.id,
+          parentTabsContainerId: tabsContainer.id,
+          childIndex,
+          activeTabIndex,
+          globalActiveTab,
+          configActiveTab,
+          instanceIndex,
+          isActive
+        });
+        
+        return isActive;
+      }
+    }
+    
+    console.log('🔥 NO PARENT TABS CONTAINER FOUND for:', element.id);
+    return false;
+  };
+
   // FIXED: Enhanced renderPreviewElement to use matched condition index
   const renderPreviewElement = (element, depth = 0) => {
     const elementDef = getElementByType(element.type);
@@ -378,7 +504,10 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     
     console.log(`🎨 Rendering element ${element.id} with matched condition index:`, matchedConditionIndex);
 
-    // FIXED: Render with matched condition index passed as additional parameter
+    // Check if this element should have active tab styling
+    const isActiveTab = checkIfElementIsActiveTab(element);
+    
+    // FIXED: Render with matched condition index and isActiveTab passed as additional parameters
     const renderedElement = elementDef.render(
       executedElement, 
       depth, 
@@ -388,7 +517,8 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       children,
       matchedConditionIndex, // FIXED: Pass the matched condition index
       true, // isExecuteMode - this is preview/execute mode
-      false // isActiveSlide - this will be set by the slider component itself
+      false, // isActiveSlide - this will be set by the slider component itself
+      isActiveTab // isActiveTab - check if this element is in the active tab
     );
     
     // Add debug info for repeating container instances

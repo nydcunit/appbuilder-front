@@ -6,7 +6,8 @@ const TextStyleSettings = ({
   handleKeyPress, 
   updateProperty,
   element,
-  isInsideSliderContainer = false // Flag to indicate if this text is inside a slider container
+  isInsideSliderContainer = false, // Flag to indicate if this text is inside a slider container
+  isInsideTabsContainer = false // Flag to indicate if this text is inside a tabs container
 }) => {
   
   // State for active mode toggle
@@ -99,6 +100,57 @@ const TextStyleSettings = ({
               borderRadius: '3px'
             }}>
               These styles will only apply when this text is in the active slide
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Active Mode Toggle for Text Elements Inside Tabs Containers */}
+      {isInsideTabsContainer && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px',
+            backgroundColor: isActiveMode ? '#f0f8ff' : 'transparent',
+            borderRadius: '4px',
+            border: isActiveMode ? '1px solid #007bff' : '1px solid transparent'
+          }}>
+            <button
+              onClick={() => setIsActiveMode(!isActiveMode)}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                backgroundColor: isActiveMode ? '#007bff' : '#e5e7eb',
+                color: isActiveMode ? 'white' : '#374151',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Active
+            </button>
+            <span style={{
+              fontSize: '12px',
+              color: isActiveMode ? '#007bff' : '#6b7280',
+              fontWeight: isActiveMode ? '500' : '400'
+            }}>
+              {isActiveMode ? 'Editing active tab text styles' : 'Editing default text styles'}
+            </span>
+          </div>
+          {isActiveMode && (
+            <div style={{
+              fontSize: '11px',
+              color: '#007bff',
+              marginTop: '4px',
+              padding: '4px 8px',
+              backgroundColor: '#e6f3ff',
+              borderRadius: '3px'
+            }}>
+              These styles will only apply when this text is in the active tab
             </div>
           )}
         </div>

@@ -6,11 +6,16 @@ const ContainerStyleSettings = ({
   handleKeyPress, 
   updateProperty,
   element, // Add element prop to check if this is inside a slider container
-  isInsideSliderContainer = false // Flag to indicate if this container is inside a slider container
+  isInsideSliderContainer = false, // Flag to indicate if this container is inside a slider container
+  isInsideTabsContainer = false // Flag to indicate if this container is inside a tabs container
 }) => {
-  // Check if this element should have active mode (if it's a child in a slider container or is a slider container itself)
+  // Check if this element should have active mode (if it's a child in a slider/tabs container or is a slider/tabs container itself)
   const containerType = element?.containerType || 'basic';
-  const shouldShowActiveMode = isInsideSliderContainer || containerType === 'slider';
+  const shouldShowActiveMode = isInsideSliderContainer || isInsideTabsContainer || containerType === 'slider' || containerType === 'tabs';
+  
+  // Determine which type of active mode we're in
+  const isTabsMode = isInsideTabsContainer || containerType === 'tabs';
+  const isSliderMode = isInsideSliderContainer || containerType === 'slider';
   
   // State for active mode toggle
   const [isActiveMode, setIsActiveMode] = useState(false);
@@ -38,25 +43,26 @@ const ContainerStyleSettings = ({
     updateProperty(propertyName, value);
   }, [updateProperty, getPropertyName]);
   
-  // Style for labels in active mode
+  // Style for labels in active mode (different colors for tabs vs slider)
+  const activeColor = isTabsMode ? '#007bff' : '#8b5cf6';
   const labelStyle = {
     minWidth: '80px',
     fontSize: '12px',
     fontWeight: 'bold',
-    color: isActiveMode ? '#8b5cf6' : '#555'
+    color: isActiveMode ? activeColor : '#555'
   };
   
   // Style for section headers in active mode
   const headerStyle = {
     marginBottom: '10px',
-    color: isActiveMode ? '#8b5cf6' : '#333',
+    color: isActiveMode ? activeColor : '#333',
     borderBottom: '1px solid #eee',
     paddingBottom: '5px'
   };
 
   return (
     <>
-      {/* Active Mode Toggle for Slider Containers */}
+      {/* Active Mode Toggle for Slider/Tabs Containers */}
       {shouldShowActiveMode && (
         <div style={{ marginBottom: '20px' }}>
           <div style={{
@@ -64,9 +70,9 @@ const ContainerStyleSettings = ({
             alignItems: 'center',
             gap: '8px',
             padding: '8px',
-            backgroundColor: isActiveMode ? '#f3f4f6' : 'transparent',
+            backgroundColor: isActiveMode ? (isTabsMode ? '#f0f8ff' : '#f3f4f6') : 'transparent',
             borderRadius: '4px',
-            border: isActiveMode ? '1px solid #8b5cf6' : '1px solid transparent'
+            border: isActiveMode ? `1px solid ${activeColor}` : '1px solid transparent'
           }}>
             <button
               onClick={() => setIsActiveMode(!isActiveMode)}
@@ -74,7 +80,7 @@ const ContainerStyleSettings = ({
                 padding: '4px 12px',
                 borderRadius: '4px',
                 border: 'none',
-                backgroundColor: isActiveMode ? '#8b5cf6' : '#e5e7eb',
+                backgroundColor: isActiveMode ? activeColor : '#e5e7eb',
                 color: isActiveMode ? 'white' : '#374151',
                 fontSize: '12px',
                 fontWeight: '500',
@@ -86,22 +92,28 @@ const ContainerStyleSettings = ({
             </button>
             <span style={{
               fontSize: '12px',
-              color: isActiveMode ? '#8b5cf6' : '#6b7280',
+              color: isActiveMode ? activeColor : '#6b7280',
               fontWeight: isActiveMode ? '500' : '400'
             }}>
-              {isActiveMode ? 'Editing active slide styles' : 'Editing default styles'}
+              {isActiveMode 
+                ? (isTabsMode ? 'Editing active tab styles' : 'Editing active slide styles')
+                : 'Editing default styles'
+              }
             </span>
           </div>
           {isActiveMode && (
             <div style={{
               fontSize: '11px',
-              color: '#8b5cf6',
+              color: activeColor,
               marginTop: '4px',
               padding: '4px 8px',
-              backgroundColor: '#faf5ff',
+              backgroundColor: isTabsMode ? '#e6f3ff' : '#faf5ff',
               borderRadius: '3px'
             }}>
-              These styles will only apply when this element is the active slide
+              {isTabsMode 
+                ? 'These styles will only apply when this element is the active tab'
+                : 'These styles will only apply when this element is the active slide'
+              }
             </div>
           )}
         </div>
