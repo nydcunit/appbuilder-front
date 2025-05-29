@@ -1,8 +1,9 @@
 import axios from 'axios';
 
 export class CalculationEngine {
-  constructor(availableElements = [], repeatingContext = null) {
+  constructor(availableElements = [], repeatingContext = null, expandedElements = null) {
     this.availableElements = availableElements;
+    this.expandedElements = expandedElements; // NEW: Expanded elements for execute mode
     this.elementValues = {};
     this.repeatingContext = repeatingContext; // { containerId, recordData, rowIndex }
     
@@ -55,7 +56,7 @@ export class CalculationEngine {
         return await this.executeCustomValue(config.value);
       
       case 'element':
-        return this.executeElementValue(config.elementId, config.containerValueType);
+        return await this.executeElementValue(config.elementId, config.containerValueType);
       
       case 'database':
         return await this.executeDatabaseQuery(config);
@@ -78,10 +79,11 @@ export class CalculationEngine {
   }
 
   // Execute tabs container value
-  executeTabsContainerValue(element, valueType) {
+  async executeTabsContainerValue(element, valueType) {
     console.log('\n📑 === TABS CONTAINER VALUE EXECUTION ===');
     console.log('Element:', element.id);
     console.log('Value type:', valueType);
+    console.log('Element structure:', JSON.stringify(element, null, 2));
     
     // Get tabs config
     const tabsConfig = element.tabsConfig ? {
@@ -120,11 +122,12 @@ export class CalculationEngine {
     }
     
     if (valueType === 'active_tab_value') {
-      // Find the active tab's text value
-      const tabValue = this.findTabTextValue(element, currentActiveTab);
+      // FIXED: Find the active tab's text value using improved search
+      const tabValue = await this.findTabTextValueImproved(element, currentActiveTab);
       
-      if (tabValue === null) {
+      if (tabValue === null || tabValue === '') {
         console.log('❌ No tab text element found for tab:', currentActiveTab + 1);
+        console.log('Available children:', element.children?.map(c => ({ id: c.id, type: c.type, properties: c.properties })));
         // Return empty string instead of throwing error
         return '';
       }
@@ -198,6 +201,203 @@ export class CalculationEngine {
     };
     
     return findTabText(tabElement);
+  }
+
+  // Helper function to find expanded element by original ID
+  findExpandedElement(originalId) {
+    if (!this.expandedElements) {
+      return null;
+    }
+    
+    const findInExpanded = (elements) => {
+      for (const element of elements) {
+        // Check if this element matches the original ID
+        if (element.id === originalId || element.originalId === originalId) {
+          return element;
+        }
+        
+        // Recursively search children
+        if (element.children && element.children.length > 0) {
+          const found = findInExpanded(element.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    return findInExpanded(this.expandedElements);
+  }
+
+  // IMPROVED: Helper function to find tab text value with better search logic
+  async findTabTextValueImproved(element, tabIndex) {
+    console.log('🔍 Finding tab text value for tab index:', tabIndex);
+    console.log('🔍 Element children count:', element.children?.length || 0);
+    console.log('🔍 Element structure:', {
+      id: element.id,
+      type: element.type,
+      containerType: element.containerType,
+      hasExpandedElements: !!this.expandedElements
+    });
+    
+    if (!element.children || element.children.length <= tabIndex) {
+      console.log('❌ No children or tab index out of bounds');
+      return null;
+    }
+    
+    // Get the tab element (first level child at tabIndex)
+    let tabElement = element.children[tabIndex];
+    if (!tabElement) {
+      console.log('❌ No tab element at index:', tabIndex);
+      return null;
+    }
+    
+    console.log('🔍 Original tab element:', {
+      id: tabElement.id,
+      type: tabElement.type,
+      contentType: tabElement.contentType,
+      hasChildren: !!tabElement.children,
+      childrenCount: tabElement.children?.length || 0
+    });
+    
+    // ENHANCED: If this is a repeating container, find its expanded instances
+    if (tabElement.contentType === 'repeating' && this.expandedElements) {
+      console.log('🔄 Tab element is a repeating container, searching for expanded instances...');
+      
+      // Find all expanded instances of this repeating container
+      const findExpandedInstances = (elements) => {
+        const instances = [];
+        for (const element of elements) {
+          if (element.originalId === tabElement.id || element.id.startsWith(tabElement.id + '_instance_')) {
+            instances.push(element);
+          }
+          if (element.children && element.children.length > 0) {
+            instances.push(...findExpandedInstances(element.children));
+          }
+        }
+        return instances;
+      };
+      
+      const expandedInstances = findExpandedInstances(this.expandedElements);
+      console.log('🔄 Found expanded instances:', expandedInstances.length);
+      
+      // Search through all expanded instances for tab text
+      for (const instance of expandedInstances) {
+        console.log('🔍 Searching expanded instance:', {
+          id: instance.id,
+          originalId: instance.originalId,
+          hasChildren: !!instance.children
+        });
+        
+        const result = await this.searchForTabText(instance);
+        if (result !== null && result !== '') {
+          console.log('✅ Found tab text in expanded instance:', result);
+          return result;
+        }
+      }
+    }
+    
+    // Fallback to original search logic
+    console.log('🔄 Searching in original tab element structure...');
+    const result = await this.searchForTabText(tabElement);
+    
+    console.log('🔍 Final tab text result:', result);
+    return result;
+  }
+
+  // Helper function to search for tab text in an element
+  async searchForTabText(element) {
+    const findTabText = async (el, depth = 0) => {
+      const indent = '  '.repeat(depth);
+      console.log(`${indent}🔍 Checking element:`, {
+        id: el.id,
+        type: el.type,
+        isTabValue: el.properties?.isTabValue,
+        value: el.properties?.value
+      });
+      
+      // Check if this is a text element with isTabValue = true
+      if (el.type === 'text' && el.properties?.isTabValue === true) {
+        let value = el.properties?.value || '';
+        console.log(`${indent}✅ Found tab text:`, value);
+        
+        // ENHANCED: Check if the value contains nested calculations and execute them
+        if (value.includes('{{CALC:')) {
+          console.log(`${indent}🔄 Tab text contains nested calculations, executing...`);
+          try {
+            // ENHANCED: Pass the element's repeating context if it exists
+            const elementRepeatingContext = el.parentRepeatingContext || el.repeatingContext;
+            console.log(`${indent}🔄 Using element repeating context:`, elementRepeatingContext);
+            const executedValue = await this.executeNestedCalculations(value, elementRepeatingContext);
+            console.log(`${indent}✅ Executed nested calculations:`, `"${value}" -> "${executedValue}"`);
+            return executedValue;
+          } catch (error) {
+            console.log(`${indent}❌ Error executing nested calculations:`, error.message);
+            return `[Error: ${error.message}]`;
+          }
+        }
+        
+        return value;
+      }
+      
+      // Recursively search children
+      if (el.children && el.children.length > 0) {
+        for (const child of el.children) {
+          const result = await findTabText(child, depth + 1);
+          if (result !== null && result !== '') {
+            return result;
+          }
+        }
+      }
+      
+      return null;
+    };
+    
+    let result = await findTabText(element);
+    
+    // FALLBACK: If no text with isTabValue=true found, try to find any text element
+    if (result === null || result === '') {
+      console.log('🔄 No tab value found, searching for any text element as fallback...');
+      
+      const findAnyText = async (el, depth = 0) => {
+        if (el.type === 'text' && el.properties?.value) {
+          let value = el.properties.value;
+          console.log(`  Found fallback text:`, value);
+          
+          // ENHANCED: Execute nested calculations in fallback text too
+          if (value.includes('{{CALC:')) {
+            console.log(`  Fallback text contains calculations, executing...`);
+            try {
+              // ENHANCED: Pass the element's repeating context if it exists
+              const elementRepeatingContext = el.parentRepeatingContext || el.repeatingContext;
+              console.log(`  Using fallback element repeating context:`, elementRepeatingContext);
+              const executedValue = await this.executeNestedCalculations(value, elementRepeatingContext);
+              console.log(`  Executed fallback calculations:`, `"${value}" -> "${executedValue}"`);
+              return executedValue;
+            } catch (error) {
+              console.log(`  Error executing fallback calculations:`, error.message);
+              return `[Error: ${error.message}]`;
+            }
+          }
+          
+          return value;
+        }
+        
+        if (el.children && el.children.length > 0) {
+          for (const child of el.children) {
+            const result = await findAnyText(child, depth + 1);
+            if (result !== null && result !== '') {
+              return result;
+            }
+          }
+        }
+        
+        return null;
+      };
+      
+      result = await findAnyText(element);
+    }
+    
+    return result;
   }
 
   // Execute slider container value
@@ -336,7 +536,7 @@ export class CalculationEngine {
   }
 
   // Execute nested calculations within text
-  async executeNestedCalculations(text) {
+  async executeNestedCalculations(text, elementRepeatingContext = null) {
     let result = text;
     const calcMatches = text.match(/{{CALC:([^}]+)}}/g);
     
@@ -360,7 +560,13 @@ export class CalculationEngine {
           }
           
           if (calculation && calculation.steps) {
-            const calculatedValue = await this.executeCalculation(calculation.steps);
+            // ENHANCED: Create a new calculation engine with the element's repeating context
+            const nestedEngine = new CalculationEngine(
+              this.availableElements, 
+              elementRepeatingContext || this.repeatingContext, // Use element's context if provided
+              this.expandedElements
+            );
+            const calculatedValue = await nestedEngine.executeCalculation(calculation.steps);
             result = result.replace(match, calculatedValue);
           } else {
             result = result.replace(match, `[Missing: ${calculationId.slice(-6)}]`);
@@ -376,7 +582,7 @@ export class CalculationEngine {
   }
 
   // Execute element value reference
-  executeElementValue(elementId, containerValueType = null) {
+  async executeElementValue(elementId, containerValueType = null) {
     if (!elementId) {
       throw new Error('No element ID provided');
     }
@@ -393,9 +599,11 @@ export class CalculationEngine {
       return this.executeSliderContainerValue(element, containerValueType);
     }
     
-    // Handle tabs container calculations
+    // Handle tabs container calculations - ENHANCED to use expanded elements
     if (element.type === 'container' && element.containerType === 'tabs') {
-      return this.executeTabsContainerValue(element, containerValueType);
+      // For tabs containers, we need to use expanded elements if available
+      const elementToSearch = this.findExpandedElement(elementId) || element;
+      return await this.executeTabsContainerValue(elementToSearch, containerValueType);
     }
     
     const elementValue = this.elementValues[elementId];
@@ -405,7 +613,7 @@ export class CalculationEngine {
 
     // If the element value contains calculations, execute them too
     if (typeof elementValue === 'string' && elementValue.includes('{{CALC:')) {
-      return this.executeNestedCalculations(elementValue);
+      return await this.executeNestedCalculations(elementValue);
     }
 
     return elementValue;
@@ -597,12 +805,12 @@ export class CalculationEngine {
 }
 
 // Execute all calculations in a text string with repeating context
-export async function executeTextCalculations(textValue, availableElements, calculationStorage = {}, repeatingContext = null) {
+export async function executeTextCalculations(textValue, availableElements, calculationStorage = {}, repeatingContext = null, expandedElements = null) {
   if (!textValue || !textValue.includes('{{CALC:')) {
     return textValue;
   }
 
-  const engine = new CalculationEngine(availableElements, repeatingContext);
+  const engine = new CalculationEngine(availableElements, repeatingContext, expandedElements);
   let result = textValue;
   const calcMatches = textValue.match(/{{CALC:([^}]+)}}/g);
   

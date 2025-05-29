@@ -61,11 +61,13 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
             // Get repeating context if element is inside a repeating container
             const repeatingContext = getRepeatingContextForElement(element, containerData);
             
+            // ENHANCED: Execute calculations with expanded elements for tabs container support
             const executedValue = await executeTextCalculations(
               element.properties.value, 
               allElements, // Use all elements for calculations
               calculationStorage,
-              repeatingContext // Pass repeating context
+              repeatingContext, // Pass repeating context
+              filteredElements // ENHANCED: Pass expanded elements for tabs container searches
             );
             results[element.id] = executedValue;
           } catch (error) {
