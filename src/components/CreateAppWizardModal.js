@@ -88,16 +88,14 @@ const CreateAppWizardModal = ({ isOpen, onClose, onAppCreated }) => {
     }
 
     if (step === 2) {
-      if (formData.appType === 'web') {
-        if (!formData.subdomain.trim()) {
-          newErrors.subdomain = 'Subdomain is required for web applications';
-        } else if (!/^[a-zA-Z0-9-]+$/.test(formData.subdomain)) {
-          newErrors.subdomain = 'Subdomain can only contain letters, numbers, and hyphens';
-        } else if (formData.subdomain.length < 3) {
-          newErrors.subdomain = 'Subdomain must be at least 3 characters';
-        } else if (formData.subdomain.length > 50) {
-          newErrors.subdomain = 'Subdomain cannot be more than 50 characters';
-        }
+      if (!formData.subdomain.trim()) {
+        newErrors.subdomain = 'Subdomain is required';
+      } else if (!/^[a-zA-Z0-9-]+$/.test(formData.subdomain)) {
+        newErrors.subdomain = 'Subdomain can only contain letters, numbers, and hyphens';
+      } else if (formData.subdomain.length < 3) {
+        newErrors.subdomain = 'Subdomain must be at least 3 characters';
+      } else if (formData.subdomain.length > 50) {
+        newErrors.subdomain = 'Subdomain cannot be more than 50 characters';
       }
     }
 
@@ -127,7 +125,7 @@ const CreateAppWizardModal = ({ isOpen, onClose, onAppCreated }) => {
         description: formData.description,
         // These fields would need to be added to the backend model
         appType: formData.appType,
-        subdomain: formData.appType === 'web' ? formData.subdomain : null
+        subdomain: formData.subdomain
       };
 
       const response = await axios.post('/api/apps', appData);
@@ -407,54 +405,52 @@ const CreateAppWizardModal = ({ isOpen, onClose, onAppCreated }) => {
           </select>
         </div>
 
-        {/* Subdomain (only for web apps) */}
-        {formData.appType === 'web' && (
-          <div>
-            <label style={{
-              display: 'block',
-              fontWeight: '500',
-              marginBottom: '0.5rem',
-              color: '#333'
-            }}>
-              Subdomain
-            </label>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              border: `1px solid ${errors.subdomain ? '#dc3545' : '#ddd'}`,
-              borderRadius: '8px',
-              overflow: 'hidden'
-            }}>
-              <input
-                type="text"
-                placeholder="Subdomain"
-                value={formData.subdomain}
-                onChange={(e) => handleInputChange('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
-                  fontSize: '16px',
-                  outline: 'none'
-                }}
-              />
-              <span style={{
+        {/* Subdomain (for all apps) */}
+        <div>
+          <label style={{
+            display: 'block',
+            fontWeight: '500',
+            marginBottom: '0.5rem',
+            color: '#333'
+          }}>
+            Subdomain
+          </label>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            border: `1px solid ${errors.subdomain ? '#dc3545' : '#ddd'}`,
+            borderRadius: '8px',
+            overflow: 'hidden'
+          }}>
+            <input
+              type="text"
+              placeholder="Subdomain"
+              value={formData.subdomain}
+              onChange={(e) => handleInputChange('subdomain', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
+              style={{
+                flex: 1,
                 padding: '12px 16px',
-                backgroundColor: '#f8f9fa',
-                color: '#666',
+                border: 'none',
                 fontSize: '16px',
-                borderLeft: '1px solid #ddd'
-              }}>
-                .localhost:3000
-              </span>
-            </div>
-            {errors.subdomain && (
-              <p style={{ color: '#dc3545', fontSize: '12px', marginTop: '0.5rem' }}>
-                {errors.subdomain}
-              </p>
-            )}
+                outline: 'none'
+              }}
+            />
+            <span style={{
+              padding: '12px 16px',
+              backgroundColor: '#f8f9fa',
+              color: '#666',
+              fontSize: '16px',
+              borderLeft: '1px solid #ddd'
+            }}>
+              .localhost:3000
+            </span>
           </div>
-        )}
+          {errors.subdomain && (
+            <p style={{ color: '#dc3545', fontSize: '12px', marginTop: '0.5rem' }}>
+              {errors.subdomain}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -504,12 +500,10 @@ const CreateAppWizardModal = ({ isOpen, onClose, onAppCreated }) => {
             </span>
           </div>
           
-          {formData.appType === 'web' && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: '500', color: '#333' }}>Subdomain</span>
-              <span style={{ color: '#666' }}>{formData.subdomain}.localhost:3000</span>
-            </div>
-          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontWeight: '500', color: '#333' }}>Subdomain</span>
+            <span style={{ color: '#666' }}>{formData.subdomain}.localhost:3000</span>
+          </div>
         </div>
       </div>
 
