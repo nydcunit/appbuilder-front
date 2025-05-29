@@ -77,6 +77,129 @@ export class CalculationEngine {
     }
   }
 
+  // Execute tabs container value
+  executeTabsContainerValue(element, valueType) {
+    console.log('\n📑 === TABS CONTAINER VALUE EXECUTION ===');
+    console.log('Element:', element.id);
+    console.log('Value type:', valueType);
+    
+    // Get tabs config
+    const tabsConfig = element.tabsConfig ? {
+      activeTab: element.tabsConfig.activeTab || '1'
+    } : {
+      activeTab: '1'
+    };
+    
+    console.log('Tabs config:', tabsConfig);
+    
+    // Check global active tabs state
+    let currentActiveTab;
+    if (element.id && window.__activeTabs && window.__activeTabs[element.id] !== undefined) {
+      currentActiveTab = window.__activeTabs[element.id];
+      console.log('Using global active tab:', currentActiveTab);
+    } else {
+      // Parse activeTab from config (could be number or text value)
+      const activeTab = tabsConfig.activeTab || '1';
+      const tabNumber = parseInt(activeTab);
+      if (!isNaN(tabNumber) && tabNumber > 0) {
+        currentActiveTab = tabNumber - 1; // Convert to 0-based
+      } else {
+        // Try to find by text value
+        currentActiveTab = this.findTabIndexByValue(activeTab, element);
+        if (currentActiveTab === -1) currentActiveTab = 0;
+      }
+      console.log('Using config active tab:', currentActiveTab);
+    }
+    
+    if (valueType === 'active_tab_order') {
+      // Return the active tab order (1-based)
+      const activeTabOrder = currentActiveTab + 1;
+      console.log('✅ Active tab order:', activeTabOrder);
+      console.log('📑 === TABS CONTAINER END ===\n');
+      return activeTabOrder;
+    }
+    
+    if (valueType === 'active_tab_value') {
+      // Find the active tab's text value
+      const tabValue = this.findTabTextValue(element, currentActiveTab);
+      
+      if (tabValue === null) {
+        console.log('❌ No tab text element found for tab:', currentActiveTab + 1);
+        // Return empty string instead of throwing error
+        return '';
+      }
+      
+      console.log('✅ Active tab value:', tabValue);
+      console.log('📑 === TABS CONTAINER END ===\n');
+      
+      return tabValue;
+    }
+    
+    throw new Error(`Unknown tabs container value type: ${valueType}`);
+  }
+
+  // Helper function to find tab index by value
+  findTabIndexByValue(value, element) {
+    if (!value || !element.children) return -1;
+    
+    for (let i = 0; i < element.children.length; i++) {
+      const child = element.children[i];
+      if (!child) continue;
+      
+      // Recursively search for text element with matching value
+      const findTabValue = (el) => {
+        if (el.type === 'text' && el.properties?.isTabValue === true) {
+          return el.properties?.value || '';
+        }
+        
+        if (el.children) {
+          for (const childEl of el.children) {
+            const result = findTabValue(childEl);
+            if (result) return result;
+          }
+        }
+        
+        return null;
+      };
+      
+      const tabValue = findTabValue(child);
+      if (tabValue === value) {
+        return i;
+      }
+    }
+    
+    return -1;
+  }
+
+  // Helper function to find tab text value
+  findTabTextValue(element, tabIndex) {
+    if (!element.children || element.children.length <= tabIndex) {
+      return null;
+    }
+    
+    // Get the tab element (first level child at tabIndex)
+    const tabElement = element.children[tabIndex];
+    if (!tabElement) return null;
+    
+    // Recursively search for text elements with isTabValue = true
+    const findTabText = (el) => {
+      if (el.type === 'text' && el.properties?.isTabValue === true) {
+        return el.properties?.value || '';
+      }
+      
+      if (el.children) {
+        for (const child of el.children) {
+          const result = findTabText(child);
+          if (result !== null) return result;
+        }
+      }
+      
+      return null;
+    };
+    
+    return findTabText(tabElement);
+  }
+
   // Execute slider container value
   executeSliderContainerValue(element, valueType) {
     console.log('\n🎡 === SLIDER CONTAINER VALUE EXECUTION ===');
@@ -268,6 +391,11 @@ export class CalculationEngine {
     // Handle slider container calculations
     if (element.type === 'container' && element.containerType === 'slider') {
       return this.executeSliderContainerValue(element, containerValueType);
+    }
+    
+    // Handle tabs container calculations
+    if (element.type === 'container' && element.containerType === 'tabs') {
+      return this.executeTabsContainerValue(element, containerValueType);
     }
     
     const elementValue = this.elementValues[elementId];

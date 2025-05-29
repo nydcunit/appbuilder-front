@@ -105,6 +105,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
   const handleElementSelect = useCallback((elementId) => {
     const selectedElement = availableElements.find(el => el.id === elementId);
     const isSliderContainer = selectedElement?.type === 'container' && selectedElement?.containerType === 'slider';
+    const isTabsContainer = selectedElement?.type === 'container' && selectedElement?.containerType === 'tabs';
     
     // Only set containerValueType if it's not already set (preserve existing value)
     const updates = {
@@ -121,10 +122,13 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       repeatingColumn: null
     };
     
-    // Only set containerValueType if it's a slider and not already set
+    // Set containerValueType based on container type
     if (isSliderContainer) {
       // Preserve existing containerValueType if it exists, otherwise default to 'active_slide_number'
       updates.containerValueType = config.containerValueType || 'active_slide_number';
+    } else if (isTabsContainer) {
+      // Preserve existing containerValueType if it exists, otherwise default to 'active_tab_order'
+      updates.containerValueType = config.containerValueType || 'active_tab_order';
     } else {
       updates.containerValueType = null;
     }
@@ -162,10 +166,11 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
     });
   }, [config, onUpdate, repeatingContainers]);
 
-  // Filter available elements to show text elements and slider containers
+  // Filter available elements to show text elements, slider containers, and tabs containers
   const valueElements = availableElements.filter(element => 
     element.type === 'text' || 
-    (element.type === 'container' && element.containerType === 'slider')
+    (element.type === 'container' && element.containerType === 'slider') ||
+    (element.type === 'container' && element.containerType === 'tabs')
   );
 
   const renderCustomValue = () => (
@@ -252,9 +257,16 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
       >
         <option value="">Select Element</option>
         {valueElements.map((element) => {
-          const label = element.type === 'text' 
-            ? `Text (${element.id.slice(-6)})`
-            : `Slider Container (${element.id.slice(-6)})`;
+          let label;
+          if (element.type === 'text') {
+            label = `Text (${element.id.slice(-6)})`;
+          } else if (element.type === 'container' && element.containerType === 'slider') {
+            label = `Slider Container (${element.id.slice(-6)})`;
+          } else if (element.type === 'container' && element.containerType === 'tabs') {
+            label = `Tabs Container (${element.id.slice(-6)})`;
+          } else {
+            label = `Container (${element.id.slice(-6)})`;
+          }
           return (
             <option key={element.id} value={element.id}>
               {label}
@@ -273,7 +285,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
           color: '#666',
           textAlign: 'center'
         }}>
-          No text elements or slider containers found in current screen
+          No text elements, slider containers, or tabs containers found in current screen
         </div>
       )}
 
@@ -341,6 +353,35 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
                   >
                     <option value="active_slide_number">Get active slide number</option>
                     <option value="active_slide_value">Get active slide value</option>
+                  </select>
+                </div>
+              );
+            } else if (element.type === 'container' && element.containerType === 'tabs') {
+              return (
+                <div style={{ marginTop: '8px' }}>
+                  <label style={{
+                    display: 'block',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                    color: '#555',
+                    marginBottom: '4px'
+                  }}>
+                    Container Value Type
+                  </label>
+                  <select
+                    value={config.containerValueType || 'active_tab_order'}
+                    onChange={(e) => onUpdate({ ...config, containerValueType: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      backgroundColor: 'white'
+                    }}
+                  >
+                    <option value="active_tab_order">Get active tab order</option>
+                    <option value="active_tab_value">Get active tab value</option>
                   </select>
                 </div>
               );
@@ -568,7 +609,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
               opacity: 0.8,
               marginTop: '2px'
             }}>
-              Get value from a text element or slider container
+              Get value from a text element, slider container, or tabs container
             </div>
           </div>
           {selectedOption === 'element' && (
