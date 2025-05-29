@@ -232,12 +232,54 @@ const AppRuntime = () => {
       const visibleFlatElements = getAllElementsInScreen(filteredElements);
       
       for (const element of visibleFlatElements) {
+        // Handle text elements with calculations
         if (element.type === 'text' && element.properties?.value) {
           try {
             const calculationStorage = extractCalculationStorage(element.properties.value);
             
+            console.log('🔍 CALC STORAGE: Calculation storage for element', element.id, ':', calculationStorage);
+            
             // Get repeating context if element is inside a repeating container
             const repeatingContext = getRepeatingContextForElement(element, containerData);
+            
+            // ENHANCED: If no calculation storage found but we have repeating context,
+            // create a synthetic calculation for repeating container values
+            if (Object.keys(calculationStorage).length === 0 && repeatingContext && element.properties.value.includes('{{CALC:')) {
+              const calcMatches = element.properties.value.match(/{{CALC:([^}]+)}}/g);
+              if (calcMatches) {
+                for (const match of calcMatches) {
+                  const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+                  console.log('🔧 Creating synthetic calculation for:', calcId);
+                  
+                  // Create a synthetic calculation that references the repeating container
+                  calculationStorage[calcId] = {
+                    id: calcId,
+                    steps: [{
+                      id: 'synthetic_step',
+                      config: {
+                        source: 'repeating_container',
+                        repeatingContainerId: repeatingContext.containerId,
+                        repeatingColumn: 'value' // Default to 'value' column
+                      }
+                    }]
+                  };
+                  console.log('🔧 Synthetic calculation created:', calculationStorage[calcId]);
+                  
+                  // CRITICAL: Also store in global storage for the calculation engine
+                  if (!window.superTextCalculations) {
+                    window.superTextCalculations = {};
+                  }
+                  window.superTextCalculations[calcId] = calculationStorage[calcId];
+                  console.log('🔧 Stored synthetic calculation in global storage');
+                }
+              }
+            }
+            
+            // ENHANCED: Also ensure expanded elements are available globally for nested calculations
+            if (!window.__expandedElements) {
+              window.__expandedElements = {};
+            }
+            window.__expandedElements[currentScreenId] = filteredElements;
             
             const executedValue = await executeTextCalculations(
               element.properties.value, 
@@ -251,6 +293,53 @@ const AppRuntime = () => {
             console.error(`Error executing calculations for element ${element.id}:`, error);
             errors[element.id] = error.message;
             results[element.id] = `[Error: ${error.message}]`;
+          }
+        }
+        
+        // Handle page containers with parameter calculations AND nested page elements
+        if (element.type === 'container' && element.contentType === 'page') {
+          try {
+            // Execute parameter calculations
+            if (element.pageConfig?.parameters) {
+              for (const param of element.pageConfig.parameters) {
+                if (param.value && typeof param.value === 'string') {
+                  const calculationStorage = extractCalculationStorage(param.value);
+                  
+                  // Get repeating context if element is inside a repeating container
+                  const repeatingContext = getRepeatingContextForElement(element, containerData);
+                  
+                  const executedValue = await executeTextCalculations(
+                    param.value, 
+                    allElements,
+                    calculationStorage,
+                    repeatingContext,
+                    filteredElements
+                  );
+                  
+                  // Store the executed parameter value
+                  const paramKey = `${element.id}_param_${param.id}`;
+                  results[paramKey] = executedValue;
+                }
+              }
+            }
+            
+            // Execute calculations for nested page elements
+            if (element.pageConfig?.selectedPageId && app?.screens) {
+              const selectedScreen = app.screens.find(screen => screen.id == element.pageConfig.selectedPageId);
+              if (selectedScreen && selectedScreen.elements) {
+                await executeNestedPageElementCalculations(
+                  selectedScreen.elements, 
+                  element.id, 
+                  allElements, 
+                  results, 
+                  errors,
+                  containerData
+                );
+              }
+            }
+          } catch (error) {
+            console.error(`Error executing calculations for page container ${element.id}:`, error);
+            errors[element.id] = error.message;
           }
         }
       }
@@ -279,6 +368,25 @@ const AppRuntime = () => {
         })
       }
     };
+    
+    // For page containers, update parameters with executed values
+    if (element.type === 'container' && element.contentType === 'page' && element.pageConfig?.parameters) {
+      const updatedParameters = element.pageConfig.parameters.map(param => {
+        const paramKey = `${element.id}_param_${param.id}`;
+        if (calculationResults[paramKey]) {
+          return {
+            ...param,
+            executedValue: calculationResults[paramKey]
+          };
+        }
+        return param;
+      });
+      
+      executedElement.pageConfig = {
+        ...element.pageConfig,
+        parameters: updatedParameters
+      };
+    }
 
     const handlers = {
       onClick: () => {}, // No editing in runtime
@@ -312,7 +420,8 @@ const AppRuntime = () => {
       false, // isActiveSlide - will be set by slider component
       isActiveTab, // isActiveTab - check if element is in active tab
       app?.screens || [], // availableScreens
-      calculationResults // calculationResults
+      calculationResults, // calculationResults
+      repeatingContainerData // pass container data to elements
     );
     
     return React.cloneElement(renderedElement, {
@@ -418,13 +527,33 @@ const AppRuntime = () => {
 
   const loadRepeatingContainerData = async (elements) => {
     const containerData = {};
+    
+    // Find repeating containers in main screen elements
     const repeatingContainers = findRepeatingContainers(elements);
+    console.log('🔄 Found repeating containers in main screen:', repeatingContainers.map(c => c.id));
+    
+    // Also find repeating containers in page content
+    const pageContainers = findPageContainers(elements);
+    for (const pageContainer of pageContainers) {
+      if (pageContainer.pageConfig?.selectedPageId && app?.screens) {
+        const selectedScreen = app.screens.find(screen => screen.id == pageContainer.pageConfig.selectedPageId);
+        if (selectedScreen && selectedScreen.elements) {
+          const pageRepeatingContainers = findRepeatingContainers(selectedScreen.elements);
+          console.log('🔄 Found repeating containers in page content:', pageRepeatingContainers.map(c => c.id));
+          repeatingContainers.push(...pageRepeatingContainers);
+        }
+      }
+    }
+    
+    console.log('🔄 Total repeating containers to load data for:', repeatingContainers.map(c => c.id));
     
     for (const container of repeatingContainers) {
       const { databaseId, tableId, filters } = container.repeatingConfig;
       
       try {
+        console.log(`🔄 Loading data for repeating container ${container.id}:`, { databaseId, tableId, filters });
         const records = await executeRepeatingContainerQuery(databaseId, tableId, filters);
+        console.log(`✅ Loaded ${records.length} records for container ${container.id}`);
         containerData[container.id] = {
           records,
           config: container.repeatingConfig
@@ -439,6 +568,7 @@ const AppRuntime = () => {
       }
     }
     
+    console.log('🔄 Final container data:', Object.keys(containerData));
     return containerData;
   };
 
@@ -451,6 +581,27 @@ const AppRuntime = () => {
             element.contentType === 'repeating' && 
             element.repeatingConfig?.databaseId && 
             element.repeatingConfig?.tableId) {
+          containers.push(element);
+        }
+        
+        if (element.children && element.children.length > 0) {
+          traverse(element.children);
+        }
+      });
+    };
+    
+    traverse(elements);
+    return containers;
+  };
+
+  const findPageContainers = (elements) => {
+    const containers = [];
+    
+    const traverse = (elementList) => {
+      elementList.forEach(element => {
+        if (element.type === 'container' && 
+            element.contentType === 'page' && 
+            element.pageConfig?.selectedPageId) {
           containers.push(element);
         }
         
@@ -626,7 +777,165 @@ const AppRuntime = () => {
       return element.repeatingContext;
     }
     
+    // For nested page elements, check if they need repeating context from main screen containers
+    // This handles cases where page elements reference repeating containers from the main screen
+    if (element.properties?.value && element.properties.value.includes('{{CALC:')) {
+      // Extract calculation IDs to see if they reference repeating containers
+      const calcMatches = element.properties.value.match(/{{CALC:([^}]+)}}/g);
+      
+      if (calcMatches) {
+        for (const match of calcMatches) {
+          const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+          
+          // Get calculation config from global storage
+          const calcData = window.superTextCalculations?.[calcId];
+          
+          if (calcData && calcData.source === 'repeating_container') {
+            const containerId = calcData.repeatingContainerId;
+            
+            // Check if we have container data for this container
+            if (containerData[containerId] && containerData[containerId].records) {
+              // For page elements, we'll use the first record as context
+              const context = {
+                containerId: containerId,
+                recordData: containerData[containerId].records[0],
+                rowIndex: 0
+              };
+              return context;
+            }
+          }
+        }
+      }
+      
+      // FALLBACK: If no global calculation data is available, but we have container data,
+      // provide context for any available repeating container
+      // This is a fallback for when calculation data isn't passed properly
+      if (!window.superTextCalculations && Object.keys(containerData).length > 0) {
+        console.log('🔍 FALLBACK: Using fallback context for element:', element.id);
+        console.log('🔍 FALLBACK: Available containers:', Object.keys(containerData));
+        console.log('🔍 FALLBACK: Active tabs state:', window.__activeTabs);
+        
+        // Check if the calculation seems to reference a known container
+        for (const containerId of Object.keys(containerData)) {
+          if (containerData[containerId] && containerData[containerId].records && containerData[containerId].records.length > 0) {
+            // Determine which record to use based on active tab state
+            let recordIndex = 0; // Default to first record
+            
+            console.log(`🔍 FALLBACK: Checking container ${containerId} with ${containerData[containerId].records.length} records`);
+            
+            // Check if this container is used in a tabs container and get the active tab
+            if (window.__activeTabs) {
+              console.log('🔍 FALLBACK: Active tabs found:', window.__activeTabs);
+              // Find tabs containers that might contain this repeating container
+              for (const [tabsContainerId, activeTabIndex] of Object.entries(window.__activeTabs)) {
+                console.log(`🔍 FALLBACK: Checking tabs container ${tabsContainerId} with active tab ${activeTabIndex}`);
+                // Use the active tab index if available
+                if (typeof activeTabIndex === 'number' && activeTabIndex < containerData[containerId].records.length) {
+                  recordIndex = activeTabIndex;
+                  console.log(`🔍 FALLBACK: Using record index ${recordIndex} for container ${containerId}`);
+                  break;
+                }
+              }
+            } else {
+              console.log('🔍 FALLBACK: No active tabs found, using default record index 0');
+            }
+            
+            const context = {
+              containerId: containerId,
+              recordData: containerData[containerId].records[recordIndex],
+              rowIndex: recordIndex
+            };
+            console.log('🔍 FALLBACK: Returning context:', context);
+            return context;
+          }
+        }
+      }
+    }
+    
     return null;
+  };
+
+  // Execute calculations for nested page elements
+  const executeNestedPageElementCalculations = async (pageElements, parentContainerId, allElements, results, errors, containerData) => {
+    console.log('🔄 Executing nested page element calculations for container:', parentContainerId);
+    console.log('🔄 Original page elements:', pageElements);
+    console.log('🔄 Container data available:', Object.keys(containerData));
+    
+    // First, expand any repeating containers in the page elements
+    const expandedPageElements = await expandRepeatingContainers(pageElements, containerData);
+    console.log('🔄 Expanded page elements:', expandedPageElements);
+    
+    const processElements = async (elements, depth = 0) => {
+      for (const element of elements) {
+        if (element.type === 'text' && element.properties?.value) {
+          try {
+            const calculationStorage = extractCalculationStorage(element.properties.value);
+            
+            // Get repeating context for this element if it exists
+            const repeatingContext = getRepeatingContextForElement(element, containerData);
+            console.log('🔄 Repeating context for nested element:', element.id, repeatingContext);
+            
+            // Debug: Log the record data being used
+            if (repeatingContext && repeatingContext.recordData) {
+              console.log('🔍 CALC DEBUG: Record data for element', element.id, ':', repeatingContext.recordData);
+              console.log('🔍 CALC DEBUG: Row index:', repeatingContext.rowIndex);
+            }
+            
+            const executedValue = await executeTextCalculations(
+              element.properties.value,
+              allElements,
+              calculationStorage,
+              repeatingContext, // Pass the repeating context
+              elements // Use page elements as context
+            );
+            
+            console.log('🔍 CALC RESULT: Executed value for element', element.id, ':', executedValue);
+            
+            // Use original element ID for storage (strip repeating context suffixes)
+            const originalElementId = element.originalId || element.id;
+            
+            // Store with multiple ID patterns that Container.js expects
+            const nestedId = `nested_${parentContainerId}_${originalElementId}`;
+            const simpleNestedId = `nested_${originalElementId}`;
+            
+            results[nestedId] = executedValue;
+            results[simpleNestedId] = executedValue;
+            results[originalElementId] = executedValue; // Also store with original ID
+            
+            // Also store with the current (expanded) ID for compatibility
+            results[element.id] = executedValue;
+            
+            console.log('✅ Executed nested page calculation:', {
+              elementId: element.id,
+              nestedId,
+              simpleNestedId,
+              value: element.properties.value,
+              result: executedValue,
+              repeatingContext: repeatingContext
+            });
+          } catch (error) {
+            console.error(`Error executing calculation for nested page element ${element.id}:`, error);
+            errors[element.id] = error.message;
+            
+            // Store error with multiple ID patterns
+            const nestedId = `nested_${parentContainerId}_${element.id}`;
+            const simpleNestedId = `nested_${element.id}`;
+            const errorMessage = `[Error: ${error.message}]`;
+            
+            results[nestedId] = errorMessage;
+            results[simpleNestedId] = errorMessage;
+            results[element.id] = errorMessage;
+          }
+        }
+        
+        // Recursively process children
+        if (element.children && element.children.length > 0) {
+          await processElements(element.children, depth + 1);
+        }
+      }
+    };
+    
+    await processElements(expandedPageElements);
   };
 
   const extractCalculationStorage = (textValue) => {

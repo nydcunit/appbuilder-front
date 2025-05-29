@@ -88,9 +88,38 @@ export class CalculationEngine {
     console.log('Value type:', valueType);
     console.log('Element structure:', JSON.stringify(element, null, 2));
     
+    // ENHANCED: Try to find expanded tabs container if available
+    let tabsElement = element;
+    if (window.__expandedElements) {
+      console.log('🔍 Checking for expanded tabs container...');
+      for (const screenElements of Object.values(window.__expandedElements)) {
+        const findExpandedTabs = (elements) => {
+          for (const el of elements) {
+            if ((el.id === element.id || el.originalId === element.id) && 
+                el.type === 'container' && el.containerType === 'tabs') {
+              console.log('✅ Found expanded tabs container:', el.id);
+              return el;
+            }
+            if (el.children && el.children.length > 0) {
+              const found = findExpandedTabs(el.children);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const expandedTabs = findExpandedTabs(screenElements);
+        if (expandedTabs) {
+          tabsElement = expandedTabs;
+          console.log('🔄 Using expanded tabs container for calculation');
+          break;
+        }
+      }
+    }
+    
     // Get tabs config
-    const tabsConfig = element.tabsConfig ? {
-      activeTab: element.tabsConfig.activeTab || '1'
+    const tabsConfig = tabsElement.tabsConfig ? {
+      activeTab: tabsElement.tabsConfig.activeTab || '1'
     } : {
       activeTab: '1'
     };
@@ -110,7 +139,7 @@ export class CalculationEngine {
         currentActiveTab = tabNumber - 1; // Convert to 0-based
       } else {
         // Try to find by text value
-        currentActiveTab = this.findTabIndexByValue(activeTab, element);
+        currentActiveTab = this.findTabIndexByValue(activeTab, tabsElement);
         if (currentActiveTab === -1) currentActiveTab = 0;
       }
       console.log('Using config active tab:', currentActiveTab);
@@ -126,11 +155,11 @@ export class CalculationEngine {
     
     if (valueType === 'active_tab_value') {
       // FIXED: Find the active tab's text value using improved search
-      const tabValue = await this.findTabTextValueImproved(element, currentActiveTab);
+      const tabValue = await this.findTabTextValueImproved(tabsElement, currentActiveTab);
       
       if (tabValue === null || tabValue === '') {
         console.log('❌ No tab text element found for tab:', currentActiveTab + 1);
-        console.log('Available children:', element.children?.map(c => ({ id: c.id, type: c.type, properties: c.properties })));
+        console.log('Available children:', tabsElement.children?.map(c => ({ id: c.id, type: c.type, properties: c.properties })));
         // Return empty string instead of throwing error
         return '';
       }

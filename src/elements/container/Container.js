@@ -69,66 +69,75 @@ const PageContentContainer = ({ pageElements, selectedScreenName, isExecuteMode,
 };
 
 // Component to handle parameter execution and page content rendering
-const PageContainerWithParameters = ({ element, selectedScreen, availableScreens, isExecuteMode, depth, calculationResults = {} }) => {
-  // Execute parameter calculations in execute mode
+const PageContainerWithParameters = ({ element, selectedScreen, availableScreens, isExecuteMode, depth, calculationResults = {}, repeatingContainerData = {} }) => {
+  // Use executed parameters from AppRuntime if available, otherwise execute our own
   const [executedParameters, setExecutedParameters] = React.useState([]);
   
   React.useEffect(() => {
     if (isExecuteMode && element.pageConfig && element.pageConfig.parameters) {
-      const executeParameterCalculations = async () => {
-        const executed = [];
-        
-        // Get all elements from all screens for calculation context
-        const getAllElementsFromScreens = () => {
-          const allElements = [];
-          availableScreens.forEach(screen => {
-            if (screen.elements) {
-              const traverse = (elementList) => {
-                elementList.forEach(el => {
-                  allElements.push(el);
-                  if (el.children && el.children.length > 0) {
-                    traverse(el.children);
-                  }
-                });
-              };
-              traverse(screen.elements);
-            }
-          });
-          return allElements;
-        };
-        
-        const allElements = getAllElementsFromScreens();
-        
-        for (const param of element.pageConfig.parameters) {
-          let executedValue = param.value;
+      // Check if AppRuntime has already executed the parameters
+      const hasExecutedParams = element.pageConfig.parameters.some(param => param.executedValue !== undefined);
+      
+      if (hasExecutedParams) {
+        console.log('🔄 Using pre-executed parameters from AppRuntime');
+        setExecutedParameters(element.pageConfig.parameters);
+      } else {
+        console.log('🔄 Executing parameters locally in Container.js');
+        const executeParameterCalculations = async () => {
+          const executed = [];
           
-          // Execute calculation if parameter value contains calculation tokens
-          if (param.value && param.value.includes('{{CALC:')) {
-            try {
-              console.log('🧮 Executing parameter calculation:', param.name, param.value);
-              executedValue = await executeTextCalculations(
-                param.value,
-                allElements,
-                {},
-                null
-              );
-              console.log('🧮 Parameter calculation result:', param.name, executedValue);
-            } catch (error) {
-              console.error('Error executing parameter calculation:', error);
-              executedValue = `[Error: ${error.message}]`;
+          // Get all elements from all screens for calculation context
+          const getAllElementsFromScreens = () => {
+            const allElements = [];
+            availableScreens.forEach(screen => {
+              if (screen.elements) {
+                const traverse = (elementList) => {
+                  elementList.forEach(el => {
+                    allElements.push(el);
+                    if (el.children && el.children.length > 0) {
+                      traverse(el.children);
+                    }
+                  });
+                };
+                traverse(screen.elements);
+              }
+            });
+            return allElements;
+          };
+          
+          const allElements = getAllElementsFromScreens();
+          
+          for (const param of element.pageConfig.parameters) {
+            let executedValue = param.value;
+            
+            // Execute calculation if parameter value contains calculation tokens
+            if (param.value && param.value.includes('{{CALC:')) {
+              try {
+                console.log('🧮 Executing parameter calculation:', param.name, param.value);
+                executedValue = await executeTextCalculations(
+                  param.value,
+                  allElements,
+                  {},
+                  null
+                );
+                console.log('🧮 Parameter calculation result:', param.name, executedValue);
+              } catch (error) {
+                console.error('Error executing parameter calculation:', error);
+                executedValue = `[Error: ${error.message}]`;
+              }
             }
+            
+            executed.push({
+              ...param,
+              executedValue
+            });
           }
           
-          executed.push({
-            ...param,
-            executedValue
-          });
-        }
+          setExecutedParameters(executed);
+        };
         
-        setExecutedParameters(executed);
-      };
-      
-      executeParameterCalculations();
+        executeParameterCalculations();
+      }
     } else {
       setExecutedParameters(element.pageConfig?.parameters || []);
     }
@@ -362,7 +371,7 @@ export const ContainerElement = {
   getDefaultChildren: () => ([]),
 
   // FIXED: Render function now accepts matchedConditionIndex parameter
-  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false, availableScreens = [], calculationResults = {}) => {
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false, availableScreens = [], calculationResults = {}, repeatingContainerData = {}) => {
     const { onClick, onDelete, onDragOver, onDragLeave, onDrop, onDragStart } = handlers;
     
     console.log('🔍 Container render called:', {
@@ -1251,7 +1260,8 @@ export const ContainerElement = {
           availableScreens,
           isExecuteMode,
           depth,
-          calculationResults
+          calculationResults,
+          repeatingContainerData
         });
         
         return (
