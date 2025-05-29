@@ -83,7 +83,13 @@ export class CalculationEngine {
     console.log('Element:', element.id);
     console.log('Value type:', valueType);
     
-    const sliderConfig = element.sliderConfig || {
+    // FIXED: Don't override existing sliderConfig with defaults
+    const sliderConfig = element.sliderConfig ? {
+      autoPlay: element.sliderConfig.autoPlay || false,
+      loop: element.sliderConfig.loop || false,
+      slidesToScroll: element.sliderConfig.slidesToScroll || 1,
+      activeTab: element.sliderConfig.activeTab || '1'
+    } : {
       autoPlay: false,
       loop: false,
       slidesToScroll: 1,

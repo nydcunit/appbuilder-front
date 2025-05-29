@@ -242,6 +242,10 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
               ...element,
               id: instanceId,
               originalId: element.id, // Keep track of original ID
+              // FIXED: Preserve all container configurations including sliderConfig
+              containerType: element.containerType,
+              sliderConfig: element.sliderConfig,
+              repeatingConfig: element.repeatingConfig,
               repeatingContext: {
                 containerId: element.id,
                 recordData: record,

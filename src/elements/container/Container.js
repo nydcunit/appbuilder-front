@@ -318,13 +318,25 @@ export const ContainerElement = {
     // Check if this container is a slider container
     const isSliderContainer = (element.containerType || 'basic') === 'slider';
     
-    // Get slider configuration
-    const sliderConfig = element.sliderConfig || {
+    // Get slider configuration - FIXED: Don't override existing config
+    const sliderConfig = element.sliderConfig ? {
+      autoPlay: element.sliderConfig.autoPlay || false,
+      loop: element.sliderConfig.loop || false,
+      slidesToScroll: element.sliderConfig.slidesToScroll || 1,
+      activeTab: element.sliderConfig.activeTab || '1'
+    } : {
       autoPlay: false,
       loop: false,
       slidesToScroll: 1,
       activeTab: '1'
     };
+    
+    // Debug logging for slider config
+    if (isSliderContainer) {
+      console.log('🎡 Slider container config for element:', element.id);
+      console.log('🎡 sliderConfig:', sliderConfig);
+      console.log('🎡 slidesToScroll:', sliderConfig.slidesToScroll);
+    }
     
     // Store active slide state in a context-like way
     const SlideContext = React.createContext(false);
@@ -396,7 +408,8 @@ export const ContainerElement = {
       useEffect(() => {
         if (sliderConfig.autoPlay && children && children.length > 1) {
           autoPlayRef.current = setInterval(() => {
-            goToSlide((currentSlide + 1) % children.length);
+            const slidesToScroll = sliderConfig.slidesToScroll || 1;
+            goToSlide((currentSlide + slidesToScroll) % children.length);
           }, 3000); // 3 second intervals
         }
         
@@ -405,7 +418,7 @@ export const ContainerElement = {
             clearInterval(autoPlayRef.current);
           }
         };
-      }, [currentSlide, sliderConfig.autoPlay, children]);
+      }, [currentSlide, sliderConfig.autoPlay, sliderConfig.slidesToScroll, children]);
       
       // Store active slide info globally for elements to check
       useEffect(() => {
@@ -462,12 +475,13 @@ export const ContainerElement = {
       };
       
       const handleKeyDown = (e) => {
+        const slidesToScroll = sliderConfig.slidesToScroll || 1;
         if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
           e.preventDefault();
-          goToSlide(currentSlide - 1);
+          goToSlide(currentSlide - slidesToScroll);
         } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
           e.preventDefault();
-          goToSlide(currentSlide + 1);
+          goToSlide(currentSlide + slidesToScroll);
         }
       };
       
@@ -617,15 +631,16 @@ export const ContainerElement = {
           return;
         }
         
+        const slidesToScroll = sliderConfig.slidesToScroll || 1;
         if (props.orientation === 'row') {
           const absDeltaX = Math.abs(deltaX);
           if (absDeltaX > minSwipeDistance) {
             if (deltaX > 0) {
               // Swiped left - go to next slide
-              goToSlide(currentSlide + 1);
+              goToSlide(currentSlide + slidesToScroll);
             } else {
               // Swiped right - go to previous slide
-              goToSlide(currentSlide - 1);
+              goToSlide(currentSlide - slidesToScroll);
             }
           }
         } else {
@@ -633,10 +648,10 @@ export const ContainerElement = {
           if (absDeltaY > minSwipeDistance) {
             if (deltaY > 0) {
               // Swiped up - go to next slide
-              goToSlide(currentSlide + 1);
+              goToSlide(currentSlide + slidesToScroll);
             } else {
               // Swiped down - go to previous slide
-              goToSlide(currentSlide - 1);
+              goToSlide(currentSlide - slidesToScroll);
             }
           }
         }
@@ -738,7 +753,8 @@ export const ContainerElement = {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  goToSlide(currentSlide - 1);
+                  const slidesToScroll = sliderConfig.slidesToScroll || 1;
+                  goToSlide(currentSlide - slidesToScroll);
                 }}
                 disabled={!sliderConfig.loop && currentSlide === 0}
                 style={{
@@ -768,7 +784,8 @@ export const ContainerElement = {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  goToSlide(currentSlide + 1);
+                  const slidesToScroll = sliderConfig.slidesToScroll || 1;
+                  goToSlide(currentSlide + slidesToScroll);
                 }}
                 disabled={!sliderConfig.loop && currentSlide === children.length - 1}
                 style={{
