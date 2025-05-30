@@ -7,7 +7,8 @@ const ScreenSelector = ({
   setSelectedElement,
   setShowPropertiesPopup,
   setShowCreateScreenModal,
-  deleteScreen
+  deleteScreen,
+  setShowScreenDetailsModal
 }) => {
   const handleScreenChange = (screenId) => {
     setCurrentScreenId(parseInt(screenId));
@@ -21,6 +22,10 @@ const ScreenSelector = ({
 
   const handleCreateScreen = () => {
     setShowCreateScreenModal(true);
+  };
+
+  const handleScreenDetails = () => {
+    setShowScreenDetailsModal(true);
   };
 
   return (
@@ -50,6 +55,21 @@ const ScreenSelector = ({
         }}
       >
         + New
+      </button>
+      
+      <button
+        onClick={handleScreenDetails}
+        style={{
+          padding: '5px 10px',
+          backgroundColor: '#17a2b8',
+          color: 'white',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: '12px'
+        }}
+        title="Screen Details"
+      >
+        ⚙️
       </button>
       
       <button

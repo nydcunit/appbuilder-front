@@ -10,6 +10,7 @@ const BuilderHeader = ({
   setSelectedElement,
   setShowPropertiesPopup,
   setShowCreateScreenModal,
+  setShowScreenDetailsModal,
   deleteScreen,
   copyCanvasToClipboard,
   copySuccess,
@@ -41,6 +42,7 @@ const BuilderHeader = ({
           setSelectedElement={setSelectedElement}
           setShowPropertiesPopup={setShowPropertiesPopup}
           setShowCreateScreenModal={setShowCreateScreenModal}
+          setShowScreenDetailsModal={setShowScreenDetailsModal}
           deleteScreen={deleteScreen}
         />
 

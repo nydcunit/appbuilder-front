@@ -24,9 +24,13 @@ function AppRoutes() {
   const hostname = window.location.hostname;
   const isSubdomain = hostname !== 'localhost' && hostname.includes('.localhost');
   
-  // If on subdomain, show app runtime
+  // If on subdomain, show app runtime with routing support
   if (isSubdomain) {
-    return <AppRuntime />;
+    return (
+      <Routes>
+        <Route path="/*" element={<AppRuntime />} />
+      </Routes>
+    );
   }
   
   // Otherwise show normal routes

@@ -11,6 +11,7 @@ import ElementsToolbar from './components/Panels/ElementsToolbar';
 import PropertiesPanel from './components/Panels/PropertiesPanel';
 import PreviewModal from './components/Modals/PreviewModal';
 import CreateScreenModal from './components/Modals/CreateScreenModal';
+import ScreenDetailsModal from './components/Modals/ScreenDetailsModal';
 
 // Import hooks
 import { useAppState } from './hooks/useAppState';
@@ -36,6 +37,8 @@ const Builder = () => {
     saveApp,
     createScreen,
     deleteScreen,
+    updateScreen,
+    setHomeScreen,
     currentScreen
   } = useAppState();
 
@@ -66,6 +69,7 @@ const Builder = () => {
 
   // Modal states
   const [showCreateScreenModal, setShowCreateScreenModal] = useState(false);
+  const [showScreenDetailsModal, setShowScreenDetailsModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [previewScreenId, setPreviewScreenId] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -249,6 +253,7 @@ const Builder = () => {
           setSelectedElement={setSelectedElement}
           setShowPropertiesPopup={setShowPropertiesPopup}
           setShowCreateScreenModal={setShowCreateScreenModal}
+          setShowScreenDetailsModal={setShowScreenDetailsModal}
           deleteScreen={handleDeleteScreen}
           copyCanvasToClipboard={handleCopyCanvas}
           copySuccess={copySuccess}
@@ -309,6 +314,18 @@ const Builder = () => {
           setNewScreenName={setNewScreenName}
           createScreen={handleCreateScreen}
           onClose={handleCreateScreenClose}
+        />
+
+        {/* Screen Details Modal */}
+        <ScreenDetailsModal
+          showModal={showScreenDetailsModal}
+          currentScreen={currentScreen}
+          screens={screens}
+          app={app}
+          onClose={() => setShowScreenDetailsModal(false)}
+          onUpdateScreen={updateScreen}
+          onSetHomeScreen={setHomeScreen}
+          onDeleteScreen={handleDeleteScreen}
         />
       </div>
     </ZIndexProvider>

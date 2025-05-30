@@ -45,7 +45,8 @@ export const useAppState = () => {
       console.log('Current screen elements being saved:', JSON.stringify(currentScreenElements, null, 2));
       
       const response = await axios.put(`/api/apps/${appId}`, {
-        screens: screens
+        screens: screens,
+        homeScreenId: app?.homeScreenId
       });
       
       if (response.data.success) {
@@ -91,6 +92,21 @@ export const useAppState = () => {
     }
   };
 
+  const updateScreen = (updatedScreen) => {
+    const updatedScreens = screens.map(screen => 
+      screen.id === updatedScreen.id ? updatedScreen : screen
+    );
+    setScreens(updatedScreens);
+  };
+
+  const setHomeScreen = (screenId) => {
+    // Update app to set home screen
+    setApp(prevApp => ({
+      ...prevApp,
+      homeScreenId: screenId
+    }));
+  };
+
   const getCurrentScreen = () => {
     return screens.find(screen => screen.id === currentScreenId);
   };
@@ -117,6 +133,8 @@ export const useAppState = () => {
     saveApp,
     createScreen,
     deleteScreen,
+    updateScreen,
+    setHomeScreen,
     getCurrentScreen,
     
     // Computed

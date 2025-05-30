@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { getElementByType } from '../elements';
 import LivePreviewListener from './LivePreviewListener';
@@ -8,6 +8,8 @@ import { getVisibleElements } from '../utils/ConditionEngine';
 
 const AppRuntime = () => {
   const { subdomain } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [app, setApp] = useState(null);
   const [currentScreenId, setCurrentScreenId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -97,13 +99,14 @@ const AppRuntime = () => {
     const loadApp = async () => {
       try {
         setLoading(true);
+        console.log('URL_ROUTING: Starting app load process');
         
         // Check for token in URL parameters first
         const urlParams = new URLSearchParams(window.location.search);
         const urlToken = urlParams.get('token');
         
         if (urlToken) {
-          console.log('🔐 Found token in URL parameters, storing and setting up axios');
+          console.log('URL_ROUTING: Found token in URL parameters, storing and setting up axios');
           localStorage.setItem('token', urlToken);
           axios.defaults.headers.common['Authorization'] = `Bearer ${urlToken}`;
           
@@ -111,14 +114,15 @@ const AppRuntime = () => {
           const newUrl = new URL(window.location);
           newUrl.searchParams.delete('token');
           window.history.replaceState({}, document.title, newUrl.toString());
+          console.log('URL_ROUTING: Cleaned URL after token removal:', newUrl.toString());
         } else {
           // Check if we already have a token in localStorage and set up axios
           const existingToken = localStorage.getItem('token');
           if (existingToken) {
-            console.log('🔐 Found existing token in localStorage, setting up axios');
+            console.log('URL_ROUTING: Found existing token in localStorage, setting up axios');
             axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
           } else {
-            console.log('🔐 No token found in localStorage or URL');
+            console.log('URL_ROUTING: No token found in localStorage or URL');
           }
         }
         
@@ -126,31 +130,121 @@ const AppRuntime = () => {
         const hostname = window.location.hostname;
         const appSubdomain = subdomain || (hostname !== 'localhost' ? hostname.split('.')[0] : null);
         
+        console.log('URL_ROUTING: Hostname:', hostname);
+        console.log('URL_ROUTING: Subdomain from params:', subdomain);
+        console.log('URL_ROUTING: Extracted app subdomain:', appSubdomain);
+        
         if (!appSubdomain) {
+          console.log('URL_ROUTING: ERROR - No subdomain found');
           setError('No subdomain found');
           return;
         }
 
         // Fetch app by subdomain
+        console.log('URL_ROUTING: Fetching app with subdomain:', appSubdomain);
         const response = await axios.get(`/api/apps?subdomain=${appSubdomain}`);
         
         if (response.data.success && response.data.data.length > 0) {
           const appData = response.data.data[0];
+          console.log('URL_ROUTING: App loaded successfully:', {
+            appId: appData._id,
+            appName: appData.name,
+            screensCount: appData.screens?.length || 0,
+            homeScreenId: appData.homeScreenId,
+            screens: appData.screens?.map(s => ({ id: s.id, name: s.name, url: s.url })) || []
+          });
           setApp(appData);
-          setCurrentScreenId(appData.screens[0]?.id || 1);
+          
+          // Don't set currentScreenId here - let the URL routing effect handle it
+          console.log('URL_ROUTING: App state set, URL routing effect will handle screen selection');
         } else {
+          console.log('URL_ROUTING: ERROR - App not found in response:', response.data);
           setError('App not found');
         }
       } catch (err) {
-        console.error('Error loading app:', err);
+        console.error('URL_ROUTING: Error loading app:', err);
         setError('Failed to load app');
       } finally {
         setLoading(false);
+        console.log('URL_ROUTING: App loading process completed');
       }
     };
 
     loadApp();
   }, [subdomain]);
+
+  // Handle URL-based routing for screens
+  useEffect(() => {
+    console.log('URL_ROUTING: URL routing effect triggered');
+    console.log('URL_ROUTING: App loaded:', !!app);
+    console.log('URL_ROUTING: App screens count:', app?.screens?.length || 0);
+    console.log('URL_ROUTING: Current screen ID:', currentScreenId);
+    console.log('URL_ROUTING: Location pathname:', location.pathname);
+    
+    if (app && app.screens && app.screens.length > 0) {
+      const currentPath = location.pathname;
+      console.log('URL_ROUTING: Processing URL routing for path:', currentPath);
+      console.log('URL_ROUTING: Available screens:', app.screens.map(s => ({ id: s.id, name: s.name, url: s.url })));
+      console.log('URL_ROUTING: App home screen ID:', app.homeScreenId);
+      
+      // Find screen by URL path
+      let targetScreen = null;
+      
+      // First, try to find a screen with matching URL
+      if (currentPath !== '/') {
+        console.log('URL_ROUTING: Looking for screen with URL matching:', currentPath);
+        targetScreen = app.screens.find(screen => {
+          const screenUrl = screen.url && screen.url.trim() !== '' ? screen.url : null;
+          
+          // Normalize URLs for comparison
+          let normalizedScreenUrl = null;
+          let normalizedCurrentPath = currentPath;
+          
+          if (screenUrl) {
+            // Ensure screen URL starts with /
+            normalizedScreenUrl = screenUrl.startsWith('/') ? screenUrl : `/${screenUrl}`;
+          }
+          
+          console.log(`URL_ROUTING: Checking screen "${screen.name}" (ID: ${screen.id}) with URL "${screenUrl}" (normalized: "${normalizedScreenUrl}") against path "${normalizedCurrentPath}"`);
+          const matches = normalizedScreenUrl === normalizedCurrentPath;
+          console.log(`URL_ROUTING: Match result: ${matches}`);
+          return matches;
+        });
+        console.log('URL_ROUTING: Found screen by URL:', targetScreen ? `${targetScreen.name} (ID: ${targetScreen.id})` : 'None');
+      } else {
+        console.log('URL_ROUTING: Path is root (/), will use home/default screen');
+      }
+      
+      // If no screen found by URL, use home screen or first screen
+      if (!targetScreen) {
+        console.log('URL_ROUTING: No screen found by URL, determining home/default screen');
+        const homeScreenId = app.homeScreenId || app.screens[0]?.id;
+        console.log('URL_ROUTING: Home screen ID to use:', homeScreenId);
+        targetScreen = app.screens.find(screen => screen.id === homeScreenId) || app.screens[0];
+        console.log('URL_ROUTING: Selected home/default screen:', targetScreen ? `${targetScreen.name} (ID: ${targetScreen.id})` : 'None');
+      }
+      
+      if (targetScreen) {
+        console.log('URL_ROUTING: Target screen determined:', `${targetScreen.name} (ID: ${targetScreen.id})`);
+        console.log('URL_ROUTING: Current screen ID:', currentScreenId);
+        console.log('URL_ROUTING: Need to switch screens:', targetScreen.id !== currentScreenId);
+        
+        if (targetScreen.id !== currentScreenId) {
+          console.log('URL_ROUTING: SWITCHING TO SCREEN:', targetScreen.name, 'ID:', targetScreen.id);
+          setCurrentScreenId(targetScreen.id);
+        } else {
+          console.log('URL_ROUTING: Already on correct screen:', targetScreen.name);
+        }
+      } else {
+        console.log('URL_ROUTING: ERROR - No target screen determined!');
+      }
+    } else {
+      console.log('URL_ROUTING: Skipping URL routing - app not ready');
+      console.log('URL_ROUTING: App exists:', !!app);
+      console.log('URL_ROUTING: App has screens:', !!(app?.screens));
+      console.log('URL_ROUTING: Screens length:', app?.screens?.length || 0);
+    }
+  }, [app, location.pathname, currentScreenId]);
 
   // Execute calculations and conditions when app or screen changes
   useEffect(() => {
@@ -1043,23 +1137,37 @@ const AppRuntime = () => {
         {/* Screen Navigation */}
         {app.screens.length > 1 && (
           <div style={{ display: 'flex', gap: '10px' }}>
-            {app.screens.map(screen => (
-              <button
-                key={screen.id}
-                onClick={() => setCurrentScreenId(screen.id)}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: currentScreenId === screen.id ? '#007bff' : '#f8f9fa',
-                  color: currentScreenId === screen.id ? 'white' : '#333',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                {screen.name}
-              </button>
-            ))}
+            {app.screens.map(screen => {
+              const handleScreenNavigation = () => {
+                // If screen has a URL, navigate to it
+                if (screen.url && screen.url.trim() !== '') {
+                  console.log('🔗 Navigating to screen URL:', screen.url);
+                  navigate(screen.url);
+                } else {
+                  // If no URL, navigate to root (home screen)
+                  console.log('🔗 Navigating to home screen');
+                  navigate('/');
+                }
+              };
+              
+              return (
+                <button
+                  key={screen.id}
+                  onClick={handleScreenNavigation}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: currentScreenId === screen.id ? '#007bff' : '#f8f9fa',
+                    color: currentScreenId === screen.id ? 'white' : '#333',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  {screen.name}
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
