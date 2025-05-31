@@ -185,11 +185,10 @@ class WebSocketService {
       console.error('❌ Window error (possible CORS issue):', error);
     });
     
-    // Send data when window loads
-    previewWindow.addEventListener('load', sendCalculationData);
-    
-    // Also try sending after a short delay in case load event is missed
-    setTimeout(sendCalculationData, 1000);
+    // Send data after a short delay (can't use addEventListener on cross-origin window)
+    // Try multiple times to ensure the window is ready
+    setTimeout(sendCalculationData, 500);
+    setTimeout(sendCalculationData, 1500);
     setTimeout(sendCalculationData, 3000);
     setTimeout(sendCalculationData, 5000);
 

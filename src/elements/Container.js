@@ -1,7 +1,1982 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ContainerPropertiesPanel from './ContainerPropertiesPanel';
-import { getElementByType } from '../../elements';
-import { executeTextCalculations } from '../../utils/calculationEngine';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import ConditionBlock from '../components/ConditionBlock';
+import SuperText from '../components/SuperText';
+import axios from 'axios';
+import { executeTextCalculations } from '../utils/calculationEngine';
+import { getElementByType } from './index';
+
+// ============================================
+// CONTAINER STYLE SETTINGS COMPONENT
+// ============================================
+
+const ContainerStyleSettings = ({ 
+  getValue, 
+  handleInputChange, 
+  handleKeyPress, 
+  updateProperty,
+  element, // Add element prop to check if this is inside a slider container
+  isInsideSliderContainer = false, // Flag to indicate if this container is inside a slider container
+  isInsideTabsContainer = false // Flag to indicate if this container is inside a tabs container
+}) => {
+  // Check if this element should have active mode (if it's a child in a slider/tabs container or is a slider/tabs container itself)
+  const containerType = element?.containerType || 'basic';
+  const shouldShowActiveMode = isInsideSliderContainer || isInsideTabsContainer || containerType === 'slider' || containerType === 'tabs';
+  
+  // Determine which type of active mode we're in
+  const isTabsMode = isInsideTabsContainer || containerType === 'tabs';
+  const isSliderMode = isInsideSliderContainer || containerType === 'slider';
+  
+  // State for active mode toggle
+  const [isActiveMode, setIsActiveMode] = useState(false);
+  
+  // Helper function to get property name (with active prefix if in active mode)
+  const getPropertyName = useCallback((baseName) => {
+    return isActiveMode ? `active${baseName.charAt(0).toUpperCase()}${baseName.slice(1)}` : baseName;
+  }, [isActiveMode]);
+  
+  // Helper function to get value with active mode support
+  const getValueWithActiveMode = useCallback((baseName) => {
+    const propertyName = getPropertyName(baseName);
+    return getValue(propertyName);
+  }, [getValue, getPropertyName]);
+  
+  // Helper function to handle input change with active mode support
+  const handleInputChangeWithActiveMode = useCallback((baseName, value) => {
+    const propertyName = getPropertyName(baseName);
+    handleInputChange(propertyName, value);
+  }, [handleInputChange, getPropertyName]);
+  
+  // Helper function to update property with active mode support
+  const updatePropertyWithActiveMode = useCallback((baseName, value) => {
+    const propertyName = getPropertyName(baseName);
+    updateProperty(propertyName, value);
+  }, [updateProperty, getPropertyName]);
+  
+  // Style for labels in active mode (different colors for tabs vs slider)
+  const activeColor = isTabsMode ? '#007bff' : '#8b5cf6';
+  const labelStyle = {
+    minWidth: '80px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    color: isActiveMode ? activeColor : '#555'
+  };
+  
+  // Style for section headers in active mode
+  const headerStyle = {
+    marginBottom: '10px',
+    color: isActiveMode ? activeColor : '#333',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '5px'
+  };
+
+  return (
+    <>
+      {/* Active Mode Toggle for Slider/Tabs Containers */}
+      {shouldShowActiveMode && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px',
+            backgroundColor: isActiveMode ? (isTabsMode ? '#f0f8ff' : '#f3f4f6') : 'transparent',
+            borderRadius: '4px',
+            border: isActiveMode ? `1px solid ${activeColor}` : '1px solid transparent'
+          }}>
+            <button
+              onClick={() => setIsActiveMode(!isActiveMode)}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                backgroundColor: isActiveMode ? activeColor : '#e5e7eb',
+                color: isActiveMode ? 'white' : '#374151',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Active
+            </button>
+            <span style={{
+              fontSize: '12px',
+              color: isActiveMode ? activeColor : '#6b7280',
+              fontWeight: isActiveMode ? '500' : '400'
+            }}>
+              {isActiveMode 
+                ? (isTabsMode ? 'Editing active tab styles' : 'Editing active slide styles')
+                : 'Editing default styles'
+              }
+            </span>
+          </div>
+          {isActiveMode && (
+            <div style={{
+              fontSize: '11px',
+              color: activeColor,
+              marginTop: '4px',
+              padding: '4px 8px',
+              backgroundColor: isTabsMode ? '#e6f3ff' : '#faf5ff',
+              borderRadius: '3px'
+            }}>
+              {isTabsMode 
+                ? 'These styles will only apply when this element is the active tab'
+                : 'These styles will only apply when this element is the active slide'
+              }
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Layout Properties */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Layout
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Width:
+          </label>
+          <input
+            type="text"
+            value={getValueWithActiveMode('width')}
+            onChange={(e) => handleInputChangeWithActiveMode('width', e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="auto, 100px, 50%"
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          />
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Height:
+          </label>
+          <input
+            type="text"
+            value={getValueWithActiveMode('height')}
+            onChange={(e) => handleInputChangeWithActiveMode('height', e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder="auto, 100px, 50%"
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Direction:
+          </label>
+          <select
+            value={getValueWithActiveMode('orientation')}
+            onChange={(e) => updatePropertyWithActiveMode('orientation', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="column">Column</option>
+            <option value="row">Row</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            V-Align:
+          </label>
+          <select
+            value={getValueWithActiveMode('verticalAlignment')}
+            onChange={(e) => updatePropertyWithActiveMode('verticalAlignment', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="flex-start">Start</option>
+            <option value="center">Center</option>
+            <option value="flex-end">End</option>
+            <option value="space-between">Space Between</option>
+            <option value="space-around">Space Around</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            H-Align:
+          </label>
+          <select
+            value={getValueWithActiveMode('horizontalAlignment')}
+            onChange={(e) => updatePropertyWithActiveMode('horizontalAlignment', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="flex-start">Start</option>
+            <option value="center">Center</option>
+            <option value="flex-end">End</option>
+            <option value="stretch">Stretch</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Styling */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Styling
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Background:
+          </label>
+          <input
+            type="color"
+            value={getValueWithActiveMode('backgroundColor')}
+            onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+            style={{
+              width: '100%',
+              height: '30px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Spacing - Margin */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Spacing
+        </h4>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? '#8b5cf6' : '#555' 
+          }}>
+            Margin:
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginTop')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginTop', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginBottom')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginBottom', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? '#8b5cf6' : '#555' 
+          }}>
+            Padding:
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingTop')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingTop', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingBottom')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingBottom', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Border Radius */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Border Radius
+        </h4>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? '#8b5cf6' : '#555' 
+          }}>
+            Corners:
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusTopLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusTopLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusTopRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusTopRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusBottomLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusBottomLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusBottomRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusBottomRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Shadow */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Shadow
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Color:
+          </label>
+          <input
+            type="color"
+            value={getValueWithActiveMode('shadowColor')}
+            onChange={(e) => updatePropertyWithActiveMode('shadowColor', e.target.value)}
+            style={{
+              width: '100%',
+              height: '30px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          />
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '5px' }}>
+          <input
+            type="number"
+            value={getValueWithActiveMode('shadowX')}
+            onChange={(e) => handleInputChangeWithActiveMode('shadowX', parseInt(e.target.value) || 0)}
+            onKeyPress={handleKeyPress}
+            placeholder="X"
+            style={{
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          />
+          <input
+            type="number"
+            value={getValueWithActiveMode('shadowY')}
+            onChange={(e) => handleInputChangeWithActiveMode('shadowY', parseInt(e.target.value) || 0)}
+            onKeyPress={handleKeyPress}
+            placeholder="Y"
+            style={{
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          />
+          <input
+            type="number"
+            value={getValueWithActiveMode('shadowBlur')}
+            onChange={(e) => handleInputChangeWithActiveMode('shadowBlur', parseInt(e.target.value) || 0)}
+            onKeyPress={handleKeyPress}
+            placeholder="Blur"
+            style={{
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          />
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ============================================
+// CONTAINER CONTENT SETTINGS COMPONENT
+// ============================================
+
+const ContainerContentSettings = ({ element, onUpdate, availableElements = [], availableScreens = [], screens = [], currentScreenId = null }) => {
+  const [databases, setDatabases] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [columns, setColumns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // FIXED: Content settings with proper defaults and initialization
+  const contentType = element.contentType || 'fixed';
+  const containerType = element.containerType || 'basic';
+  const sliderConfig = element.sliderConfig || {
+    autoPlay: false,
+    loop: false,
+    slidesToScroll: 1,
+    activeTab: '1'
+  };
+  const tabsConfig = element.tabsConfig || {
+    activeTab: '1'
+  };
+  const repeatingConfig = element.repeatingConfig || {
+    databaseId: null,
+    tableId: null,
+    filters: []
+  };
+  const pageConfig = element.pageConfig || {
+    selectedPageId: null,
+    parameters: []
+  };
+
+  console.log('Container Content Settings - Current State:', {
+    elementId: element.id,
+    contentType,
+    containerType,
+    sliderConfig,
+    repeatingConfig,
+    elementContentType: element.contentType,
+    elementContainerType: element.containerType,
+    elementSliderConfig: element.sliderConfig,
+    elementRepeatingConfig: element.repeatingConfig
+  });
+
+  // Fetch databases on mount
+  useEffect(() => {
+    if (contentType === 'repeating') {
+      fetchDatabases();
+    }
+  }, [contentType]);
+
+  // Fetch tables when database is selected
+  useEffect(() => {
+    if (repeatingConfig.databaseId) {
+      fetchTables(repeatingConfig.databaseId);
+    } else {
+      setTables([]);
+      setColumns([]);
+    }
+  }, [repeatingConfig.databaseId]);
+
+  // Fetch columns when table is selected
+  useEffect(() => {
+    if (repeatingConfig.databaseId && repeatingConfig.tableId) {
+      fetchColumns(repeatingConfig.databaseId, repeatingConfig.tableId);
+    } else {
+      setColumns([]);
+    }
+  }, [repeatingConfig.databaseId, repeatingConfig.tableId]);
+
+  const fetchDatabases = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get('/api/databases');
+      if (response.data.success) {
+        setDatabases(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching databases:', error);
+      setError('Failed to load databases');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTables = async (databaseId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get(`/api/databases/${databaseId}/tables`);
+      if (response.data.success) {
+        setTables(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching tables:', error);
+      setError('Failed to load tables');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchColumns = async (databaseId, tableId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get(`/api/databases/${databaseId}/tables/${tableId}/columns`);
+      if (response.data.success) {
+        setColumns(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching columns:', error);
+      setError('Failed to load columns');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle container type change
+  const handleContainerTypeChange = useCallback((type) => {
+    console.log('Changing container type to:', type, 'for element:', element.id);
+    
+    const updates = {
+      containerType: type
+    };
+
+    // If switching to slider, initialize slider config
+    if (type === 'slider') {
+      updates.sliderConfig = {
+        autoPlay: false,
+        loop: false,
+        slidesToScroll: 1,
+        activeTab: '1'
+      };
+    }
+    
+    // If switching to tabs, initialize tabs config
+    if (type === 'tabs') {
+      updates.tabsConfig = {
+        activeTab: '1'
+      };
+    }
+    
+    // If switching away from tabs, remove tabs config
+    if (type !== 'tabs' && element.tabsConfig) {
+      updates.tabsConfig = null;
+    }
+
+    console.log('Container type update payload:', updates);
+    onUpdate(updates);
+  }, [onUpdate, element.id]);
+
+  // Handle slider config updates
+  const updateSliderConfig = useCallback((updates) => {
+    console.log('Updating slider config:', updates, 'current:', sliderConfig);
+    
+    const newSliderConfig = {
+      ...sliderConfig,
+      ...updates
+    };
+    
+    console.log('New slider config:', newSliderConfig);
+    
+    onUpdate({
+      sliderConfig: newSliderConfig
+    });
+  }, [sliderConfig, onUpdate]);
+
+  // Handle tabs config updates
+  const updateTabsConfig = useCallback((updates) => {
+    console.log('Updating tabs config:', updates, 'current:', tabsConfig);
+    
+    const newTabsConfig = {
+      ...tabsConfig,
+      ...updates
+    };
+    
+    console.log('New tabs config:', newTabsConfig);
+    
+    onUpdate({
+      tabsConfig: newTabsConfig
+    });
+  }, [tabsConfig, onUpdate]);
+
+  // FIXED: Handle content type change - update element directly, not properties
+  const handleContentTypeChange = useCallback((type) => {
+    console.log('Changing content type to:', type, 'for element:', element.id);
+    
+    const updates = {
+      contentType: type
+    };
+
+    // If switching to repeating, initialize repeating config
+    if (type === 'repeating') {
+      updates.repeatingConfig = {
+        databaseId: null,
+        tableId: null,
+        filters: []
+      };
+    } else {
+      // If switching away from repeating, remove repeating config
+      updates.repeatingConfig = null;
+    }
+
+    // If switching to page, initialize page config
+    if (type === 'page') {
+      updates.pageConfig = {
+        selectedPageId: null,
+        parameters: []
+      };
+    } else {
+      // If switching away from page, remove page config
+      updates.pageConfig = null;
+    }
+
+    console.log('Content type update payload:', updates);
+    onUpdate(updates);
+  }, [onUpdate, element.id]);
+
+  // FIXED: Handle repeating config updates - update element directly
+  const updateRepeatingConfig = useCallback((updates) => {
+    console.log('Updating repeating config:', updates, 'current:', repeatingConfig);
+    
+    const newRepeatingConfig = {
+      ...repeatingConfig,
+      ...updates
+    };
+    
+    console.log('New repeating config:', newRepeatingConfig);
+    
+    onUpdate({
+      repeatingConfig: newRepeatingConfig
+    });
+  }, [repeatingConfig, onUpdate]);
+
+  // Handle database selection
+  const handleDatabaseSelect = useCallback((databaseId) => {
+    console.log('Selecting database:', databaseId);
+    updateRepeatingConfig({
+      databaseId,
+      tableId: null,
+      filters: []
+    });
+    setTables([]);
+    setColumns([]);
+  }, [updateRepeatingConfig]);
+
+  // Handle table selection
+  const handleTableSelect = useCallback((tableId) => {
+    console.log('Selecting table:', tableId);
+    updateRepeatingConfig({
+      tableId,
+      filters: []
+    });
+  }, [updateRepeatingConfig]);
+
+  // Handle filter updates
+  const handleAddFilter = useCallback(() => {
+    const newFilter = {
+      id: Date.now().toString(),
+      column: '',
+      operator: 'equals',
+      value: '',
+      logic: repeatingConfig.filters.length > 0 ? 'and' : null
+    };
+    updateRepeatingConfig({
+      filters: [...repeatingConfig.filters, newFilter]
+    });
+  }, [repeatingConfig.filters, updateRepeatingConfig]);
+
+  const handleRemoveFilter = useCallback((filterId) => {
+    const newFilters = repeatingConfig.filters.filter(f => f.id !== filterId);
+    updateRepeatingConfig({ filters: newFilters });
+  }, [repeatingConfig.filters, updateRepeatingConfig]);
+
+  const handleFilterUpdate = useCallback((filterId, field, value) => {
+    const newFilters = repeatingConfig.filters.map(filter => 
+      filter.id === filterId ? { ...filter, [field]: value } : filter
+    );
+    updateRepeatingConfig({ filters: newFilters });
+  }, [repeatingConfig.filters, updateRepeatingConfig]);
+
+  // Handle page config updates
+  const updatePageConfig = useCallback((updates) => {
+    console.log('Updating page config:', updates, 'current:', pageConfig);
+    
+    const newPageConfig = {
+      ...pageConfig,
+      ...updates
+    };
+    
+    console.log('New page config:', newPageConfig);
+    
+    onUpdate({
+      pageConfig: newPageConfig
+    });
+  }, [pageConfig, onUpdate]);
+
+  // Handle page selection
+  const handlePageSelect = useCallback((pageId) => {
+    console.log('Selecting page:', pageId);
+    updatePageConfig({
+      selectedPageId: pageId
+    });
+  }, [updatePageConfig]);
+
+  // Handle parameter updates
+  const handleAddParameter = useCallback(() => {
+    const newParameter = {
+      id: Date.now().toString(),
+      name: '',
+      value: ''
+    };
+    updatePageConfig({
+      parameters: [...pageConfig.parameters, newParameter]
+    });
+  }, [pageConfig.parameters, updatePageConfig]);
+
+  const handleRemoveParameter = useCallback((parameterId) => {
+    const newParameters = pageConfig.parameters.filter(p => p.id !== parameterId);
+    updatePageConfig({ parameters: newParameters });
+  }, [pageConfig.parameters, updatePageConfig]);
+
+  const handleParameterUpdate = useCallback((parameterId, field, value) => {
+    const newParameters = pageConfig.parameters.map(parameter => 
+      parameter.id === parameterId ? { ...parameter, [field]: value } : parameter
+    );
+    updatePageConfig({ parameters: newParameters });
+  }, [pageConfig.parameters, updatePageConfig]);
+
+  const renderContainerTypeTabs = () => (
+    <div style={{
+      marginBottom: '20px'
+    }}>
+      <label style={{
+        display: 'block',
+        fontSize: '14px',
+        fontWeight: '500',
+        color: '#333',
+        marginBottom: '8px'
+      }}>
+        Container Type
+      </label>
+      <div style={{
+        display: 'flex',
+        backgroundColor: '#f0f0f0',
+        borderRadius: '8px',
+        padding: '4px',
+        marginBottom: '16px'
+      }}>
+        {['basic', 'slider', 'tabs'].map((tab) => (
+          <button
+            key={tab}
+            onClick={() => handleContainerTypeChange(tab)}
+            style={{
+              flex: 1,
+              padding: '8px 16px',
+              border: 'none',
+              backgroundColor: containerType === tab ? 'white' : 'transparent',
+              color: containerType === tab ? '#333' : '#666',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: containerType === tab ? '500' : '400',
+              transition: 'all 0.2s ease',
+              textTransform: 'capitalize'
+            }}
+          >
+            {tab}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderSliderOptions = () => {
+    if (containerType !== 'slider') return null;
+
+    return (
+      <div style={{
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e0e0e0'
+      }}>
+        <h4 style={{
+          marginBottom: '16px',
+          color: '#333',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          Slider Options
+        </h4>
+        
+        {/* Auto Play Checkbox */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '12px'
+        }}>
+          <input
+            type="checkbox"
+            id="slider-autoplay"
+            checked={sliderConfig.autoPlay}
+            onChange={(e) => updateSliderConfig({ autoPlay: e.target.checked })}
+            style={{
+              marginRight: '8px'
+            }}
+          />
+          <label htmlFor="slider-autoplay" style={{
+            fontSize: '14px',
+            color: '#333',
+            cursor: 'pointer'
+          }}>
+            Auto Play
+          </label>
+        </div>
+
+        {/* Loop Checkbox */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '12px'
+        }}>
+          <input
+            type="checkbox"
+            id="slider-loop"
+            checked={sliderConfig.loop}
+            onChange={(e) => updateSliderConfig({ loop: e.target.checked })}
+            style={{
+              marginRight: '8px'
+            }}
+          />
+          <label htmlFor="slider-loop" style={{
+            fontSize: '14px',
+            color: '#333',
+            cursor: 'pointer'
+          }}>
+            Loop
+          </label>
+        </div>
+
+        {/* Slides to Scroll */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '4px'
+          }}>
+            Slides to Scroll
+          </label>
+          <input
+            type="number"
+            min="1"
+            value={sliderConfig.slidesToScroll}
+            onChange={(e) => updateSliderConfig({ slidesToScroll: parseInt(e.target.value) || 1 })}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
+        </div>
+
+        {/* Active Tab - Upgraded to SuperText */}
+        <div style={{ marginBottom: '12px' }}>
+          <SuperText
+            label="Active Tab"
+            placeholder="Enter slide value or number (e.g., 1, 2, 3)"
+            value={sliderConfig.activeTab}
+            onChange={(value) => updateSliderConfig({ activeTab: value })}
+            availableElements={[]}
+            screens={screens}
+            currentScreenId={currentScreenId}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderTabsOptions = () => {
+    if (containerType !== 'tabs') return null;
+
+    return (
+      <div style={{
+        marginBottom: '20px',
+        padding: '16px',
+        backgroundColor: '#f0f8ff',
+        borderRadius: '8px',
+        border: '1px solid #b3d9ff'
+      }}>
+        <h4 style={{
+          marginBottom: '16px',
+          color: '#333',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          Tabs Options
+        </h4>
+        
+        {/* Active Tab - Using SuperText */}
+        <div style={{ marginBottom: '12px' }}>
+          <SuperText
+            label="Active Tab"
+            placeholder="Enter tab value or number (e.g., 1, 2, 3)"
+            value={tabsConfig.activeTab}
+            onChange={(value) => updateTabsConfig({ activeTab: value })}
+            availableElements={[]}
+            screens={screens}
+            currentScreenId={currentScreenId}
+          />
+        </div>
+      </div>
+    );
+  };
+
+  const renderContentTabs = () => (
+    <div style={{
+      display: 'flex',
+      backgroundColor: '#f0f0f0',
+      borderRadius: '8px',
+      padding: '4px',
+      marginBottom: '16px'
+    }}>
+      {['fixed', 'repeating', 'page'].map((tab) => (
+        <button
+          key={tab}
+          onClick={() => handleContentTypeChange(tab)}
+          style={{
+            flex: 1,
+            padding: '8px 16px',
+            border: 'none',
+            backgroundColor: contentType === tab ? 'white' : 'transparent',
+            color: contentType === tab ? '#333' : '#666',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: contentType === tab ? '500' : '400',
+            transition: 'all 0.2s ease',
+            textTransform: 'capitalize'
+          }}
+        >
+          {tab}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderRepeatingConfig = () => (
+    <div>
+      {/* Database Selection */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          display: 'block',
+          fontSize: '14px',
+          fontWeight: '500',
+          color: '#333',
+          marginBottom: '8px'
+        }}>
+          Database Table
+        </label>
+
+        {error && (
+          <div style={{
+            padding: '8px 12px',
+            backgroundColor: '#fee',
+            border: '1px solid #fcc',
+            color: '#c33',
+            borderRadius: '4px',
+            fontSize: '12px',
+            marginBottom: '8px'
+          }}>
+            {error}
+          </div>
+        )}
+
+        <select
+          value={repeatingConfig.databaseId || ''}
+          onChange={(e) => handleDatabaseSelect(e.target.value)}
+          disabled={loading}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            fontSize: '14px',
+            backgroundColor: 'white',
+            marginBottom: '8px',
+            opacity: loading ? 0.6 : 1
+          }}
+        >
+          <option value="">
+            {loading ? 'Loading databases...' : 'Select Database'}
+          </option>
+          {databases.map((db) => (
+            <option key={db._id} value={db._id}>
+              {db.name}
+            </option>
+          ))}
+        </select>
+
+        {repeatingConfig.databaseId && (
+          <select
+            value={repeatingConfig.tableId || ''}
+            onChange={(e) => handleTableSelect(e.target.value)}
+            disabled={loading || tables.length === 0}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              fontSize: '14px',
+              backgroundColor: 'white',
+              opacity: loading ? 0.6 : 1
+            }}
+          >
+            <option value="">
+              {loading ? 'Loading tables...' : tables.length === 0 ? 'No tables found' : 'Select Table'}
+            </option>
+            {tables.map((table) => (
+              <option key={table._id} value={table._id}>
+                {table.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Filters */}
+      {repeatingConfig.tableId && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '12px'
+          }}>
+            <label style={{
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#333'
+            }}>
+              Filters (Optional)
+            </label>
+            <div>
+              <button
+                onClick={handleAddFilter}
+                disabled={columns.length === 0}
+                style={{
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  marginRight: '8px',
+                  opacity: columns.length === 0 ? 0.5 : 1
+                }}
+              >
+                +
+              </button>
+              {repeatingConfig.filters.length > 0 && (
+                <button
+                  onClick={() => updateRepeatingConfig({ filters: [] })}
+                  style={{
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    padding: '6px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+          </div>
+
+          {repeatingConfig.filters.map((filter, index) => (
+            <div key={filter.id} style={{
+              backgroundColor: '#f8f9fa',
+              padding: '16px',
+              borderRadius: '8px',
+              marginBottom: '12px',
+              border: '1px solid #e0e0e0'
+            }}>
+              {/* Logic connector for non-first filters */}
+              {index > 0 && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: '12px'
+                }}>
+                  <button
+                    onClick={() => handleFilterUpdate(filter.id, 'logic', 'and')}
+                    style={{
+                      padding: '4px 12px',
+                      border: filter.logic === 'and' ? '2px solid #007bff' : '1px solid #ddd',
+                      backgroundColor: filter.logic === 'and' ? '#e3f2fd' : 'white',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    And
+                  </button>
+                  <button
+                    onClick={() => handleFilterUpdate(filter.id, 'logic', 'or')}
+                    style={{
+                      padding: '4px 12px',
+                      border: filter.logic === 'or' ? '2px solid #007bff' : '1px solid #ddd',
+                      backgroundColor: filter.logic === 'or' ? '#e3f2fd' : 'white',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    Or
+                  </button>
+                  <button
+                    onClick={() => handleRemoveFilter(filter.id)}
+                    style={{
+                      marginLeft: 'auto',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
+              {/* Column Selection */}
+              <select
+                value={filter.column}
+                onChange={(e) => handleFilterUpdate(filter.id, 'column', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: 'white',
+                  marginBottom: '8px'
+                }}
+              >
+                <option value="">Column</option>
+                {columns.map((column) => (
+                  <option key={column._id} value={column.name}>
+                    {column.name} ({column.type})
+                  </option>
+                ))}
+              </select>
+
+              {/* Operator Selection */}
+              <select
+                value={filter.operator}
+                onChange={(e) => handleFilterUpdate(filter.id, 'operator', e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  backgroundColor: 'white',
+                  marginBottom: '8px'
+                }}
+              >
+                <option value="equals">Equals</option>
+                <option value="not_equals">Doesn't Equal</option>
+                <option value="greater_than">Greater Than</option>
+                <option value="less_than">Less Than</option>
+                <option value="greater_equal">Greater Than or Equal</option>
+                <option value="less_equal">Less Than or Equal</option>
+                <option value="contains">Contains</option>
+              </select>
+
+              {/* Value Input */}
+              <input
+                type="text"
+                value={filter.value}
+                onChange={(e) => handleFilterUpdate(filter.id, 'value', e.target.value)}
+                placeholder="Filter value"
+                style={{
+                  width: '100%',
+                  padding: '8px 10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px',
+                  fontSize: '12px'
+                }}
+              />
+
+              {/* Remove button for first filter */}
+              {index === 0 && repeatingConfig.filters.length > 1 && (
+                <div style={{ textAlign: 'center', marginTop: '8px' }}>
+                  <button
+                    onClick={() => handleRemoveFilter(filter.id)}
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#dc3545',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPageConfig = () => (
+    <div>
+      {/* Page Selection */}
+      <div style={{ marginBottom: '20px' }}>
+        <label style={{
+          display: 'block',
+          fontSize: '14px',
+          fontWeight: '500',
+          color: '#333',
+          marginBottom: '8px'
+        }}>
+          Select Page
+        </label>
+
+        <select
+          value={pageConfig.selectedPageId || ''}
+          onChange={(e) => handlePageSelect(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '10px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            fontSize: '14px',
+            backgroundColor: 'white',
+            marginBottom: '8px'
+          }}
+        >
+          <option value="">
+            Select a page to display
+          </option>
+          {availableScreens.map((screen) => (
+            <option key={screen.id} value={screen.id}>
+              {screen.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Parameters */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '12px'
+        }}>
+          <label style={{
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#333'
+          }}>
+            Parameters (Optional)
+          </label>
+          <div>
+            <button
+              onClick={handleAddParameter}
+              style={{
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                marginRight: '8px'
+              }}
+            >
+              Add Parameter
+            </button>
+            {pageConfig.parameters.length > 0 && (
+              <button
+                onClick={() => updatePageConfig({ parameters: [] })}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                Clear All
+              </button>
+            )}
+          </div>
+        </div>
+
+        {pageConfig.parameters.map((parameter, index) => (
+          <div key={parameter.id} style={{
+            backgroundColor: '#f0f8ff',
+            padding: '16px',
+            borderRadius: '8px',
+            marginBottom: '12px',
+            border: '1px solid #b3d9ff'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '12px'
+            }}>
+              <span style={{
+                fontSize: '12px',
+                fontWeight: '500',
+                color: '#333'
+              }}>
+                Parameter {index + 1}
+              </span>
+              <button
+                onClick={() => handleRemoveParameter(parameter.id)}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Parameter Name */}
+            <input
+              type="text"
+              value={parameter.name}
+              onChange={(e) => handleParameterUpdate(parameter.id, 'name', e.target.value)}
+              placeholder="Parameter name (e.g., userId, productId)"
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '12px',
+                marginBottom: '8px'
+              }}
+            />
+
+            {/* Parameter Value - Using SuperText */}
+            <SuperText
+              label="Parameter Value"
+              placeholder="Enter parameter value or select from elements"
+              value={parameter.value}
+              onChange={(value) => handleParameterUpdate(parameter.id, 'value', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+        ))}
+
+        {pageConfig.parameters.length === 0 && (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#f0f8ff',
+            borderRadius: '8px',
+            textAlign: 'center',
+            color: '#666',
+            fontSize: '14px',
+            border: '1px solid #b3d9ff'
+          }}>
+            No parameters added. Click "Add Parameter" to pass data to the nested page.
+          </div>
+        )}
+      </div>
+
+      {/* Info Box */}
+      <div style={{
+        padding: '12px',
+        backgroundColor: '#fff3cd',
+        border: '1px solid #ffeaa7',
+        borderRadius: '6px',
+        fontSize: '12px',
+        color: '#856404'
+      }}>
+        <strong>Note:</strong> The selected page will be rendered inside this container. 
+        You cannot modify elements within the nested page from this view - 
+        please navigate to the page itself to make changes.
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        Content
+      </h4>
+      
+      {/* Debug info */}
+      <div style={{ 
+        fontSize: '10px', 
+        color: '#666', 
+        marginBottom: '8px',
+        padding: '4px 8px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '4px'
+      }}>
+        Debug: contentType={contentType}, containerType={containerType}, has repeatingConfig={!!element.repeatingConfig}
+      </div>
+      
+      {renderContainerTypeTabs()}
+      {renderSliderOptions()}
+      {renderTabsOptions()}
+      
+      <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        Content Mode
+      </h4>
+      
+      {renderContentTabs()}
+      
+      {contentType === 'fixed' && (
+        <div style={{
+          padding: '20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '8px',
+          textAlign: 'center',
+          color: '#666',
+          fontSize: '14px'
+        }}>
+          Container displays content normally (fixed).
+        </div>
+      )}
+      
+      {contentType === 'repeating' && renderRepeatingConfig()}
+      
+      {contentType === 'page' && renderPageConfig()}
+    </div>
+  );
+};
+
+// ============================================
+// CONTAINER PROPERTIES PANEL COMPONENT
+// ============================================
+
+// Separate memoized properties panel component
+const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = [], screens = [], currentScreenId = null }) => {
+  const props = element.properties || {};
+  
+  // FIXED: Initialize activeConditionIndex based on element's conditional state
+  const [activeConditionIndex, setActiveConditionIndex] = useState(() => {
+    // If element has conditional rendering and conditions, default to first condition
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      return 0; // Default to first condition for editing
+    }
+    return 0;
+  });
+
+  // FIXED: Update activeConditionIndex when element changes, but preserve user selection
+  useEffect(() => {
+    console.log('🔧 Element changed, checking condition state:', {
+      elementId: element.id,
+      renderType: element.renderType,
+      conditionsCount: element.conditions?.length || 0,
+      currentActiveIndex: activeConditionIndex
+    });
+
+    // Only reset if the current activeConditionIndex is out of bounds
+    if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
+      console.log('🔧 No conditional rendering, resetting to 0');
+      setActiveConditionIndex(0);
+    } else if (activeConditionIndex >= element.conditions.length) {
+      console.log('🔧 Active condition index out of bounds, resetting to 0');
+      setActiveConditionIndex(0);
+    }
+    // Otherwise, preserve the current activeConditionIndex to maintain user's selection
+  }, [element.id, element.renderType, element.conditions?.length]); // Only depend on essential changes
+
+  // FIXED: Get the current properties - enhanced logic for condition property inheritance
+  const getCurrentProperties = useCallback(() => {
+    console.log('🔧 Getting current properties for element:', element.id);
+    console.log('🔧 Render type:', element.renderType);
+    console.log('🔧 Active condition index:', activeConditionIndex);
+    console.log('🔧 Conditions:', element.conditions?.length || 0);
+    
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      const activeCondition = element.conditions[activeConditionIndex];
+      console.log('🔧 Active condition:', activeCondition);
+      console.log('🔧 Active condition properties:', activeCondition?.properties);
+      
+      // FIXED: Return condition properties if they exist, otherwise return base properties
+      if (activeCondition?.properties) {
+        const mergedProps = { ...props, ...activeCondition.properties };
+        console.log('🔧 Merged properties:', mergedProps);
+        return mergedProps;
+      } else {
+        // If condition doesn't have properties yet, return base properties
+        console.log('🔧 No condition properties, using base properties:', props);
+        return props;
+      }
+    }
+    console.log('🔧 Using base properties:', props);
+    return props;
+  }, [element.renderType, element.conditions, activeConditionIndex, props]);
+
+  // FIXED: Stable update function for properties
+  const updateProperty = useCallback((key, value) => {
+    console.log('🔧 Updating property:', key, '=', value);
+    console.log('🔧 Element render type:', element.renderType);
+    console.log('🔧 Active condition index:', activeConditionIndex);
+    
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      // Update condition-specific properties
+      console.log('🔧 Updating condition-specific property');
+      const newConditions = element.conditions.map((condition, index) => {
+        if (index === activeConditionIndex) {
+          const updatedCondition = {
+            ...condition,
+            properties: {
+              ...condition.properties,
+              [key]: value
+            }
+          };
+          console.log('🔧 Updated condition:', updatedCondition);
+          return updatedCondition;
+        }
+        return condition;
+      });
+      console.log('🔧 All updated conditions:', newConditions);
+      onUpdate({ conditions: newConditions });
+    } else {
+      // Update base properties
+      console.log('🔧 Updating base property');
+      const updatedProps = {
+        ...props,
+        [key]: value
+      };
+      console.log('🔧 Updated base properties:', updatedProps);
+      onUpdate({
+        properties: updatedProps
+      });
+    }
+  }, [props, onUpdate, element.renderType, element.conditions, activeConditionIndex]);
+
+  // FIXED: Handle condition updates AND manage active condition index
+  const handleConditionUpdate = useCallback((updates) => {
+    console.log('🔧 Updating conditions:', updates);
+    
+    // If we're adding a new condition, copy properties from the active condition or base
+    if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
+      const newConditions = updates.conditions.map((condition, index) => {
+        // If this is a new condition and doesn't have properties, copy from active condition or base
+        if (!condition.properties) {
+          let sourceProperties = { ...props }; // Start with base properties
+          
+          // If we have an active condition with properties, copy from there
+          if (element.conditions && element.conditions[activeConditionIndex]?.properties) {
+            sourceProperties = { ...element.conditions[activeConditionIndex].properties };
+          }
+          
+          console.log('🔧 Copying properties to new condition:', sourceProperties);
+          return {
+            ...condition,
+            properties: sourceProperties
+          };
+        }
+        return condition;
+      });
+      updates.conditions = newConditions;
+      console.log('🔧 Final conditions with copied properties:', updates.conditions);
+    }
+    
+    // If conditions were deleted and activeConditionIndex is out of bounds, reset it
+    if (updates.conditions && activeConditionIndex >= updates.conditions.length) {
+      console.log('🔧 Resetting active condition index due to condition deletion');
+      setActiveConditionIndex(0);
+    }
+    
+    onUpdate(updates);
+  }, [onUpdate, element.conditions, props, activeConditionIndex]);
+
+  // FIXED: Handle condition selection changes from ConditionBlock
+  const handleConditionSelectionChange = useCallback((conditionIndex) => {
+    console.log('🔧 Condition selection changed to:', conditionIndex);
+    setActiveConditionIndex(conditionIndex);
+  }, []);
+
+  // Handle input changes with immediate updates
+  const handleInputChange = useCallback((key, value) => {
+    console.log('🔧 Handle input change:', key, '=', value);
+    updateProperty(key, value);
+  }, [updateProperty]);
+
+  // Handle Enter key for better UX
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.target.blur();
+    }
+  }, []);
+
+  // Get current value directly from current properties
+  const getValue = useCallback((key) => {
+    const currentProps = getCurrentProperties();
+    const value = currentProps[key] ?? '';
+    console.log('🔧 Getting value for', key, '=', value);
+    return value;
+  }, [getCurrentProperties]);
+
+  // Handle copying element ID to clipboard
+  const copyElementId = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(element.id);
+      console.log('Element ID copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy element ID:', err);
+    }
+  }, [element.id]);
+
+  // Check if this container element is inside a slider container
+  const checkIfInsideSliderContainer = useCallback(() => {
+    // Helper function to check if an element exists anywhere in a container's tree
+    const isElementInContainer = (elementId, container) => {
+      if (!container.children || container.children.length === 0) {
+        return false;
+      }
+      
+      // Check all children recursively
+      for (const child of container.children) {
+        if (child.id === elementId) {
+          return true;
+        }
+        // Recursively check if this child contains the element
+        if (child.type === 'container' && isElementInContainer(elementId, child)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    // Check all containers to see if any slider contains this element
+    for (const container of availableElements) {
+      if (container.type === 'container' && container.containerType === 'slider') {
+        if (isElementInContainer(element.id, container)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [element.id, availableElements]);
+
+  // Check if this container element is inside a tabs container
+  const checkIfInsideTabsContainer = useCallback(() => {
+    // Helper function to check if an element exists anywhere in a container's tree
+    const isElementInContainer = (elementId, container) => {
+      if (!container.children || container.children.length === 0) {
+        return false;
+      }
+      
+      // Check all children recursively
+      for (const child of container.children) {
+        if (child.id === elementId) {
+          return true;
+        }
+        // Recursively check if this child contains the element
+        if (child.type === 'container' && isElementInContainer(elementId, child)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    // Check all containers to see if any tabs container contains this element
+    for (const container of availableElements) {
+      if (container.type === 'container' && container.containerType === 'tabs') {
+        if (isElementInContainer(element.id, container)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [element.id, availableElements]);
+
+  return (
+    <div>
+      <h3 style={{ marginBottom: '20px', color: '#333' }}>Container Properties</h3>
+      
+      {/* Element ID Section */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+          Element ID
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="text"
+            value={element.id}
+            readOnly
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '12px',
+              backgroundColor: '#f9f9f9',
+              color: '#666',
+              fontFamily: 'monospace'
+            }}
+          />
+          <button
+            onClick={copyElementId}
+            style={{
+              padding: '8px 12px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '500',
+              transition: 'background-color 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#0056b3';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#007bff';
+            }}
+          >
+            Copy
+          </button>
+        </div>
+        
+        <div style={{
+          fontSize: '11px',
+          color: '#999',
+          marginTop: '4px'
+        }}>
+          Use this ID to reference this element in calculations
+        </div>
+      </div>
+
+      {/* FIXED: Condition Block with callback for condition selection changes */}
+      <ConditionBlock
+        element={element}
+        onUpdate={handleConditionUpdate}
+        onConditionSelectionChange={handleConditionSelectionChange}
+        activeConditionIndex={activeConditionIndex}
+        availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
+      />
+
+      {/* FIXED: Show indicator of which condition's properties are being edited */}
+      {element.renderType === 'conditional' && element.conditions && element.conditions.length > 0 && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '12px',
+          backgroundColor: '#e3f2fd',
+          borderRadius: '8px',
+          border: '1px solid #2196f3',
+          fontSize: '14px',
+          color: '#1976d2'
+        }}>
+          <strong>📝 Editing properties for Condition {activeConditionIndex + 1}</strong>
+          <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
+            All style settings below will apply to this condition. Switch between conditions using the tabs above.
+          </div>
+          <div style={{ fontSize: '11px', marginTop: '8px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+            <strong>💡 Tip:</strong> Changes are automatically saved. The background color and other properties you set here will be applied when this condition evaluates to true during preview/execution.
+          </div>
+        </div>
+      )}
+
+      {/* Content Section */}
+      <ContainerContentSettings
+        element={element}
+        onUpdate={onUpdate}
+        availableElements={availableElements}
+        availableScreens={screens}
+        screens={screens}
+        currentScreenId={currentScreenId}
+      />
+      
+      {/* Style Settings - These now automatically use the correct condition properties */}
+      <ContainerStyleSettings
+        getValue={getValue}
+        handleInputChange={handleInputChange}
+        handleKeyPress={handleKeyPress}
+        updateProperty={updateProperty}
+        element={element}
+        isInsideSliderContainer={checkIfInsideSliderContainer()}
+        isInsideTabsContainer={checkIfInsideTabsContainer()}
+      />
+    </div>
+  );
+});
+
+ContainerPropertiesPanel.displayName = 'ContainerPropertiesPanel';
+
+// ============================================
+// MAIN CONTAINER COMPONENT AND ELEMENT DEFINITION
+// ============================================
 
 // Page Content Container component with hover overlay
 const PageContentContainer = ({ pageElements, selectedScreenName, isExecuteMode, props }) => {
