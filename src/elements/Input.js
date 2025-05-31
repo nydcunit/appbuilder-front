@@ -1,0 +1,1299 @@
+import React, { memo, useCallback, useEffect, useState } from 'react';
+import ConditionBlock from '../components/ConditionBlock';
+import SuperText from '../components/SuperText';
+
+// ============================================
+// INPUT STYLE SETTINGS COMPONENT
+// ============================================
+
+const InputStyleSettings = ({ 
+  getValue, 
+  handleInputChange, 
+  handleKeyPress, 
+  updateProperty,
+  element,
+  isInsideSliderContainer = false,
+  isInsideTabsContainer = false
+}) => {
+  
+  // State for active mode toggle
+  const [isActiveMode, setIsActiveMode] = useState(false);
+  
+  // Helper function to get property name (with active prefix if in active mode)
+  const getPropertyName = useCallback((baseName) => {
+    return isActiveMode ? `active${baseName.charAt(0).toUpperCase()}${baseName.slice(1)}` : baseName;
+  }, [isActiveMode]);
+  
+  // Helper function to get value with active mode support
+  const getValueWithActiveMode = useCallback((baseName) => {
+    const propertyName = getPropertyName(baseName);
+    return getValue(propertyName);
+  }, [getValue, getPropertyName]);
+  
+  // Helper function to handle input change with active mode support
+  const handleInputChangeWithActiveMode = useCallback((baseName, value) => {
+    const propertyName = getPropertyName(baseName);
+    handleInputChange(propertyName, value);
+  }, [handleInputChange, getPropertyName]);
+  
+  // Helper function to update property with active mode support
+  const updatePropertyWithActiveMode = useCallback((baseName, value) => {
+    const propertyName = getPropertyName(baseName);
+    updateProperty(propertyName, value);
+  }, [updateProperty, getPropertyName]);
+  
+  // Determine active color based on container type
+  const activeColor = isInsideTabsContainer ? '#007bff' : '#8b5cf6';
+  
+  // Style for labels in active mode
+  const labelStyle = {
+    minWidth: '80px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    color: isActiveMode ? activeColor : '#555'
+  };
+  
+  // Style for section headers in active mode
+  const headerStyle = {
+    marginBottom: '10px',
+    color: isActiveMode ? activeColor : '#333',
+    borderBottom: '1px solid #eee',
+    paddingBottom: '5px'
+  };
+
+  return (
+    <>
+      {/* Active Mode Toggle for Input Elements Inside Slider/Tabs Containers */}
+      {(isInsideSliderContainer || isInsideTabsContainer) && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px',
+            backgroundColor: isActiveMode ? (isInsideTabsContainer ? '#f0f8ff' : '#f3f4f6') : 'transparent',
+            borderRadius: '4px',
+            border: isActiveMode ? `1px solid ${activeColor}` : '1px solid transparent'
+          }}>
+            <button
+              onClick={() => setIsActiveMode(!isActiveMode)}
+              style={{
+                padding: '4px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                backgroundColor: isActiveMode ? activeColor : '#e5e7eb',
+                color: isActiveMode ? 'white' : '#374151',
+                fontSize: '12px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Active
+            </button>
+            <span style={{
+              fontSize: '12px',
+              color: isActiveMode ? activeColor : '#6b7280',
+              fontWeight: isActiveMode ? '500' : '400'
+            }}>
+              {isActiveMode 
+                ? (isInsideTabsContainer ? 'Editing active tab input styles' : 'Editing active slide input styles')
+                : 'Editing default input styles'
+              }
+            </span>
+          </div>
+          {isActiveMode && (
+            <div style={{
+              fontSize: '11px',
+              color: activeColor,
+              marginTop: '4px',
+              padding: '4px 8px',
+              backgroundColor: isInsideTabsContainer ? '#e6f3ff' : '#faf5ff',
+              borderRadius: '3px'
+            }}>
+              {isInsideTabsContainer 
+                ? 'These styles will only apply when this input is in the active tab'
+                : 'These styles will only apply when this input is in the active slide'
+              }
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Typography */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Typography
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Font Size:
+          </label>
+          <input
+            type="number"
+            value={getValueWithActiveMode('fontSize')}
+            onChange={(e) => handleInputChangeWithActiveMode('fontSize', parseInt(e.target.value) || 16)}
+            onKeyPress={handleKeyPress}
+            placeholder="16"
+            min="8"
+            max="100"
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          />
+          <span style={{ fontSize: '12px', color: '#666' }}>px</span>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Font Weight:
+          </label>
+          <select
+            value={getValueWithActiveMode('fontWeight')}
+            onChange={(e) => updatePropertyWithActiveMode('fontWeight', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="100">Thin (100)</option>
+            <option value="200">Extra Light (200)</option>
+            <option value="300">Light (300)</option>
+            <option value="400">Normal (400)</option>
+            <option value="500">Medium (500)</option>
+            <option value="600">Semi Bold (600)</option>
+            <option value="700">Bold (700)</option>
+            <option value="800">Extra Bold (800)</option>
+            <option value="900">Black (900)</option>
+          </select>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Text Align:
+          </label>
+          <select
+            value={getValueWithActiveMode('textAlignment')}
+            onChange={(e) => updatePropertyWithActiveMode('textAlignment', e.target.value)}
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          >
+            <option value="left">Left</option>
+            <option value="center">Center</option>
+            <option value="right">Right</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Colors */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Colors
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Text Color:
+          </label>
+          <input
+            type="color"
+            value={getValueWithActiveMode('textColor')}
+            onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
+            style={{
+              width: '100%',
+              height: '30px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Placeholder Color:
+          </label>
+          <input
+            type="color"
+            value={getValueWithActiveMode('placeholderColor')}
+            onChange={(e) => updatePropertyWithActiveMode('placeholderColor', e.target.value)}
+            style={{
+              width: '100%',
+              height: '30px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Background:
+          </label>
+          <input
+            type="color"
+            value={getValueWithActiveMode('boxBackgroundColor')}
+            onChange={(e) => updatePropertyWithActiveMode('boxBackgroundColor', e.target.value)}
+            style={{
+              width: '100%',
+              height: '30px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Spacing - Margin */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Spacing
+        </h4>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? activeColor : '#555' 
+          }}>
+            Margin:
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginTop')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginTop', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginBottom')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginBottom', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('marginRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('marginRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? activeColor : '#555' 
+          }}>
+            Padding:
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingTop')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingTop', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingBottom')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingBottom', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('paddingRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('paddingRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Border Radius */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Border Radius
+        </h4>
+        
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px', 
+            color: isActiveMode ? activeColor : '#555' 
+          }}>
+            Corners:
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusTopLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusTopLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusTopRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusTopRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Top Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusBottomLeft')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusBottomLeft', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom Left"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+            <input
+              type="number"
+              value={getValueWithActiveMode('borderRadiusBottomRight')}
+              onChange={(e) => handleInputChangeWithActiveMode('borderRadiusBottomRight', parseInt(e.target.value) || 0)}
+              onKeyPress={handleKeyPress}
+              placeholder="Bottom Right"
+              style={{
+                padding: '4px 8px',
+                border: '1px solid #ddd',
+                borderRadius: '3px',
+                fontSize: '12px'
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Border */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={headerStyle}>
+          Border
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Border Color:
+          </label>
+          <input
+            type="color"
+            value={getValueWithActiveMode('borderColor')}
+            onChange={(e) => updatePropertyWithActiveMode('borderColor', e.target.value)}
+            style={{
+              width: '100%',
+              height: '30px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          />
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Border Width:
+          </label>
+          <input
+            type="number"
+            value={getValueWithActiveMode('borderWidth')}
+            onChange={(e) => handleInputChangeWithActiveMode('borderWidth', parseInt(e.target.value) || 0)}
+            onKeyPress={handleKeyPress}
+            placeholder="1"
+            min="0"
+            max="10"
+            style={{
+              width: '100%',
+              padding: '4px 8px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              fontSize: '12px'
+            }}
+          />
+          <span style={{ fontSize: '12px', color: '#666' }}>px</span>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// ============================================
+// INPUT CONTENT SETTINGS COMPONENT
+// ============================================
+
+const InputContentSettings = ({ 
+  getValue, 
+  handleInputChange, 
+  availableElements = [],
+  element,
+  screens = [],
+  currentScreenId = null
+}) => {
+  
+  // Handle input type checkboxes
+  const handleInputTypeChange = (type, checked) => {
+    const currentTypes = getValue('inputTypes') || [];
+    let newTypes;
+    
+    if (checked) {
+      newTypes = [...currentTypes, type];
+    } else {
+      newTypes = currentTypes.filter(t => t !== type);
+    }
+    
+    handleInputChange('inputTypes', newTypes);
+  };
+  
+  const currentInputTypes = getValue('inputTypes') || [];
+  
+  return (
+    <div style={{ marginBottom: '20px' }}>
+      <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+        Input Configuration
+      </h4>
+      
+      {/* Input Type Checkboxes */}
+      <div style={{
+        marginBottom: '16px',
+        padding: '12px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '6px',
+        border: '1px solid #e0e0e0'
+      }}>
+        <label style={{
+          display: 'block',
+          fontSize: '13px',
+          fontWeight: '500',
+          color: '#333',
+          marginBottom: '8px'
+        }}>
+          Input Type Options (can select multiple):
+        </label>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          {/* Number Checkbox */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="checkbox"
+              id="input-number"
+              checked={currentInputTypes.includes('number')}
+              onChange={(e) => handleInputTypeChange('number', e.target.checked)}
+            />
+            <label htmlFor="input-number" style={{
+              fontSize: '12px',
+              color: '#333',
+              cursor: 'pointer'
+            }}>
+              Number (only number input)
+            </label>
+          </div>
+          
+          {/* Password Checkbox */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="checkbox"
+              id="input-password"
+              checked={currentInputTypes.includes('password')}
+              onChange={(e) => handleInputTypeChange('password', e.target.checked)}
+            />
+            <label htmlFor="input-password" style={{
+              fontSize: '12px',
+              color: '#333',
+              cursor: 'pointer'
+            }}>
+              Password (password input)
+            </label>
+          </div>
+          
+          {/* Long Text Checkbox */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <input
+              type="checkbox"
+              id="input-long"
+              checked={currentInputTypes.includes('long')}
+              onChange={(e) => handleInputTypeChange('long', e.target.checked)}
+            />
+            <label htmlFor="input-long" style={{
+              fontSize: '12px',
+              color: '#333',
+              cursor: 'pointer'
+            }}>
+              Long (textarea)
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      {/* Placeholder SuperText */}
+      <SuperText
+        label="Placeholder"
+        placeholder="Enter placeholder text..."
+        value={getValue('placeholder')}
+        onChange={(value) => handleInputChange('placeholder', value)}
+        availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
+      />
+      
+      {/* Default Value SuperText */}
+      <SuperText
+        label="Default Value"
+        placeholder="Enter default value..."
+        value={getValue('defaultValue')}
+        onChange={(value) => handleInputChange('defaultValue', value)}
+        availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
+      />
+    </div>
+  );
+};
+
+// ============================================
+// INPUT PROPERTIES PANEL COMPONENT
+// ============================================
+
+const InputPropertiesPanel = memo(({ element, onUpdate, availableElements = [], screens = [], currentScreenId = null }) => {
+  const props = element.properties || {};
+  
+  // Initialize activeConditionIndex based on element's conditional state
+  const [activeConditionIndex, setActiveConditionIndex] = useState(() => {
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      return 0;
+    }
+    return 0;
+  });
+
+  // Update activeConditionIndex when element changes, but preserve user selection
+  useEffect(() => {
+    if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
+      setActiveConditionIndex(0);
+    } else if (activeConditionIndex >= element.conditions.length) {
+      setActiveConditionIndex(0);
+    }
+  }, [element.id, element.renderType, element.conditions?.length]);
+
+  // Get the current properties - enhanced logic for condition property inheritance
+  const getCurrentProperties = useCallback(() => {
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      const activeCondition = element.conditions[activeConditionIndex];
+      
+      if (activeCondition?.properties) {
+        const mergedProps = { ...props, ...activeCondition.properties };
+        return mergedProps;
+      } else {
+        return props;
+      }
+    }
+    return props;
+  }, [element.renderType, element.conditions, activeConditionIndex, props]);
+
+  // Stable update function for properties
+  const updateProperty = useCallback((key, value) => {
+    if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+      // Update condition-specific properties
+      const newConditions = element.conditions.map((condition, index) => {
+        if (index === activeConditionIndex) {
+          const updatedCondition = {
+            ...condition,
+            properties: {
+              ...condition.properties,
+              [key]: value
+            }
+          };
+          return updatedCondition;
+        }
+        return condition;
+      });
+      onUpdate({ conditions: newConditions });
+    } else {
+      // Update base properties
+      const updatedProps = {
+        ...props,
+        [key]: value
+      };
+      onUpdate({
+        properties: updatedProps
+      });
+    }
+  }, [props, onUpdate, element.renderType, element.conditions, activeConditionIndex]);
+
+  // Handle condition updates AND manage active condition index
+  const handleConditionUpdate = useCallback((updates) => {
+    // If we're adding a new condition, copy properties from the active condition or base
+    if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
+      const newConditions = updates.conditions.map((condition, index) => {
+        if (!condition.properties) {
+          let sourceProperties = { ...props };
+          
+          if (element.conditions && element.conditions[activeConditionIndex]?.properties) {
+            sourceProperties = { ...element.conditions[activeConditionIndex].properties };
+          }
+          
+          return {
+            ...condition,
+            properties: sourceProperties
+          };
+        }
+        return condition;
+      });
+      updates.conditions = newConditions;
+    }
+    
+    // If conditions were deleted and activeConditionIndex is out of bounds, reset it
+    if (updates.conditions && activeConditionIndex >= updates.conditions.length) {
+      setActiveConditionIndex(0);
+    }
+    
+    onUpdate(updates);
+  }, [onUpdate, element.conditions, props, activeConditionIndex]);
+
+  // Handle condition selection changes from ConditionBlock
+  const handleConditionSelectionChange = useCallback((conditionIndex) => {
+    setActiveConditionIndex(conditionIndex);
+  }, []);
+
+  // Handle input changes with immediate updates
+  const handleInputChange = useCallback((key, value) => {
+    updateProperty(key, value);
+  }, [updateProperty]);
+
+  // Handle Enter key for better UX
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === 'Enter') {
+      e.target.blur();
+    }
+  }, []);
+
+  // Get current value directly from current properties
+  const getValue = useCallback((key) => {
+    const currentProps = getCurrentProperties();
+    const value = currentProps[key] ?? '';
+    return value;
+  }, [getCurrentProperties]);
+
+  // Check if this input element is inside a slider container
+  const checkIfInsideSliderContainer = useCallback(() => {
+    const isElementInContainer = (elementId, container) => {
+      if (!container.children || container.children.length === 0) {
+        return false;
+      }
+      
+      for (const child of container.children) {
+        if (child.id === elementId) {
+          return true;
+        }
+        if (child.type === 'container' && isElementInContainer(elementId, child)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    for (const container of availableElements) {
+      if (container.type === 'container' && container.containerType === 'slider') {
+        if (isElementInContainer(element.id, container)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [element.id, availableElements]);
+
+  // Check if this input element is inside a tabs container
+  const checkIfInsideTabsContainer = useCallback(() => {
+    const isElementInContainer = (elementId, container) => {
+      if (!container.children || container.children.length === 0) {
+        return false;
+      }
+      
+      for (const child of container.children) {
+        if (child.id === elementId) {
+          return true;
+        }
+        if (child.type === 'container' && isElementInContainer(elementId, child)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    for (const container of availableElements) {
+      if (container.type === 'container' && container.containerType === 'tabs') {
+        if (isElementInContainer(element.id, container)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [element.id, availableElements]);
+
+  // Handle copying element ID to clipboard
+  const copyElementId = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(element.id);
+      console.log('Element ID copied to clipboard');
+    } catch (err) {
+      console.error('Failed to copy element ID:', err);
+    }
+  }, [element.id]);
+
+  return (
+    <div>
+      <h3 style={{ marginBottom: '20px', color: '#333' }}>Input Properties</h3>
+      
+      {/* Element ID Section */}
+      <div style={{ marginBottom: '20px' }}>
+        <h4 style={{ marginBottom: '10px', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+          Element ID
+        </h4>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="text"
+            value={element.id}
+            readOnly
+            style={{
+              flex: 1,
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '12px',
+              backgroundColor: '#f9f9f9',
+              color: '#666',
+              fontFamily: 'monospace'
+            }}
+          />
+          <button
+            onClick={copyElementId}
+            style={{
+              padding: '8px 12px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '500',
+              transition: 'background-color 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#0056b3';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = '#007bff';
+            }}
+          >
+            Copy
+          </button>
+        </div>
+        
+        <div style={{
+          fontSize: '11px',
+          color: '#999',
+          marginTop: '4px'
+        }}>
+          Use this ID to reference this input in calculations
+        </div>
+      </div>
+
+      {/* Condition Block */}
+      <ConditionBlock
+        element={element}
+        onUpdate={handleConditionUpdate}
+        onConditionSelectionChange={handleConditionSelectionChange}
+        activeConditionIndex={activeConditionIndex}
+        availableElements={availableElements}
+        screens={screens}
+        currentScreenId={currentScreenId}
+      />
+
+      {/* Show indicator of which condition's properties are being edited */}
+      {element.renderType === 'conditional' && element.conditions && element.conditions.length > 0 && (
+        <div style={{
+          marginBottom: '20px',
+          padding: '12px',
+          backgroundColor: '#e3f2fd',
+          borderRadius: '8px',
+          border: '1px solid #2196f3',
+          fontSize: '14px',
+          color: '#1976d2'
+        }}>
+          <strong>📝 Editing properties for Condition {activeConditionIndex + 1}</strong>
+          <div style={{ fontSize: '12px', marginTop: '4px', opacity: 0.8 }}>
+            All style settings below will apply to this condition. Switch between conditions using the tabs above.
+          </div>
+          <div style={{ fontSize: '11px', marginTop: '8px', padding: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+            <strong>💡 Tip:</strong> Changes are automatically saved. The input styling you set here will be applied when this condition evaluates to true during preview/execution.
+          </div>
+        </div>
+      )}
+
+      {/* Content Section */}
+      <InputContentSettings
+        getValue={getValue}
+        handleInputChange={handleInputChange}
+        availableElements={availableElements}
+        element={element}
+        screens={screens}
+        currentScreenId={currentScreenId}
+      />
+      
+      {/* Style Settings */}
+      <InputStyleSettings
+        getValue={getValue}
+        handleInputChange={handleInputChange}
+        handleKeyPress={handleKeyPress}
+        updateProperty={updateProperty}
+        element={element}
+        isInsideSliderContainer={checkIfInsideSliderContainer()}
+        isInsideTabsContainer={checkIfInsideTabsContainer()}
+      />
+    </div>
+  );
+});
+
+InputPropertiesPanel.displayName = 'InputPropertiesPanel';
+
+// ============================================
+// MAIN INPUT COMPONENT AND ELEMENT DEFINITION
+// ============================================
+
+// Get properties for rendering - handles conditional properties based on evaluation
+const getRenderProperties = (element, matchedConditionIndex = null) => {
+  if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+    let conditionIndex = matchedConditionIndex;
+    
+    if (conditionIndex === null || conditionIndex === undefined) {
+      conditionIndex = 0;
+    }
+    
+    const selectedCondition = element.conditions[conditionIndex];
+    
+    if (selectedCondition && selectedCondition.properties) {
+      const mergedProperties = { ...element.properties, ...selectedCondition.properties };
+      return mergedProperties;
+    }
+  }
+  
+  const baseProperties = element.properties || {};
+  return baseProperties;
+};
+
+export const InputElement = {
+  type: 'input',
+  label: 'Input',
+  icon: '📝',
+  
+  // Default properties when element is created
+  getDefaultProps: () => ({
+    // Input Configuration
+    inputTypes: [], // Array of selected types: 'number', 'password', 'long'
+    placeholder: 'Enter text...',
+    defaultValue: '',
+    
+    // Typography
+    fontSize: 16,
+    fontWeight: '400',
+    textAlignment: 'left',
+    
+    // Colors
+    textColor: '#333333',
+    placeholderColor: '#999999',
+    boxBackgroundColor: '#ffffff',
+    
+    // Spacing
+    marginTop: 0,
+    marginBottom: 0,
+    marginLeft: 0,
+    marginRight: 0,
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingLeft: 16,
+    paddingRight: 16,
+    
+    // Border Radius
+    borderRadiusTopLeft: 4,
+    borderRadiusTopRight: 4,
+    borderRadiusBottomLeft: 4,
+    borderRadiusBottomRight: 4,
+    
+    // Border
+    borderColor: '#ddd',
+    borderWidth: 1,
+    
+    // Active state properties (for when inside slider/tabs)
+    activeFontSize: 16,
+    activeFontWeight: '400',
+    activeTextAlignment: 'left',
+    activeTextColor: '#333333',
+    activePlaceholderColor: '#999999',
+    activeBoxBackgroundColor: '#ffffff',
+    activeMarginTop: 0,
+    activeMarginBottom: 0,
+    activeMarginLeft: 0,
+    activeMarginRight: 0,
+    activePaddingTop: 12,
+    activePaddingBottom: 12,
+    activePaddingLeft: 16,
+    activePaddingRight: 16,
+    activeBorderRadiusTopLeft: 4,
+    activeBorderRadiusTopRight: 4,
+    activeBorderRadiusBottomLeft: 4,
+    activeBorderRadiusBottomRight: 4,
+    activeBorderColor: '#ddd',
+    activeBorderWidth: 1
+  }),
+  
+  getDefaultChildren: () => ([]),
+
+  // Render function
+  render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false) => {
+    const { onClick, onDelete, onDragStart } = handlers;
+    
+    // Get render properties with matched condition index
+    let props = getRenderProperties(element, matchedConditionIndex);
+    
+    // Apply active styles if this element is in the active slide OR active tab
+    const shouldApplyActiveStyles = (isActiveSlide || isActiveTab) && isExecuteMode;
+    
+    if (shouldApplyActiveStyles) {
+      // Merge active properties over default properties
+      const activeProps = {};
+      Object.keys(props).forEach(key => {
+        const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+        if (props[activeKey] !== undefined) {
+          activeProps[key] = props[activeKey];
+        }
+      });
+      props = { ...props, ...activeProps };
+    }
+    
+    // Determine input type based on selected options
+    const inputTypes = props.inputTypes || [];
+    let inputType = 'text';
+    let isTextarea = false;
+    
+    if (inputTypes.includes('password')) {
+      inputType = 'password';
+    } else if (inputTypes.includes('number')) {
+      inputType = 'number';
+    }
+    
+    if (inputTypes.includes('long')) {
+      isTextarea = true;
+    }
+    
+    // Build styles from properties
+    const inputStyle = {
+      // Typography
+      fontSize: `${props.fontSize || 16}px`,
+      fontWeight: props.fontWeight || '400',
+      textAlign: props.textAlignment || 'left',
+      
+      // Colors
+      color: props.textColor || '#333333',
+      backgroundColor: props.boxBackgroundColor || '#ffffff',
+      
+      // Spacing
+      marginTop: `${props.marginTop || 0}px`,
+      marginBottom: `${props.marginBottom || 0}px`,
+      marginLeft: `${props.marginLeft || 0}px`,
+      marginRight: `${props.marginRight || 0}px`,
+      paddingTop: `${props.paddingTop || 12}px`,
+      paddingBottom: `${props.paddingBottom || 12}px`,
+      paddingLeft: `${props.paddingLeft || 16}px`,
+      paddingRight: `${props.paddingRight || 16}px`,
+      
+      // Border Radius
+      borderTopLeftRadius: `${props.borderRadiusTopLeft || 4}px`,
+      borderTopRightRadius: `${props.borderRadiusTopRight || 4}px`,
+      borderBottomLeftRadius: `${props.borderRadiusBottomLeft || 4}px`,
+      borderBottomRightRadius: `${props.borderRadiusBottomRight || 4}px`,
+      
+      // Border
+      border: `${props.borderWidth || 1}px solid ${props.borderColor || '#ddd'}`,
+      
+      // Layout
+      width: '100%',
+      outline: 'none',
+      transition: 'all 0.2s ease',
+      fontFamily: 'inherit',
+      resize: isTextarea ? 'vertical' : 'none',
+      minHeight: isTextarea ? '80px' : 'auto',
+      
+      // Canvas specific styles
+      ...(isSelected && {
+        borderColor: '#007bff',
+        borderWidth: '2px'
+      })
+    };
+    
+    // Placeholder color
+    const placeholderColor = props.placeholderColor || '#999999';
+    
+    return (
+      <div
+        key={element.id}
+        draggable={!isExecuteMode}
+        onClick={(e) => {
+          if (!isExecuteMode) {
+            onClick && onClick(element, e);
+          }
+        }}
+        onDragStart={(e) => {
+          if (!isExecuteMode) {
+            e.stopPropagation();
+            onDragStart && onDragStart(e);
+          }
+        }}
+        style={{
+          position: 'relative',
+          display: 'inline-block',
+          width: '100%'
+        }}
+        onMouseDown={(e) => {
+          if (!isExecuteMode) {
+            e.currentTarget.style.cursor = 'grabbing';
+          }
+        }}
+        onMouseUp={(e) => {
+          if (!isExecuteMode) {
+            e.currentTarget.style.cursor = 'grab';
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isExecuteMode) {
+            e.currentTarget.style.cursor = 'grab';
+          }
+        }}
+      >
+        {/* Element Label - Hide in execute mode */}
+        {!isExecuteMode && isSelected && (
+          <div 
+            style={{
+              position: 'absolute',
+              top: '-20px',
+              left: '0px',
+              fontSize: '10px',
+              color: '#007bff',
+              backgroundColor: 'rgba(255, 255, 255, 0.9)',
+              padding: '2px 6px',
+              borderRadius: '3px',
+              border: '1px solid #007bff',
+              zIndex: 1,
+              pointerEvents: 'none',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Input Element (ID: {element.id.slice(-6)})
+            {element.renderType === 'conditional' && (
+              <span style={{ color: '#28a745', marginLeft: '4px' }}>• Conditional</span>
+            )}
+          </div>
+        )}
+        
+        {/* Delete Button - Hide in execute mode */}
+        {!isExecuteMode && isSelected && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete && onDelete(element.id);
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+            }}
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              right: '-10px',
+              background: '#dc3545',
+              color: 'white',
+              border: 'none',
+              width: '20px',
+              height: '20px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              borderRadius: '50%',
+              zIndex: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            ×
+          </button>
+        )}
+
+        {/* Drag Handle - Hide in execute mode */}
+        {!isExecuteMode && isSelected && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: '10px',
+              color: '#007bff',
+              cursor: 'grab',
+              padding: '2px 4px',
+              zIndex: 1,
+              pointerEvents: 'none'
+            }}
+          >
+            ⋮⋮
+          </div>
+        )}
+
+        {/* Input Element */}
+        {isTextarea ? (
+          <textarea
+            placeholder={props.placeholder || 'Enter text...'}
+            defaultValue={props.defaultValue || ''}
+            style={{
+              ...inputStyle,
+              '::placeholder': {
+                color: placeholderColor
+              }
+            }}
+            disabled={!isExecuteMode}
+          />
+        ) : (
+          <input
+            type={inputType}
+            placeholder={props.placeholder || 'Enter text...'}
+            defaultValue={props.defaultValue || ''}
+            style={{
+              ...inputStyle,
+              '::placeholder': {
+                color: placeholderColor
+              }
+            }}
+            disabled={!isExecuteMode}
+          />
+        )}
+        
+        {/* Add CSS for placeholder styling */}
+        <style>
+          {`
+            input::placeholder, textarea::placeholder {
+              color: ${placeholderColor} !important;
+            }
+          `}
+        </style>
+      </div>
+    );
+  },
+
+  // Use the properties panel
+  PropertiesPanel: InputPropertiesPanel
+};

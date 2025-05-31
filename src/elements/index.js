@@ -1,10 +1,12 @@
 import { ContainerElement } from './Container';
 import { TextElement } from './Text';
+import { InputElement } from './Input';
 
 // Export all available elements
 export const availableElements = [
   ContainerElement,
-  TextElement
+  TextElement,
+  InputElement
 ];
 
 // Helper function to get element definition by type
