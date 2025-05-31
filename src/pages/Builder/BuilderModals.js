@@ -1,7 +1,344 @@
-import React, { useState, useEffect } from 'react';
-import { getElementByType } from '../../../../elements';
-import { executeTextCalculations, executeRepeatingContainerQuery } from '../../../../utils/calculationEngine';
-import { getVisibleElements } from '../../../../utils/ConditionEngine';
+import React, { useEffect, useState } from 'react';
+import { executeTextCalculations, executeRepeatingContainerQuery } from '../../utils/calculationEngine';
+import { getElementByType } from '../../elements';
+import { getVisibleElements } from '../../utils/ConditionEngine';
+
+// ============================================
+// CREATE SCREEN MODAL
+// ============================================
+
+const CreateScreenModal = ({ 
+  showCreateScreenModal, 
+  newScreenName, 
+  setNewScreenName, 
+  createScreen, 
+  onClose 
+}) => {
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      createScreen();
+    } else if (e.key === 'Escape') {
+      onClose();
+    }
+  };
+
+  if (!showCreateScreenModal) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '20px',
+        borderRadius: '8px',
+        width: '300px'
+      }}>
+        <h3>Create New Screen</h3>
+        <input
+          type="text"
+          placeholder="Screen name"
+          value={newScreenName}
+          onChange={(e) => setNewScreenName(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '8px',
+            border: '1px solid #ddd',
+            marginBottom: '15px'
+          }}
+          onKeyPress={handleKeyPress}
+          autoFocus
+        />
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+          <button 
+            onClick={onClose}
+            style={{
+              padding: '8px 15px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={createScreen}
+            disabled={!newScreenName.trim()}
+            style={{
+              padding: '8px 15px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              opacity: !newScreenName.trim() ? 0.5 : 1
+            }}
+          >
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+// ============================================
+// SCREEN DETAILS MODAL
+// ============================================
+
+const ScreenDetailsModal = ({
+  showModal,
+  currentScreen,
+  screens,
+  app,
+  onClose,
+  onUpdateScreen,
+  onSetHomeScreen,
+  onDeleteScreen
+}) => {
+  const [screenName, setScreenName] = useState('');
+  const [screenUrl, setScreenUrl] = useState('');
+
+  useEffect(() => {
+    if (currentScreen) {
+      setScreenName(currentScreen.name || '');
+      setScreenUrl(currentScreen.url || '');
+    }
+  }, [currentScreen]);
+
+  const handleSave = () => {
+    if (!screenName.trim()) {
+      alert('Screen name is required');
+      return;
+    }
+
+    onUpdateScreen({
+      ...currentScreen,
+      name: screenName.trim(),
+      url: screenUrl.trim()
+    });
+    onClose();
+  };
+
+  const handleSetAsHome = () => {
+    if (window.confirm('Set this screen as the home screen?')) {
+      onSetHomeScreen(currentScreen.id);
+    }
+  };
+
+  const handleDelete = () => {
+    if (screens.length === 1) {
+      alert('Cannot delete the last screen. Please create another screen first.');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to delete the screen "${currentScreen.name}"?`)) {
+      onDeleteScreen(currentScreen.id);
+      onClose();
+    }
+  };
+
+  if (!showModal || !currentScreen) return null;
+
+  const isHomeScreen = app?.homeScreenId === currentScreen.id || 
+                      (screens.length > 0 && screens[0].id === currentScreen.id && !app?.homeScreenId);
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '30px',
+        borderRadius: '8px',
+        width: '500px',
+        maxWidth: '90vw',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+      }}>
+        <h2 style={{ 
+          margin: '0 0 20px 0', 
+          color: '#333',
+          fontSize: '24px',
+          fontWeight: '600'
+        }}>
+          Screen Details
+        </h2>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '8px', 
+            fontWeight: '500',
+            color: '#555'
+          }}>
+            Screen Name:
+          </label>
+          <input
+            type="text"
+            value={screenName}
+            onChange={(e) => setScreenName(e.target.value)}
+            placeholder="Enter screen name"
+            style={{
+              width: '100%',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ 
+            display: 'block', 
+            marginBottom: '8px', 
+            fontWeight: '500',
+            color: '#555'
+          }}>
+            Screen URL:
+          </label>
+          <input
+            type="text"
+            value={screenUrl}
+            onChange={(e) => setScreenUrl(e.target.value)}
+            placeholder="Enter screen URL (optional)"
+            style={{
+              width: '100%',
+              padding: '10px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px',
+              boxSizing: 'border-box'
+            }}
+          />
+          <small style={{ color: '#666', fontSize: '12px' }}>
+            URL path for this screen (e.g., /about, /contact)
+          </small>
+        </div>
+
+        {isHomeScreen && (
+          <div style={{
+            backgroundColor: '#e8f5e8',
+            border: '1px solid #4caf50',
+            borderRadius: '4px',
+            padding: '10px',
+            marginBottom: '20px',
+            fontSize: '14px',
+            color: '#2e7d32'
+          }}>
+            ✓ This is the home screen
+          </div>
+        )}
+
+        <div style={{ 
+          display: 'flex', 
+          gap: '10px', 
+          flexWrap: 'wrap',
+          marginBottom: '20px'
+        }}>
+          {!isHomeScreen && (
+            <button
+              onClick={handleSetAsHome}
+              style={{
+                padding: '10px 15px',
+                backgroundColor: '#2196f3',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              🏠 Set as Home Screen
+            </button>
+          )}
+
+          <button
+            onClick={handleDelete}
+            style={{
+              padding: '10px 15px',
+              backgroundColor: '#f44336',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            🗑️ Delete Screen
+          </button>
+        </div>
+
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end', 
+          gap: '10px',
+          borderTop: '1px solid #eee',
+          paddingTop: '20px'
+        }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+// ============================================
+// PREVIEW MODAL
+// ============================================
 
 // Preview Modal Component with Real Calculation Execution AND Conditional Rendering AND Repeating Containers
 const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => {
@@ -73,7 +410,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
               console.log('🔄 Processing nested page element with parameter context:', element.id);
               
               // Import and create custom calculation engine
-              const { CalculationEngine } = await import('../../../../utils/calculationEngine');
+              const { CalculationEngine } = await import('../../utils/calculationEngine');
               const calculationEngine = new CalculationEngine(allElements, repeatingContext, filteredElements);
               
               // Set the nested page context for parameter resolution
@@ -146,7 +483,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
 
   // ENHANCED: Get visible elements AND track which condition matched for each element
   const getVisibleElementsWithMatches = async (elements, availableElements) => {
-    const { getVisibleElements } = await import('../../../../utils/ConditionEngine');
+    const { getVisibleElements } = await import('../../utils/ConditionEngine');
     
     // We need to modify the ConditionEngine to return condition match info
     // For now, let's implement a simple version here
@@ -156,7 +493,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     for (const element of elements) {
       if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
         // Import and use the ConditionEngine
-        const { ConditionEngine } = await import('../../../../utils/ConditionEngine');
+        const { ConditionEngine } = await import('../../utils/ConditionEngine');
         
         // Extract repeating context from the element
         let repeatingContext = null;
@@ -1067,4 +1404,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
   );
 };
 
-export default PreviewModal;
+
+
+// Export all modals
+export { CreateScreenModal, ScreenDetailsModal, PreviewModal };

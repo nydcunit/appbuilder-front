@@ -8,7 +8,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Databases from './pages/Databases/index';
 import DatabaseDetail from './pages/Databases/DatabaseDetail';
-import Builder from './pages/Builder';
+import Builder from './pages/Builder/Builder';
 import AppRuntime from './components/AppRuntime';
 import Layout from './components/Layout';
 import './App.css';
