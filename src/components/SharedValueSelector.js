@@ -1,7 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import ValueTab from './calculation-tabs/ValueTab';
-import DatabaseTab from './calculation-tabs/DatabaseTab';
-import InformationTab from './calculation-tabs/InformationTab';
+import { ValueTab, DatabaseTab, InformationTab } from './CalculationComponents';
 
 // Shared component for the 3-tab value selector (Value, Database, Information)
 export const ValueSelector = ({ 

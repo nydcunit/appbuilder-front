@@ -6,8 +6,7 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import Databases from './pages/Databases/index';
-import DatabaseDetail from './pages/Databases/DatabaseDetail';
+import Databases from './pages/Databases/Databases';
 import Builder from './pages/Builder/Builder';
 import AppRuntime from './components/AppRuntime';
 import Layout from './components/Layout';
@@ -64,7 +63,7 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <Layout>
-              <DatabaseDetail />
+              <Databases />
             </Layout>
           </PrivateRoute>
         } 

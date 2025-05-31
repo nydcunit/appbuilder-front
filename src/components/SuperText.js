@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import CalculationPopup from './CalculationPopup';
+import { CalculationPopup } from './CalculationComponents';
 import { useZIndex } from './ZIndexContext';
 
 // CLEAN EXPANDED EDITOR COMPONENT - Isolated contentEditable logic

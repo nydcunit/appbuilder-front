@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import axios from 'axios';
-import CreateAppWizardModal from '../components/CreateAppWizardModal';
-import AppSettingsModal from '../components/AppSettingsModal';
+import { CreateAppWizardModal, AppSettingsModal } from './Dashboard/DashboardModals';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -36,7 +35,14 @@ const Dashboard = () => {
   };
 
   const handleAppUpdated = (updatedApp) => {
-    setApps(apps.map(app => app._id === updatedApp._id ? updatedApp : app));
+    if (updatedApp === null) {
+      // App was deleted
+      setApps(apps.filter(app => app._id !== selectedApp._id));
+      closeSettings();
+    } else {
+      // App was updated
+      setApps(apps.map(app => app._id === updatedApp._id ? updatedApp : app));
+    }
   };
 
   const openSettings = (app) => {
