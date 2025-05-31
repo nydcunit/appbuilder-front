@@ -535,7 +535,7 @@ const InputContentSettings = ({
   currentScreenId = null
 }) => {
   
-  // Handle input type checkboxes
+  // Handle input type checkboxes (for text type only)
   const handleInputTypeChange = (type, checked) => {
     const currentTypes = getValue('inputTypes') || [];
     let newTypes;
@@ -550,6 +550,7 @@ const InputContentSettings = ({
   };
   
   const currentInputTypes = getValue('inputTypes') || [];
+  const currentInputType = getValue('inputType') || 'text';
   
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -557,13 +558,13 @@ const InputContentSettings = ({
         Input Configuration
       </h4>
       
-      {/* Input Type Checkboxes */}
+      {/* Main Input Type Dropdown */}
       <div style={{
         marginBottom: '16px',
         padding: '12px',
-        backgroundColor: '#f8f9fa',
+        backgroundColor: '#e8f4fd',
         borderRadius: '6px',
-        border: '1px solid #e0e0e0'
+        border: '1px solid #b3d9ff'
       }}>
         <label style={{
           display: 'block',
@@ -572,62 +573,132 @@ const InputContentSettings = ({
           color: '#333',
           marginBottom: '8px'
         }}>
-          Input Type Options (can select multiple):
+          Input Type:
         </label>
         
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {/* Number Checkbox */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="checkbox"
-              id="input-number"
-              checked={currentInputTypes.includes('number')}
-              onChange={(e) => handleInputTypeChange('number', e.target.checked)}
-            />
-            <label htmlFor="input-number" style={{
-              fontSize: '12px',
-              color: '#333',
-              cursor: 'pointer'
-            }}>
-              Number (only number input)
-            </label>
-          </div>
+        <select
+          value={currentInputType}
+          onChange={(e) => handleInputChange('inputType', e.target.value)}
+          style={{
+            width: '100%',
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            fontSize: '14px',
+            backgroundColor: 'white'
+          }}
+        >
+          <option value="text">Text</option>
+          <option value="dropdown">Dropdown</option>
+          <option value="button">Button</option>
+          <option value="toggle">Toggle</option>
+          <option value="datePicker">Date Picker</option>
+          <option value="location">Location</option>
+          <option value="filePicker">File Picker</option>
+          <option value="audio">Audio</option>
+        </select>
+      </div>
+      
+      {/* Text Input Type Options (only show for text type) */}
+      {currentInputType === 'text' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '6px',
+          border: '1px solid #e0e0e0'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '8px'
+          }}>
+            Text Input Options (can select multiple):
+          </label>
           
-          {/* Password Checkbox */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="checkbox"
-              id="input-password"
-              checked={currentInputTypes.includes('password')}
-              onChange={(e) => handleInputTypeChange('password', e.target.checked)}
-            />
-            <label htmlFor="input-password" style={{
-              fontSize: '12px',
-              color: '#333',
-              cursor: 'pointer'
-            }}>
-              Password (password input)
-            </label>
-          </div>
-          
-          {/* Long Text Checkbox */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <input
-              type="checkbox"
-              id="input-long"
-              checked={currentInputTypes.includes('long')}
-              onChange={(e) => handleInputTypeChange('long', e.target.checked)}
-            />
-            <label htmlFor="input-long" style={{
-              fontSize: '12px',
-              color: '#333',
-              cursor: 'pointer'
-            }}>
-              Long (textarea)
-            </label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* Number Checkbox */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="checkbox"
+                id="input-number"
+                checked={currentInputTypes.includes('number')}
+                onChange={(e) => handleInputTypeChange('number', e.target.checked)}
+              />
+              <label htmlFor="input-number" style={{
+                fontSize: '12px',
+                color: '#333',
+                cursor: 'pointer'
+              }}>
+                Number (only number input)
+              </label>
+            </div>
+            
+            {/* Password Checkbox */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="checkbox"
+                id="input-password"
+                checked={currentInputTypes.includes('password')}
+                onChange={(e) => handleInputTypeChange('password', e.target.checked)}
+              />
+              <label htmlFor="input-password" style={{
+                fontSize: '12px',
+                color: '#333',
+                cursor: 'pointer'
+              }}>
+                Password (password input)
+              </label>
+            </div>
+            
+            {/* Long Text Checkbox */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="checkbox"
+                id="input-long"
+                checked={currentInputTypes.includes('long')}
+                onChange={(e) => handleInputTypeChange('long', e.target.checked)}
+              />
+              <label htmlFor="input-long" style={{
+                fontSize: '12px',
+                color: '#333',
+                cursor: 'pointer'
+              }}>
+                Long (textarea)
+              </label>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+      
+      {/* Show placeholder for other input types */}
+      {currentInputType !== 'text' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '16px',
+          backgroundColor: '#fff3cd',
+          borderRadius: '6px',
+          border: '1px solid #ffeaa7',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            fontSize: '14px',
+            color: '#856404',
+            fontWeight: '500',
+            marginBottom: '4px'
+          }}>
+            {currentInputType.charAt(0).toUpperCase() + currentInputType.slice(1)} Input Type
+          </div>
+          <div style={{
+            fontSize: '12px',
+            color: '#856404'
+          }}>
+            Configuration options for this input type will be available soon.
+          </div>
+        </div>
+      )}
       
       {/* Placeholder SuperText */}
       <SuperText
@@ -997,7 +1068,8 @@ export const InputElement = {
   // Default properties when element is created
   getDefaultProps: () => ({
     // Input Configuration
-    inputTypes: [], // Array of selected types: 'number', 'password', 'long'
+    inputType: 'text', // Main input type: 'text', 'dropdown', 'button', 'toggle', 'datePicker', 'location', 'filePicker', 'audio'
+    inputTypes: [], // Array of selected types for text input: 'number', 'password', 'long'
     placeholder: 'Enter text...',
     defaultValue: '',
     
