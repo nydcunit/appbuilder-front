@@ -2997,7 +2997,7 @@ export const ContainerElement = {
                     {React.isValidElement(child) && isActive ? 
                       React.cloneElement(child, { 
                         ...child.props,
-                        isActiveSlide: true,
+
                         'data-active-slide': 'true'
                       }) : child}
                   </div>
@@ -3532,7 +3532,7 @@ export const ContainerElement = {
                   return React.cloneElement(child, {
                     ...child.props,
                     key: child.key || index,
-                    isActiveTab: isActiveTab,
+
                     'data-active-tab': isActiveTab ? 'true' : 'false',
                     onClick: (e) => {
                       e.stopPropagation();

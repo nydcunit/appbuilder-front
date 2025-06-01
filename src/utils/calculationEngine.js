@@ -490,8 +490,9 @@ export class CalculationEngine {
     
     const { passedParameterName, passedParameterFromScreen } = config;
     
-    if (!passedParameterName) {
-      throw new Error('Parameter name must be specified');
+    if (!passedParameterName || passedParameterName.trim() === '') {
+      console.warn('Parameter name is missing or empty in config:', config);
+      return ''; // Return empty string instead of throwing error
     }
     
     // Look up the parameter value from page containers
