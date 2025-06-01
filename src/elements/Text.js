@@ -583,19 +583,14 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
 
   // FIXED: Update activeConditionIndex when element changes, but preserve user selection
   useEffect(() => {
-    console.log('🔧 Element changed, checking condition state:', {
-      elementId: element.id,
-      renderType: element.renderType,
-      conditionsCount: element.conditions?.length || 0,
-      currentActiveIndex: activeConditionIndex
-    });
+    
 
     // Only reset if the current activeConditionIndex is out of bounds
     if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
-      console.log('🔧 No conditional rendering, resetting to 0');
+      
       setActiveConditionIndex(0);
     } else if (activeConditionIndex >= element.conditions.length) {
-      console.log('🔧 Active condition index out of bounds, resetting to 0');
+      
       setActiveConditionIndex(0);
     }
     // Otherwise, preserve the current activeConditionIndex to maintain user's selection
@@ -603,40 +598,34 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
 
   // FIXED: Get the current properties - enhanced logic for condition property inheritance
   const getCurrentProperties = useCallback(() => {
-    console.log('🔧 Getting current properties for element:', element.id);
-    console.log('🔧 Render type:', element.renderType);
-    console.log('🔧 Active condition index:', activeConditionIndex);
-    console.log('🔧 Conditions:', element.conditions?.length || 0);
+    
     
     if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
       const activeCondition = element.conditions[activeConditionIndex];
-      console.log('🔧 Active condition:', activeCondition);
-      console.log('🔧 Active condition properties:', activeCondition?.properties);
+      
       
       // FIXED: Return condition properties if they exist, otherwise return base properties
       if (activeCondition?.properties) {
         const mergedProps = { ...props, ...activeCondition.properties };
-        console.log('🔧 Merged properties:', mergedProps);
+        
         return mergedProps;
       } else {
         // If condition doesn't have properties yet, return base properties
-        console.log('🔧 No condition properties, using base properties:', props);
+        
         return props;
       }
     }
-    console.log('🔧 Using base properties:', props);
+    
     return props;
   }, [element.renderType, element.conditions, activeConditionIndex, props]);
 
   // FIXED: Stable update function for properties
   const updateProperty = useCallback((key, value) => {
-    console.log('🔧 Updating property:', key, '=', value);
-    console.log('🔧 Element render type:', element.renderType);
-    console.log('🔧 Active condition index:', activeConditionIndex);
+    
     
     if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
       // Update condition-specific properties
-      console.log('🔧 Updating condition-specific property');
+      
       const newConditions = element.conditions.map((condition, index) => {
         if (index === activeConditionIndex) {
           const updatedCondition = {
@@ -646,21 +635,21 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
               [key]: value
             }
           };
-          console.log('🔧 Updated condition:', updatedCondition);
+          
           return updatedCondition;
         }
         return condition;
       });
-      console.log('🔧 All updated conditions:', newConditions);
+      
       onUpdate({ conditions: newConditions });
     } else {
       // Update base properties
-      console.log('🔧 Updating base property');
+      
       const updatedProps = {
         ...props,
         [key]: value
       };
-      console.log('🔧 Updated base properties:', updatedProps);
+      
       onUpdate({
         properties: updatedProps
       });
@@ -669,7 +658,7 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
 
   // FIXED: Handle condition updates AND manage active condition index
   const handleConditionUpdate = useCallback((updates) => {
-    console.log('🔧 Updating conditions:', updates);
+    
     
     // If we're adding a new condition, copy properties from the active condition or base
     if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
@@ -683,7 +672,7 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
             sourceProperties = { ...element.conditions[activeConditionIndex].properties };
           }
           
-          console.log('🔧 Copying properties to new condition:', sourceProperties);
+          
           return {
             ...condition,
             properties: sourceProperties
@@ -692,12 +681,12 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
         return condition;
       });
       updates.conditions = newConditions;
-      console.log('🔧 Final conditions with copied properties:', updates.conditions);
+      
     }
     
     // If conditions were deleted and activeConditionIndex is out of bounds, reset it
     if (updates.conditions && activeConditionIndex >= updates.conditions.length) {
-      console.log('🔧 Resetting active condition index due to condition deletion');
+      
       setActiveConditionIndex(0);
     }
     
@@ -706,13 +695,13 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
 
   // FIXED: Handle condition selection changes from ConditionBlock
   const handleConditionSelectionChange = useCallback((conditionIndex) => {
-    console.log('🔧 Condition selection changed to:', conditionIndex);
+    
     setActiveConditionIndex(conditionIndex);
   }, []);
 
   // Handle input changes with immediate updates
   const handleInputChange = useCallback((key, value) => {
-    console.log('🔧 Handle input change:', key, '=', value);
+    
     updateProperty(key, value);
   }, [updateProperty]);
 
@@ -727,7 +716,7 @@ const TextPropertiesPanel = memo(({ element, onUpdate, availableElements = [], s
   const getValue = useCallback((key) => {
     const currentProps = getCurrentProperties();
     const value = currentProps[key] ?? '';
-    console.log('🔧 Getting value for', key, '=', value);
+    
     return value;
   }, [getCurrentProperties]);
 
@@ -934,10 +923,7 @@ TextPropertiesPanel.displayName = 'TextPropertiesPanel';
 
 // FIXED: Get properties for rendering - now correctly handles conditional properties based on evaluation
 const getRenderProperties = (element, matchedConditionIndex = null) => {
-  console.log('🎨 Getting render properties for text element:', element.id);
-  console.log('🎨 Element renderType:', element.renderType);
-  console.log('🎨 Element conditions:', element.conditions?.length || 0);
-  console.log('🎨 Matched condition index:', matchedConditionIndex);
+
   
   if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
     // FIXED: Use the matched condition index if provided
@@ -946,22 +932,21 @@ const getRenderProperties = (element, matchedConditionIndex = null) => {
     // Fallback to first condition if no specific match provided (for builder mode)
     if (conditionIndex === null || conditionIndex === undefined) {
       conditionIndex = 0;
-      console.log('🎨 No matched condition index provided, defaulting to first condition for builder mode');
+      
     }
     
     const selectedCondition = element.conditions[conditionIndex];
-    console.log(`🎨 Using condition ${conditionIndex + 1}:`, selectedCondition);
-    console.log(`🎨 Condition ${conditionIndex + 1} properties:`, selectedCondition?.properties);
+    
     
     if (selectedCondition && selectedCondition.properties) {
       const mergedProperties = { ...element.properties, ...selectedCondition.properties };
-      console.log('🎨 Merged properties:', mergedProperties);
+      
       return mergedProperties;
     }
   }
   
   const baseProperties = element.properties || {};
-  console.log('🎨 Using base properties:', baseProperties);
+
   return baseProperties;
 };
 
@@ -1058,13 +1043,7 @@ export const TextElement = {
   render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false) => {
     const { onClick, onDelete, onDragStart } = handlers;
     
-    console.log('🔍 Text render called:', {
-      elementId: element.id,
-      isExecuteMode,
-      isActiveSlide,
-      hasActiveProps: !!element.properties?.activeFontSize,
-      value: element.properties?.value
-    });
+    
     
     // FIXED: Use the fixed getRenderProperties function with matched condition index
     let props = getRenderProperties(element, matchedConditionIndex);
@@ -1111,11 +1090,7 @@ export const TextElement = {
     const shouldApplyActiveStyles = (effectiveIsActiveSlide || isActiveTab) && isExecuteMode;
     
     if (shouldApplyActiveStyles) {
-      console.log('✅ Applying active styles for text:', element.id, {
-        isActiveSlide: effectiveIsActiveSlide,
-        isActiveTab: isActiveTab,
-        reason: effectiveIsActiveSlide ? 'active slide' : 'active tab'
-      });
+
       // Merge active properties over default properties
       const activeProps = {};
       Object.keys(props).forEach(key => {
@@ -1124,19 +1099,14 @@ export const TextElement = {
           activeProps[key] = props[activeKey];
         }
       });
-      console.log('🎨 Active text props to apply:', activeProps);
+
       props = { ...props, ...activeProps };
-      console.log('🎨 Final text props after active merge:', props);
+
     } else {
-      console.log('❌ NOT applying active text styles:', {
-        isActiveSlide: effectiveIsActiveSlide,
-        isActiveTab: isActiveTab,
-        isExecuteMode,
-        reason: !shouldApplyActiveStyles ? 'not active slide or tab' : 'not execute mode'
-      });
+
     }
     
-    console.log('🎨 Rendering text with props:', props);
+
     
     // Build styles from properties
     const textStyle = {

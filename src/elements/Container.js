@@ -718,14 +718,14 @@ const ContainerContentSettings = ({ element, onUpdate, availableElements = [], a
 
   // Handle tabs config updates
   const updateTabsConfig = useCallback((updates) => {
-    console.log('Updating tabs config:', updates, 'current:', tabsConfig);
+    
     
     const newTabsConfig = {
       ...tabsConfig,
       ...updates
     };
     
-    console.log('New tabs config:', newTabsConfig);
+
     
     onUpdate({
       tabsConfig: newTabsConfig
@@ -1631,19 +1631,14 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
 
   // FIXED: Update activeConditionIndex when element changes, but preserve user selection
   useEffect(() => {
-    console.log('🔧 Element changed, checking condition state:', {
-      elementId: element.id,
-      renderType: element.renderType,
-      conditionsCount: element.conditions?.length || 0,
-      currentActiveIndex: activeConditionIndex
-    });
+    
 
     // Only reset if the current activeConditionIndex is out of bounds
     if (element.renderType !== 'conditional' || !element.conditions || element.conditions.length === 0) {
-      console.log('🔧 No conditional rendering, resetting to 0');
+      
       setActiveConditionIndex(0);
     } else if (activeConditionIndex >= element.conditions.length) {
-      console.log('🔧 Active condition index out of bounds, resetting to 0');
+      
       setActiveConditionIndex(0);
     }
     // Otherwise, preserve the current activeConditionIndex to maintain user's selection
@@ -1651,40 +1646,34 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
 
   // FIXED: Get the current properties - enhanced logic for condition property inheritance
   const getCurrentProperties = useCallback(() => {
-    console.log('🔧 Getting current properties for element:', element.id);
-    console.log('🔧 Render type:', element.renderType);
-    console.log('🔧 Active condition index:', activeConditionIndex);
-    console.log('🔧 Conditions:', element.conditions?.length || 0);
+    
     
     if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
       const activeCondition = element.conditions[activeConditionIndex];
-      console.log('🔧 Active condition:', activeCondition);
-      console.log('🔧 Active condition properties:', activeCondition?.properties);
+      
       
       // FIXED: Return condition properties if they exist, otherwise return base properties
       if (activeCondition?.properties) {
         const mergedProps = { ...props, ...activeCondition.properties };
-        console.log('🔧 Merged properties:', mergedProps);
+        
         return mergedProps;
       } else {
         // If condition doesn't have properties yet, return base properties
-        console.log('🔧 No condition properties, using base properties:', props);
+        
         return props;
       }
     }
-    console.log('🔧 Using base properties:', props);
+    
     return props;
   }, [element.renderType, element.conditions, activeConditionIndex, props]);
 
   // FIXED: Stable update function for properties
   const updateProperty = useCallback((key, value) => {
-    console.log('🔧 Updating property:', key, '=', value);
-    console.log('🔧 Element render type:', element.renderType);
-    console.log('🔧 Active condition index:', activeConditionIndex);
+    
     
     if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
       // Update condition-specific properties
-      console.log('🔧 Updating condition-specific property');
+      
       const newConditions = element.conditions.map((condition, index) => {
         if (index === activeConditionIndex) {
           const updatedCondition = {
@@ -1694,21 +1683,21 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
               [key]: value
             }
           };
-          console.log('🔧 Updated condition:', updatedCondition);
+          
           return updatedCondition;
         }
         return condition;
       });
-      console.log('🔧 All updated conditions:', newConditions);
+      
       onUpdate({ conditions: newConditions });
     } else {
       // Update base properties
-      console.log('🔧 Updating base property');
+      
       const updatedProps = {
         ...props,
         [key]: value
       };
-      console.log('🔧 Updated base properties:', updatedProps);
+      
       onUpdate({
         properties: updatedProps
       });
@@ -1717,7 +1706,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
 
   // FIXED: Handle condition updates AND manage active condition index
   const handleConditionUpdate = useCallback((updates) => {
-    console.log('🔧 Updating conditions:', updates);
+    
     
     // If we're adding a new condition, copy properties from the active condition or base
     if (updates.conditions && updates.conditions.length > (element.conditions?.length || 0)) {
@@ -1731,7 +1720,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
             sourceProperties = { ...element.conditions[activeConditionIndex].properties };
           }
           
-          console.log('🔧 Copying properties to new condition:', sourceProperties);
+          
           return {
             ...condition,
             properties: sourceProperties
@@ -1740,12 +1729,12 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
         return condition;
       });
       updates.conditions = newConditions;
-      console.log('🔧 Final conditions with copied properties:', updates.conditions);
+      
     }
     
     // If conditions were deleted and activeConditionIndex is out of bounds, reset it
     if (updates.conditions && activeConditionIndex >= updates.conditions.length) {
-      console.log('🔧 Resetting active condition index due to condition deletion');
+      
       setActiveConditionIndex(0);
     }
     
@@ -1754,13 +1743,13 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
 
   // FIXED: Handle condition selection changes from ConditionBlock
   const handleConditionSelectionChange = useCallback((conditionIndex) => {
-    console.log('🔧 Condition selection changed to:', conditionIndex);
+    
     setActiveConditionIndex(conditionIndex);
   }, []);
 
   // Handle input changes with immediate updates
   const handleInputChange = useCallback((key, value) => {
-    console.log('🔧 Handle input change:', key, '=', value);
+    
     updateProperty(key, value);
   }, [updateProperty]);
 
@@ -1775,7 +1764,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
   const getValue = useCallback((key) => {
     const currentProps = getCurrentProperties();
     const value = currentProps[key] ?? '';
-    console.log('🔧 Getting value for', key, '=', value);
+    
     return value;
   }, [getCurrentProperties]);
 
@@ -1783,7 +1772,7 @@ const ContainerPropertiesPanel = memo(({ element, onUpdate, availableElements = 
   const copyElementId = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(element.id);
-      console.log('Element ID copied to clipboard');
+      
     } catch (err) {
       console.error('Failed to copy element ID:', err);
     }
@@ -2054,10 +2043,10 @@ const PageContainerWithParameters = ({ element, selectedScreen, availableScreens
       const hasExecutedParams = element.pageConfig.parameters.some(param => param.executedValue !== undefined);
       
       if (hasExecutedParams) {
-        console.log('🔄 Using pre-executed parameters from AppRuntime');
+        
         setExecutedParameters(element.pageConfig.parameters);
       } else {
-        console.log('🔄 Executing parameters locally in Container.js');
+        
         const executeParameterCalculations = async () => {
           const executed = [];
           
@@ -2132,8 +2121,7 @@ const PageContainerWithParameters = ({ element, selectedScreen, availableScreens
 
 // Component to handle page content with calculations
 const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecuteMode, depth, pageParameters = [], calculationResults = {}, parentContainerId = null }) => {
-  console.log('🔄 PageContentWithCalculations received calculation results:', Object.keys(calculationResults).length);
-  console.log('🔄 PageContentWithCalculations parentContainerId:', parentContainerId);
+  
   
   // Helper function to apply calculated values to elements
   const applyCalculatedValues = (elements, parentContainerId) => {
@@ -2161,7 +2149,7 @@ const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecu
         }
         
         if (calculatedValue !== undefined) {
-          console.log('✅ Applying calculated value for', pageElement.id, 'from', foundId, ':', calculatedValue);
+          
           processedElement = {
             ...pageElement,
             properties: {
@@ -2170,8 +2158,7 @@ const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecu
             }
           };
         } else {
-          console.log('❌ No calculated value found for', pageElement.id, 'checked IDs:', possibleIds);
-          console.log('❌ Available calculation results:', Object.keys(calculationResults));
+          
         }
       }
       
@@ -2215,10 +2202,7 @@ const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecu
 
 // FIXED: Get properties for rendering - now correctly handles conditional properties based on evaluation
 const getRenderProperties = (element, matchedConditionIndex = null) => {
-  console.log('🎨 Getting render properties for element:', element.id);
-  console.log('🎨 Element renderType:', element.renderType);
-  console.log('🎨 Element conditions:', element.conditions?.length || 0);
-  console.log('🎨 Matched condition index:', matchedConditionIndex);
+
   
   if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
     // FIXED: Use the matched condition index if provided
@@ -2227,22 +2211,21 @@ const getRenderProperties = (element, matchedConditionIndex = null) => {
     // Fallback to first condition if no specific match provided (for builder mode)
     if (conditionIndex === null || conditionIndex === undefined) {
       conditionIndex = 0;
-      console.log('🎨 No matched condition index provided, defaulting to first condition for builder mode');
+      
     }
     
     const selectedCondition = element.conditions[conditionIndex];
-    console.log(`🎨 Using condition ${conditionIndex + 1}:`, selectedCondition);
-    console.log(`🎨 Condition ${conditionIndex + 1} properties:`, selectedCondition?.properties);
+    
     
     if (selectedCondition && selectedCondition.properties) {
       const mergedProperties = { ...element.properties, ...selectedCondition.properties };
-      console.log('🎨 Merged properties:', mergedProperties);
+      
       return mergedProperties;
     }
   }
   
   const baseProperties = element.properties || {};
-  console.log('🎨 Using base properties:', baseProperties);
+  
   return baseProperties;
 };
 
@@ -2349,13 +2332,7 @@ export const ContainerElement = {
   render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false, availableScreens = [], calculationResults = {}, repeatingContainerData = {}) => {
     const { onClick, onDelete, onDragOver, onDragLeave, onDrop, onDragStart } = handlers;
     
-    console.log('🔍 Container render called:', {
-      elementId: element.id,
-      isExecuteMode,
-      isActiveSlide,
-      containerType: element.containerType,
-      hasActiveProps: !!element.properties?.activeBackgroundColor
-    });
+    
     
     // FIXED: Use the fixed getRenderProperties function with matched condition index
     let props = getRenderProperties(element, matchedConditionIndex);
@@ -2402,27 +2379,10 @@ export const ContainerElement = {
     const effectiveIsActiveSlide = checkIfInActiveSlide();
     const shouldApplyActiveStyles = (effectiveIsActiveSlide || isActiveTab) && isExecuteMode;
     
-    // 🔥 ENHANCED DEBUG LOGGING FOR TABS
-    console.log('🔥 CONTAINER ACTIVE STYLING DEBUG:', {
-      elementId: element.id,
-      elementType: element.type,
-      containerType: element.containerType,
-      contentType: element.contentType,
-      isExecuteMode,
-      isActiveSlide: effectiveIsActiveSlide,
-      isActiveTab: isActiveTab,
-      shouldApplyActiveStyles,
-      hasActiveBackgroundColor: !!props.activeBackgroundColor,
-      currentBackgroundColor: props.backgroundColor,
-      activeBackgroundColor: props.activeBackgroundColor
-    });
+
     
     if (shouldApplyActiveStyles) {
-      console.log('✅ Applying active styles for container:', element.id, {
-        isActiveSlide: effectiveIsActiveSlide,
-        isActiveTab: isActiveTab,
-        reason: effectiveIsActiveSlide ? 'active slide' : 'active tab'
-      });
+      
       // Merge active properties over default properties
       const activeProps = {};
       Object.keys(props).forEach(key => {
@@ -2431,19 +2391,14 @@ export const ContainerElement = {
           activeProps[key] = props[activeKey];
         }
       });
-      console.log('🎨 Active props to apply:', activeProps);
+ 
       props = { ...props, ...activeProps };
-      console.log('🎨 Final props after active merge:', props);
+  
     } else {
-      console.log('❌ NOT applying active styles:', {
-        isActiveSlide: effectiveIsActiveSlide,
-        isActiveTab: isActiveTab,
-        isExecuteMode,
-        reason: !shouldApplyActiveStyles ? 'not active slide or tab' : 'not execute mode'
-      });
+      
     }
     
-    console.log('🎨 Rendering container with props:', props);
+
     
     // Build styles from properties
     const containerStyle = {
@@ -2636,16 +2591,12 @@ export const ContainerElement = {
     
     // Debug logging for slider config
     if (isSliderContainer) {
-      console.log('🎡 Slider container config for element:', element.id);
-      console.log('🎡 sliderConfig:', sliderConfig);
-      console.log('🎡 slidesToScroll:', sliderConfig.slidesToScroll);
+
     }
     
     // Debug logging for tabs config
     if (isTabsContainer) {
-      console.log('📑 Tabs container config for element:', element.id);
-      console.log('📑 tabsConfig:', tabsConfig);
-      console.log('📑 activeTab:', tabsConfig.activeTab);
+
     }
     
     // Store active slide state in a context-like way
@@ -3474,11 +3425,11 @@ export const ContainerElement = {
       if (element && element.id && window.__activeTabs && window.__activeTabs[element.id] !== undefined) {
         // Use the stored active tab
         currentActiveTab = window.__activeTabs[element.id];
-        console.log('🔥 USING STORED ACTIVE TAB:', currentActiveTab);
+        
       } else {
         // Use initial active tab from config
         currentActiveTab = getInitialActiveTab(tabsConfig, children);
-        console.log('🔥 USING INITIAL ACTIVE TAB:', currentActiveTab);
+        
         
         // Store it globally
         if (element && element.id) {
@@ -3489,19 +3440,14 @@ export const ContainerElement = {
       
       // Create click handler for tab activation
       const handleTabClick = (tabIndex) => {
-        console.log('🔥 TAB CLICK DEBUG:', {
-          tabIndex,
-          elementId: element.id,
-          currentTabsConfig: element.tabsConfig,
-          totalChildren: children?.length
-        });
+        
         
         // Initialize tabsConfig if it doesn't exist
         if (!element.tabsConfig) {
           element.tabsConfig = {
             activeTab: '1'
           };
-          console.log('🔥 INITIALIZED MISSING tabsConfig:', element.tabsConfig);
+          
         }
         
         if (element && element.tabsConfig) {
@@ -3511,10 +3457,7 @@ export const ContainerElement = {
           window.__activeTabs = window.__activeTabs || {};
           window.__activeTabs[element.id] = tabIndex;
           
-          console.log('🔥 TAB STATE UPDATED:', {
-            newActiveTab: element.tabsConfig.activeTab,
-            globalTabsState: window.__activeTabs
-          });
+   
           
           // Trigger a refresh to update active states
           setTimeout(() => {
@@ -3522,7 +3465,7 @@ export const ContainerElement = {
             for (const button of buttons) {
               const buttonText = button.textContent || '';
               if (buttonText.includes('Refresh') || buttonText.includes('🔄')) {
-                console.log('🔥 TRIGGERING REFRESH BUTTON');
+                
                 button.click();
                 break;
               }

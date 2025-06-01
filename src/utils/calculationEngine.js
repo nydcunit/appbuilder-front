@@ -83,22 +83,18 @@ export class CalculationEngine {
 
   // Execute tabs container value
   async executeTabsContainerValue(element, valueType) {
-    console.log('\n📑 === TABS CONTAINER VALUE EXECUTION ===');
-    console.log('BLUEY_DEBUG: Element:', element.id);
-    console.log('BLUEY_DEBUG: Value type:', valueType);
-    console.log('BLUEY_DEBUG: Element structure:', JSON.stringify(element, null, 2));
-    console.log('BLUEY_DEBUG: Repeating context:', this.repeatingContext);
+    
     
     // ENHANCED: Try to find expanded tabs container if available
     let tabsElement = element;
     if (window.__expandedElements) {
-      console.log('🔍 Checking for expanded tabs container...');
+      
       for (const screenElements of Object.values(window.__expandedElements)) {
         const findExpandedTabs = (elements) => {
           for (const el of elements) {
             if ((el.id === element.id || el.originalId === element.id) && 
                 el.type === 'container' && el.containerType === 'tabs') {
-              console.log('✅ Found expanded tabs container:', el.id);
+              
               return el;
             }
             if (el.children && el.children.length > 0) {
@@ -112,7 +108,7 @@ export class CalculationEngine {
         const expandedTabs = findExpandedTabs(screenElements);
         if (expandedTabs) {
           tabsElement = expandedTabs;
-          console.log('🔄 Using expanded tabs container for calculation');
+          
           break;
         }
       }
@@ -125,21 +121,19 @@ export class CalculationEngine {
       activeTab: '1'
     };
     
-    console.log('Tabs config:', tabsConfig);
+
     
     // Check global active tabs state
     let currentActiveTab;
-    console.log('BLUEY_DEBUG: Checking active tab state for element:', element.id);
-    console.log('BLUEY_DEBUG: Global active tabs:', window.__activeTabs);
-    console.log('BLUEY_DEBUG: Element in global tabs:', window.__activeTabs?.[element.id]);
+    
     
     if (element.id && window.__activeTabs && window.__activeTabs[element.id] !== undefined) {
       currentActiveTab = window.__activeTabs[element.id];
-      console.log('BLUEY_DEBUG: Using global active tab:', currentActiveTab);
+      
     } else {
       // Parse activeTab from config (could be number or text value)
       const activeTab = tabsConfig.activeTab || '1';
-      console.log('BLUEY_DEBUG: Using config activeTab:', activeTab);
+      
       const tabNumber = parseInt(activeTab);
       if (!isNaN(tabNumber) && tabNumber > 0) {
         currentActiveTab = tabNumber - 1; // Convert to 0-based
@@ -148,14 +142,13 @@ export class CalculationEngine {
         currentActiveTab = this.findTabIndexByValue(activeTab, tabsElement);
         if (currentActiveTab === -1) currentActiveTab = 0;
       }
-      console.log('BLUEY_DEBUG: Using config active tab (0-based):', currentActiveTab);
+      
     }
     
     if (valueType === 'active_tab_order') {
       // Return the active tab order (1-based)
       const activeTabOrder = currentActiveTab + 1;
-      console.log('✅ Active tab order:', activeTabOrder);
-      console.log('📑 === TABS CONTAINER END ===\n');
+      
       return activeTabOrder;
     }
     
@@ -164,14 +157,12 @@ export class CalculationEngine {
       const tabValue = await this.findTabTextValueImproved(tabsElement, currentActiveTab);
       
       if (tabValue === null || tabValue === '') {
-        console.log('❌ No tab text element found for tab:', currentActiveTab + 1);
-        console.log('Available children:', tabsElement.children?.map(c => ({ id: c.id, type: c.type, properties: c.properties })));
+        
         // Return empty string instead of throwing error
         return '';
       }
       
-      console.log('✅ Active tab value:', tabValue);
-      console.log('📑 === TABS CONTAINER END ===\n');
+      
       
       return tabValue;
     }
@@ -268,38 +259,25 @@ export class CalculationEngine {
 
   // IMPROVED: Helper function to find tab text value with better search logic
   async findTabTextValueImproved(element, tabIndex) {
-    console.log('🔍 Finding tab text value for tab index:', tabIndex);
-    console.log('🔍 Element children count:', element.children?.length || 0);
-    console.log('🔍 Element structure:', {
-      id: element.id,
-      type: element.type,
-      containerType: element.containerType,
-      hasExpandedElements: !!this.expandedElements
-    });
+    
     
     if (!element.children || element.children.length <= tabIndex) {
-      console.log('❌ No children or tab index out of bounds');
+      
       return null;
     }
     
     // Get the tab element (first level child at tabIndex)
     let tabElement = element.children[tabIndex];
     if (!tabElement) {
-      console.log('❌ No tab element at index:', tabIndex);
+      
       return null;
     }
     
-    console.log('🔍 Original tab element:', {
-      id: tabElement.id,
-      type: tabElement.type,
-      contentType: tabElement.contentType,
-      hasChildren: !!tabElement.children,
-      childrenCount: tabElement.children?.length || 0
-    });
+    
     
     // ENHANCED: If this is a repeating container, find its expanded instances
     if (tabElement.contentType === 'repeating' && this.expandedElements) {
-      console.log('🔄 Tab element is a repeating container, searching for expanded instances...');
+      
       
       // Find all expanded instances of this repeating container
       const findExpandedInstances = (elements) => {
@@ -316,29 +294,25 @@ export class CalculationEngine {
       };
       
       const expandedInstances = findExpandedInstances(this.expandedElements);
-      console.log('🔄 Found expanded instances:', expandedInstances.length);
+      
       
       // Search through all expanded instances for tab text
       for (const instance of expandedInstances) {
-        console.log('🔍 Searching expanded instance:', {
-          id: instance.id,
-          originalId: instance.originalId,
-          hasChildren: !!instance.children
-        });
+        
         
         const result = await this.searchForTabText(instance);
         if (result !== null && result !== '') {
-          console.log('✅ Found tab text in expanded instance:', result);
+          
           return result;
         }
       }
     }
     
     // Fallback to original search logic
-    console.log('🔄 Searching in original tab element structure...');
+    
     const result = await this.searchForTabText(tabElement);
     
-    console.log('🔍 Final tab text result:', result);
+    
     return result;
   }
 
@@ -346,30 +320,25 @@ export class CalculationEngine {
   async searchForTabText(element) {
     const findTabText = async (el, depth = 0) => {
       const indent = '  '.repeat(depth);
-      console.log(`${indent}🔍 Checking element:`, {
-        id: el.id,
-        type: el.type,
-        isTabValue: el.properties?.isTabValue,
-        value: el.properties?.value
-      });
+
       
       // Check if this is a text element with isTabValue = true
       if (el.type === 'text' && el.properties?.isTabValue === true) {
         let value = el.properties?.value || '';
-        console.log(`${indent}✅ Found tab text:`, value);
+        
         
         // ENHANCED: Check if the value contains nested calculations and execute them
         if (value.includes('{{CALC:')) {
-          console.log(`${indent}🔄 Tab text contains nested calculations, executing...`);
+          
           try {
             // ENHANCED: Pass the element's repeating context if it exists
             const elementRepeatingContext = el.parentRepeatingContext || el.repeatingContext;
-            console.log(`${indent}🔄 Using element repeating context:`, elementRepeatingContext);
+            
             const executedValue = await this.executeNestedCalculations(value, elementRepeatingContext);
-            console.log(`${indent}✅ Executed nested calculations:`, `"${value}" -> "${executedValue}"`);
+            
             return executedValue;
           } catch (error) {
-            console.log(`${indent}❌ Error executing nested calculations:`, error.message);
+            
             return `[Error: ${error.message}]`;
           }
         }
@@ -394,25 +363,25 @@ export class CalculationEngine {
     
     // FALLBACK: If no text with isTabValue=true found, try to find any text element
     if (result === null || result === '') {
-      console.log('🔄 No tab value found, searching for any text element as fallback...');
+      
       
       const findAnyText = async (el, depth = 0) => {
         if (el.type === 'text' && el.properties?.value) {
           let value = el.properties.value;
-          console.log(`  Found fallback text:`, value);
+          
           
           // ENHANCED: Execute nested calculations in fallback text too
           if (value.includes('{{CALC:')) {
-            console.log(`  Fallback text contains calculations, executing...`);
+            
             try {
               // ENHANCED: Pass the element's repeating context if it exists
               const elementRepeatingContext = el.parentRepeatingContext || el.repeatingContext;
-              console.log(`  Using fallback element repeating context:`, elementRepeatingContext);
+              
               const executedValue = await this.executeNestedCalculations(value, elementRepeatingContext);
-              console.log(`  Executed fallback calculations:`, `"${value}" -> "${executedValue}"`);
+              
               return executedValue;
             } catch (error) {
-              console.log(`  Error executing fallback calculations:`, error.message);
+              
               return `[Error: ${error.message}]`;
             }
           }
@@ -462,8 +431,7 @@ export class CalculationEngine {
     if (valueType === 'active_slide_number') {
       // Return the active slide number (1-based)
       const activeSlideNumber = parseInt(sliderConfig.activeTab) || 1;
-      console.log('✅ Active slide number:', activeSlideNumber);
-      console.log('🎡 === SLIDER CONTAINER END ===\n');
+      
       return activeSlideNumber;
     }
     
@@ -508,8 +476,7 @@ export class CalculationEngine {
         return '';
       }
       
-      console.log('✅ Active slide value:', slideValue);
-      console.log('🎡 === SLIDER CONTAINER END ===\n');
+      
       
       return slideValue;
     }
@@ -519,8 +486,7 @@ export class CalculationEngine {
 
   // Execute passed parameter value
   executePassedParameter(config) {
-    console.log('\n📨 === PASSED PARAMETER EXECUTION ===');
-    console.log('Config:', JSON.stringify(config, null, 2));
+
     
     const { passedParameterName, passedParameterFromScreen } = config;
     
@@ -531,39 +497,38 @@ export class CalculationEngine {
     // Look up the parameter value from page containers
     const parameterValue = this.findParameterValue(passedParameterName, passedParameterFromScreen);
     
-    console.log('✅ Parameter value found:', parameterValue);
-    console.log('📨 === PASSED PARAMETER END ===\n');
+    
     
     return parameterValue;
   }
 
   // Helper method to find parameter value from page containers
   async findParameterValue(parameterName, fromScreenName) {
-    console.log('🔍 Looking for parameter:', parameterName, 'from screen:', fromScreenName);
+    
     
     // ENHANCED: Check if this calculation engine is for a nested page element
     if (this.nestedPageContext && this.nestedPageContext.parentPageContainer) {
-      console.log('🔍 This is a nested page element, checking parent page container parameters');
+      
       const parentContainer = this.nestedPageContext.parentPageContainer;
       
       // Look for the parameter in the parent page container
       for (const param of parentContainer.parameters) {
         if (param.name === parameterName) {
-          console.log('✅ Found parameter in parent page container:', param);
+          
           let paramValue = param.executedValue || param.value || '';
           
           // If we have an executed value, use it directly
           if (param.executedValue !== undefined) {
-            console.log('✅ Using pre-executed parameter value:', param.executedValue);
+            
             return param.executedValue;
           }
           
           // Otherwise execute the calculation if needed
           if (paramValue && paramValue.includes('{{CALC:')) {
             try {
-              console.log('🧮 Executing parameter calculation:', paramValue);
+              
               paramValue = await this.executeNestedCalculations(paramValue);
-              console.log('🧮 Parameter calculation result:', paramValue);
+              
             } catch (error) {
               console.error('Error executing parameter calculation:', error);
               paramValue = `[Error: ${error.message}]`;
@@ -574,7 +539,7 @@ export class CalculationEngine {
         }
       }
       
-      console.log('❌ Parameter not found in parent page container');
+      
       return '';
     }
     
@@ -590,12 +555,12 @@ export class CalculationEngine {
             element.pageConfig && 
             element.pageConfig.parameters) {
           
-          console.log('🔍 Found page container:', element.id, 'with parameters:', element.pageConfig.parameters);
+          
           
           // Look for the specific parameter
           for (const param of element.pageConfig.parameters) {
             if (param.name === parameterName) {
-              console.log('✅ Found matching parameter:', param);
+              
               let paramValue = param.value || '';
               
               // Execute calculation if parameter value contains calculation tokens
@@ -629,7 +594,7 @@ export class CalculationEngine {
     const parameterValue = await searchForPageContainers(this.availableElements);
     
     if (parameterValue !== null) {
-      console.log('✅ Parameter value found:', parameterValue);
+      
       return parameterValue;
     }
     
@@ -639,9 +604,7 @@ export class CalculationEngine {
 
   // Execute repeating container value
   executeRepeatingContainerValue(config) {
-    console.log('\n🔄 === REPEATING CONTAINER VALUE EXECUTION ===');
-    console.log('Config:', JSON.stringify(config, null, 2));
-    console.log('Repeating context:', this.repeatingContext);
+    
 
     const { repeatingContainerId, repeatingColumn } = config;
 
@@ -660,21 +623,18 @@ export class CalculationEngine {
     // Handle special row_number column
     if (repeatingColumn === 'row_number') {
       const rowNumber = rowIndex + 1; // 1-based indexing
-      console.log('✅ Row number result:', rowNumber);
-      console.log('🔄 === REPEATING CONTAINER END ===\n');
+      
       return rowNumber;
     }
 
     // Handle regular column data
     if (!recordData || recordData[repeatingColumn] === undefined) {
-      console.log('❌ Column not found in record data:', repeatingColumn);
-      console.log('Available columns:', Object.keys(recordData || {}));
+      
       throw new Error(`Column '${repeatingColumn}' not found in repeating container data`);
     }
 
     const columnValue = recordData[repeatingColumn];
-    console.log('✅ Column value result:', typeof columnValue, columnValue);
-    console.log('🔄 === REPEATING CONTAINER END ===\n');
+    
     
     return columnValue;
   }
@@ -797,7 +757,7 @@ export class CalculationEngine {
     try {
       // Build query filters
       const queryFilters = [];
-      console.log('🔧 Processing filters:', filters.length);
+      
       
       for (const filter of filters) {
         console.log('Processing filter:', JSON.stringify(filter, null, 2));
@@ -824,20 +784,17 @@ export class CalculationEngine {
         column: selectedColumn
       };
       
-      console.log('🚀 Sending API request:', JSON.stringify(queryPayload, null, 2));
+
       
       const response = await axios.post(`/api/databases/${databaseId}/tables/${tableId}/query`, queryPayload);
 
-      console.log('📥 API response status:', response.status);
-      console.log('📥 API response data:', JSON.stringify(response.data, null, 2));
-
+     
       if (response.data.success) {
         const formattedResult = this.formatDatabaseResult(response.data.data, action);
-        console.log('✅ Formatted database result:', typeof formattedResult, formattedResult);
-        console.log('🗄️ === DATABASE QUERY END ===\n');
+        
         return formattedResult;
       } else {
-        console.log('❌ Database query failed:', response.data.message);
+        
         throw new Error(response.data.message || 'Database query failed');
       }
     } catch (error) {
@@ -854,7 +811,7 @@ export class CalculationEngine {
 
   // Format database query results
   formatDatabaseResult(data, action) {
-    console.log('🔄 Formatting database result:', { data, action });
+    
     
     let result;
     
@@ -1041,10 +998,7 @@ export function getAllStoredCalculations() {
 
 // Helper function to execute database queries for repeating containers
 export async function executeRepeatingContainerQuery(databaseId, tableId, filters = []) {
-  console.log('\n🔄 === REPEATING CONTAINER QUERY ===');
-  console.log('Database ID:', databaseId);
-  console.log('Table ID:', tableId);
-  console.log('Filters:', JSON.stringify(filters, null, 2));
+  
 
   try {
     const queryPayload = {
@@ -1053,12 +1007,12 @@ export async function executeRepeatingContainerQuery(databaseId, tableId, filter
       column: null // We want all columns
     };
     
-    console.log('🚀 Sending repeating container query:', JSON.stringify(queryPayload, null, 2));
+    
     
     // Use a different endpoint that returns full records
     const response = await axios.get(`/api/databases/${databaseId}/tables/${tableId}/records`);
     
-    console.log('📥 Repeating query response:', response.data);
+    
     
     if (response.data.success) {
       let records = response.data.data;
@@ -1068,8 +1022,7 @@ export async function executeRepeatingContainerQuery(databaseId, tableId, filter
         records = applyFiltersToRecords(records, filters);
       }
       
-      console.log('✅ Filtered records count:', records.length);
-      console.log('🔄 === REPEATING CONTAINER QUERY END ===\n');
+      
       
       return records;
     } else {

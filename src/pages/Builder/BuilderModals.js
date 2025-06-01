@@ -366,33 +366,32 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       const allElements = getAllElementsInScreen(currentScreen.elements);
       
       // Step 1: Load repeating container data
-      console.log('🔄 Loading repeating container data...');
+      
       const containerData = await loadRepeatingContainerData(currentScreen.elements);
       setRepeatingContainerData(containerData);
       
       // Step 2: Expand repeating containers into multiple instances
-      console.log('🔄 Expanding repeating containers...');
+      
       const expandedElements = await expandRepeatingContainers(currentScreen.elements, containerData);
-      console.log('Expanded elements:', expandedElements);
+      
       
       // Step 3: Execute conditional rendering on expanded elements - ENHANCED to track condition matches
-      console.log('🔄 Executing conditional rendering...');
+      
       const { visibleElements: filteredElements, conditionMatches } = await getVisibleElementsWithMatches(expandedElements, allElements);
-      console.log('Visible elements after conditions:', filteredElements);
-      console.log('Condition matches:', conditionMatches);
+      
       
       setVisibleElements(filteredElements);
       setElementConditionMatches(conditionMatches); // NEW: Store condition matches
       
       // Step 4: Execute calculations on visible elements AND nested page elements
-      console.log('🔄 Executing calculations...');
+      
       const results = {};
       const errors = {};
       const visibleFlatElements = getAllElementsInScreen(filteredElements);
       
       // ENHANCED: Also get elements from nested pages
       const nestedPageElements = await getNestedPageElements(filteredElements, screens);
-      console.log('🔄 Found nested page elements:', nestedPageElements.length);
+      
       
       // Combine visible elements with nested page elements
       const allElementsToProcess = [...visibleFlatElements, ...nestedPageElements];
@@ -407,7 +406,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
             
             // ENHANCED: For nested page elements, create a custom calculation engine with parameter context
             if (element.parentPageContainer) {
-              console.log('🔄 Processing nested page element with parameter context:', element.id);
+              
               
               // Import and create custom calculation engine
               const { CalculationEngine } = await import('../../utils/calculationEngine');
@@ -767,13 +766,13 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     };
     
     const pageContainers = findPageContainers(elements);
-    console.log('🔄 Found page containers:', pageContainers.length);
+    
     
     for (const pageContainer of pageContainers) {
       const selectedScreen = availableScreens.find(screen => screen.id == pageContainer.pageConfig.selectedPageId);
       
       if (selectedScreen && selectedScreen.elements) {
-        console.log(`🔄 Processing nested page: ${selectedScreen.name} (${selectedScreen.elements.length} elements)`);
+        
         
         // Get all elements from the nested page
         const pageElements = getAllElementsInScreen(selectedScreen.elements);
@@ -792,13 +791,13 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
               }
             };
             nestedElements.push(nestedElement);
-            console.log(`🔄 Added nested element: ${nestedElement.id} with ${nestedElement.parentPageContainer.parameters.length} parameters`);
+            
           }
         });
       }
     }
     
-    console.log(`🔄 Total nested page elements found: ${nestedElements.length}`);
+    
     return nestedElements;
   };
 
@@ -837,22 +836,13 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     const originalElementId = getOriginalElementId(element.id);
     const instanceIndex = getInstanceIndex(element.id);
     
-    console.log('🔥 ACTIVE TAB CHECK START:', {
-      elementId: element.id,
-      originalElementId,
-      instanceIndex,
-      elementType: element.type,
-      containerType: element.containerType
-    });
+
     
     // Find all tabs containers in the original screen structure
     const currentScreenElements = currentScreen?.elements || [];
     const tabsContainers = findTabsContainers(currentScreenElements);
     
-    console.log('🔥 FOUND TABS CONTAINERS:', tabsContainers.map(tc => ({
-      id: tc.id,
-      childrenIds: tc.children?.map(c => c.id) || []
-    })));
+ 
     
     // Check each tabs container to see if this element is a child
     for (const tabsContainer of tabsContainers) {
@@ -863,12 +853,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
       
       if (childIndex >= 0) {
         // This element is a child of this tabs container!
-        console.log('🔥 FOUND PARENT TABS CONTAINER:', {
-          tabsContainerId: tabsContainer.id,
-          childIndex,
-          originalElementId,
-          tabsConfig: tabsContainer.tabsConfig
-        });
+  
         
         // Get the active tab index from global state or config
         const globalActiveTab = window.__activeTabs && window.__activeTabs[tabsContainer.id];
@@ -890,40 +875,20 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
           // For tabs with repeating containers, the active tab index should match the instance index
           // NOT the child index (since all instances have the same child index)
           isActive = (instanceIndex === activeTabIndex);
-          console.log('🔥 REPEATING CONTAINER INSTANCE CHECK:', {
-            childIndex,
-            activeTabIndex,
-            instanceIndex,
-            isChildActive: childIndex === activeTabIndex,
-            isInstanceActive: instanceIndex === activeTabIndex,
-            finalIsActive: isActive
-          });
+   
         } else {
           // This is a regular (non-repeating) element
           isActive = (childIndex === activeTabIndex);
-          console.log('🔥 REGULAR ELEMENT CHECK:', {
-            childIndex,
-            activeTabIndex,
-            isActive
-          });
+     
         }
         
-        console.log('🔥 ACTIVE TAB CHECK RESULT:', {
-          elementId: element.id,
-          parentTabsContainerId: tabsContainer.id,
-          childIndex,
-          activeTabIndex,
-          globalActiveTab,
-          configActiveTab,
-          instanceIndex,
-          isActive
-        });
+   
         
         return isActive;
       }
     }
     
-    console.log('🔥 NO PARENT TABS CONTAINER FOUND for:', element.id);
+
     return false;
   };
 
@@ -1138,7 +1103,7 @@ const PreviewModal = ({ screens, currentScreenId, onClose, onScreenChange }) => 
     // FIXED: Get the matched condition index for this element
     const matchedConditionIndex = elementConditionMatches[element.id] ?? null;
     
-    console.log(`🎨 Rendering element ${element.id} with matched condition index:`, matchedConditionIndex);
+    
 
     // Check if this element should have active tab styling
     const isActiveTab = checkIfElementIsActiveTab(element);

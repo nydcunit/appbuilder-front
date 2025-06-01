@@ -58,13 +58,13 @@ class WebSocketService {
 
     this.currentAppId = appId;
     this.socket.emit('join-app', appId);
-    console.log(`📱 Joined app room: ${appId}`);
+
   }
 
   leaveApp(appId) {
     if (this.socket && this.isConnected) {
       this.socket.emit('leave-app', appId);
-      console.log(`📱 Left app room: ${appId}`);
+
     }
     if (this.currentAppId === appId) {
       this.currentAppId = null;
@@ -74,7 +74,7 @@ class WebSocketService {
   notifyAppSaved(appId) {
     if (this.socket && this.isConnected) {
       this.socket.emit('app-saved', appId);
-      console.log(`💾 Notified app saved: ${appId}`);
+
     }
   }
 
@@ -115,13 +115,12 @@ class WebSocketService {
         // Collect all calculation data from localStorage and global storage
         const calculationData = {};
         
-        console.log('🔧 Collecting calculation data from parent window...');
-        console.log('🔧 Global storage:', window.superTextCalculations);
+        
         
         // Get from global storage
         if (window.superTextCalculations) {
           Object.assign(calculationData, window.superTextCalculations);
-          console.log('✅ Added from global storage:', Object.keys(window.superTextCalculations).length, 'calculations');
+          
         }
         
         // Get from localStorage
@@ -132,7 +131,7 @@ class WebSocketService {
               const calcId = key.replace('calc_', '');
               const calcData = JSON.parse(localStorage.getItem(key));
               calculationData[calcId] = calcData;
-              console.log(`✅ Added from localStorage: ${calcId}`);
+              
             } catch (error) {
               console.error(`❌ Error parsing calculation ${key}:`, error);
             }

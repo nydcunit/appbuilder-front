@@ -25,10 +25,10 @@ const AppRuntime = () => {
 
   // Listen for calculation data from parent window
   useEffect(() => {
-    console.log('🔧 AppRuntime: Setting up message listener for calculation data');
+    
     
     const handleMessage = (event) => {
-      console.log('📨 AppRuntime: Received message from:', event.origin, 'Data:', event.data);
+      
       
       // Check for CORS issues
       const expectedOrigin = 'http://localhost:3000';
@@ -38,10 +38,7 @@ const AppRuntime = () => {
       }
       
       if (event.data && event.data.type === 'CALCULATION_DATA') {
-        console.log('📊 Received calculation data from parent window:', Object.keys(event.data.calculations).length, 'calculations');
-        console.log('📊 Calculation data:', event.data.calculations);
-        console.log('📊 Active tabs data:', event.data.activeTabs);
-        console.log('🔐 Auth token received:', event.data.authToken ? 'Token found' : 'No token');
+        
         
         // Store calculations in global storage
         window.superTextCalculations = event.data.calculations;
@@ -52,30 +49,30 @@ const AppRuntime = () => {
         // Store authentication token
         if (event.data.authToken) {
           localStorage.setItem('token', event.data.authToken);
-          console.log('✅ Stored auth token in localStorage');
+
           
           // Set up axios defaults for authentication
           axios.defaults.headers.common['Authorization'] = `Bearer ${event.data.authToken}`;
-          console.log('✅ Set axios authorization header');
+          
         }
         
         // Also store in localStorage for backup
         Object.entries(event.data.calculations).forEach(([calcId, calcData]) => {
           try {
             localStorage.setItem(`calc_${calcId}`, JSON.stringify(calcData));
-            console.log(`✅ Stored calculation ${calcId} in localStorage`);
+
           } catch (error) {
             console.error(`❌ Error storing calculation ${calcId} in localStorage:`, error);
           }
         });
         
-        console.log('📊 Global storage after update:', window.superTextCalculations);
+        
         
         // Re-execute calculations if app is already loaded
         if (app && currentScreenId) {
           const currentScreen = app.screens.find(screen => screen.id === currentScreenId);
           if (currentScreen) {
-            console.log('🔄 Re-executing calculations with new data...');
+            
             executeCalculationsAndConditions(currentScreen);
           }
         }
@@ -86,7 +83,7 @@ const AppRuntime = () => {
     
     // Also try to request data from parent immediately
     if (window.parent && window.parent !== window) {
-      console.log('📨 Requesting calculation data from parent window');
+      
       window.parent.postMessage({ type: 'REQUEST_CALCULATION_DATA' }, '*');
     }
     
@@ -99,14 +96,14 @@ const AppRuntime = () => {
     const loadApp = async () => {
       try {
         setLoading(true);
-        console.log('URL_ROUTING: Starting app load process');
+   
         
         // Check for token in URL parameters first
         const urlParams = new URLSearchParams(window.location.search);
         const urlToken = urlParams.get('token');
         
         if (urlToken) {
-          console.log('URL_ROUTING: Found token in URL parameters, storing and setting up axios');
+       
           localStorage.setItem('token', urlToken);
           axios.defaults.headers.common['Authorization'] = `Bearer ${urlToken}`;
           
@@ -114,15 +111,15 @@ const AppRuntime = () => {
           const newUrl = new URL(window.location);
           newUrl.searchParams.delete('token');
           window.history.replaceState({}, document.title, newUrl.toString());
-          console.log('URL_ROUTING: Cleaned URL after token removal:', newUrl.toString());
+    
         } else {
           // Check if we already have a token in localStorage and set up axios
           const existingToken = localStorage.getItem('token');
           if (existingToken) {
-            console.log('URL_ROUTING: Found existing token in localStorage, setting up axios');
+            
             axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
           } else {
-            console.log('URL_ROUTING: No token found in localStorage or URL');
+            
           }
         }
         
@@ -130,35 +127,27 @@ const AppRuntime = () => {
         const hostname = window.location.hostname;
         const appSubdomain = subdomain || (hostname !== 'localhost' ? hostname.split('.')[0] : null);
         
-        console.log('URL_ROUTING: Hostname:', hostname);
-        console.log('URL_ROUTING: Subdomain from params:', subdomain);
-        console.log('URL_ROUTING: Extracted app subdomain:', appSubdomain);
+        
         
         if (!appSubdomain) {
-          console.log('URL_ROUTING: ERROR - No subdomain found');
+          
           setError('No subdomain found');
           return;
         }
 
         // Fetch app by subdomain
-        console.log('URL_ROUTING: Fetching app with subdomain:', appSubdomain);
+        
         const response = await axios.get(`/api/apps?subdomain=${appSubdomain}`);
         
         if (response.data.success && response.data.data.length > 0) {
           const appData = response.data.data[0];
-          console.log('URL_ROUTING: App loaded successfully:', {
-            appId: appData._id,
-            appName: appData.name,
-            screensCount: appData.screens?.length || 0,
-            homeScreenId: appData.homeScreenId,
-            screens: appData.screens?.map(s => ({ id: s.id, name: s.name, url: s.url })) || []
-          });
+          
           setApp(appData);
           
           // Don't set currentScreenId here - let the URL routing effect handle it
-          console.log('URL_ROUTING: App state set, URL routing effect will handle screen selection');
+          
         } else {
-          console.log('URL_ROUTING: ERROR - App not found in response:', response.data);
+          
           setError('App not found');
         }
       } catch (err) {
@@ -166,7 +155,7 @@ const AppRuntime = () => {
         setError('Failed to load app');
       } finally {
         setLoading(false);
-        console.log('URL_ROUTING: App loading process completed');
+        
       }
     };
 
@@ -175,24 +164,18 @@ const AppRuntime = () => {
 
   // Handle URL-based routing for screens
   useEffect(() => {
-    console.log('URL_ROUTING: URL routing effect triggered');
-    console.log('URL_ROUTING: App loaded:', !!app);
-    console.log('URL_ROUTING: App screens count:', app?.screens?.length || 0);
-    console.log('URL_ROUTING: Current screen ID:', currentScreenId);
-    console.log('URL_ROUTING: Location pathname:', location.pathname);
+    
     
     if (app && app.screens && app.screens.length > 0) {
       const currentPath = location.pathname;
-      console.log('URL_ROUTING: Processing URL routing for path:', currentPath);
-      console.log('URL_ROUTING: Available screens:', app.screens.map(s => ({ id: s.id, name: s.name, url: s.url })));
-      console.log('URL_ROUTING: App home screen ID:', app.homeScreenId);
+      
       
       // Find screen by URL path
       let targetScreen = null;
       
       // First, try to find a screen with matching URL
       if (currentPath !== '/') {
-        console.log('URL_ROUTING: Looking for screen with URL matching:', currentPath);
+        
         targetScreen = app.screens.find(screen => {
           const screenUrl = screen.url && screen.url.trim() !== '' ? screen.url : null;
           
@@ -205,44 +188,38 @@ const AppRuntime = () => {
             normalizedScreenUrl = screenUrl.startsWith('/') ? screenUrl : `/${screenUrl}`;
           }
           
-          console.log(`URL_ROUTING: Checking screen "${screen.name}" (ID: ${screen.id}) with URL "${screenUrl}" (normalized: "${normalizedScreenUrl}") against path "${normalizedCurrentPath}"`);
+          
           const matches = normalizedScreenUrl === normalizedCurrentPath;
-          console.log(`URL_ROUTING: Match result: ${matches}`);
+          
           return matches;
         });
-        console.log('URL_ROUTING: Found screen by URL:', targetScreen ? `${targetScreen.name} (ID: ${targetScreen.id})` : 'None');
+        
       } else {
-        console.log('URL_ROUTING: Path is root (/), will use home/default screen');
+        
       }
       
       // If no screen found by URL, use home screen or first screen
       if (!targetScreen) {
-        console.log('URL_ROUTING: No screen found by URL, determining home/default screen');
+        
         const homeScreenId = app.homeScreenId || app.screens[0]?.id;
-        console.log('URL_ROUTING: Home screen ID to use:', homeScreenId);
+        
         targetScreen = app.screens.find(screen => screen.id === homeScreenId) || app.screens[0];
-        console.log('URL_ROUTING: Selected home/default screen:', targetScreen ? `${targetScreen.name} (ID: ${targetScreen.id})` : 'None');
+        
       }
       
       if (targetScreen) {
-        console.log('URL_ROUTING: Target screen determined:', `${targetScreen.name} (ID: ${targetScreen.id})`);
-        console.log('URL_ROUTING: Current screen ID:', currentScreenId);
-        console.log('URL_ROUTING: Need to switch screens:', targetScreen.id !== currentScreenId);
         
         if (targetScreen.id !== currentScreenId) {
-          console.log('URL_ROUTING: SWITCHING TO SCREEN:', targetScreen.name, 'ID:', targetScreen.id);
+          
           setCurrentScreenId(targetScreen.id);
         } else {
-          console.log('URL_ROUTING: Already on correct screen:', targetScreen.name);
+          
         }
       } else {
-        console.log('URL_ROUTING: ERROR - No target screen determined!');
+        
       }
     } else {
-      console.log('URL_ROUTING: Skipping URL routing - app not ready');
-      console.log('URL_ROUTING: App exists:', !!app);
-      console.log('URL_ROUTING: App has screens:', !!(app?.screens));
-      console.log('URL_ROUTING: Screens length:', app?.screens?.length || 0);
+      
     }
   }, [app, location.pathname, currentScreenId]);
 
@@ -259,7 +236,7 @@ const AppRuntime = () => {
   // Listen for tab state changes and re-execute when tabs are clicked
   useEffect(() => {
     const handleTabStateChange = () => {
-      console.log('🔥 TAB STATE CHANGE DETECTED in AppRuntime, re-executing...');
+      
       if (app && currentScreenId) {
         const currentScreen = app.screens.find(screen => screen.id === currentScreenId);
         if (currentScreen) {
@@ -276,7 +253,7 @@ const AppRuntime = () => {
       if (window.__activeTabs && window.__lastKnownTabState) {
         const currentState = JSON.stringify(window.__activeTabs);
         if (currentState !== window.__lastKnownTabState) {
-          console.log('🔥 TAB STATE CHANGE DETECTED via polling');
+   
           window.__lastKnownTabState = currentState;
           handleTabStateChange();
         }
@@ -301,26 +278,25 @@ const AppRuntime = () => {
       const allElements = getAllElementsInScreen(currentScreen.elements);
       
       // Step 1: Load repeating container data
-      console.log('🔄 Loading repeating container data...');
+      
       const containerData = await loadRepeatingContainerData(currentScreen.elements);
       setRepeatingContainerData(containerData);
       
       // Step 2: Expand repeating containers into multiple instances
-      console.log('🔄 Expanding repeating containers...');
+      
       const expandedElements = await expandRepeatingContainers(currentScreen.elements, containerData);
-      console.log('Expanded elements:', expandedElements);
+
       
       // Step 3: Execute conditional rendering on expanded elements
-      console.log('🔄 Executing conditional rendering...');
+      
       const { visibleElements: filteredElements, conditionMatches } = await getVisibleElementsWithMatches(expandedElements, allElements);
-      console.log('Visible elements after conditions:', filteredElements);
-      console.log('Condition matches:', conditionMatches);
+      
       
       setVisibleElements(filteredElements);
       setElementConditionMatches(conditionMatches);
       
       // Step 4: Execute calculations on visible elements
-      console.log('🔄 Executing calculations...');
+      
       const results = {};
       const errors = {};
       const visibleFlatElements = getAllElementsInScreen(filteredElements);
@@ -331,7 +307,7 @@ const AppRuntime = () => {
           try {
             const calculationStorage = extractCalculationStorage(element.properties.value);
             
-            console.log('🔍 CALC STORAGE: Calculation storage for element', element.id, ':', calculationStorage);
+            
             
             // Get repeating context if element is inside a repeating container
             const repeatingContext = getRepeatingContextForElement(element, containerData);
@@ -348,14 +324,12 @@ const AppRuntime = () => {
                                         (window.superTextCalculations && window.superTextCalculations[originalCalcId]);
                   
                   if (!existsInStorage) {
-                    console.log('BLUEY_DEBUG: Missing calculation detected:', originalCalcId, 'Element:', element.id);
-                    console.log('BLUEY_DEBUG: Element text:', element.properties.value);
-                    console.log('BLUEY_DEBUG: Has repeating context:', !!repeatingContext);
+                    
                     
                     // Check if this might be a tabs container calculation
                     if (originalCalcId.includes('calc_') && (element.properties.value.toLowerCase().includes('tab') || 
                         element.properties.value.toLowerCase().includes('active'))) {
-                      console.log('BLUEY_DEBUG: Detected potential tabs calculation, creating synthetic tabs calculation');
+                      
                       
                       // Determine the correct calculation type based on the specific calculation ID and text context
                       let containerValueType = 'active_tab_value'; // Default
@@ -370,24 +344,21 @@ const AppRuntime = () => {
                         const orderIndex = textBeforeCalc.lastIndexOf('order:');
                         const valueIndex = textBeforeCalc.lastIndexOf('value:');
                         
-                        console.log('BLUEY_DEBUG: Calc position:', calcPosition);
-                        console.log('BLUEY_DEBUG: Text before calc:', textBeforeCalc);
-                        console.log('BLUEY_DEBUG: Last "order:" position:', orderIndex);
-                        console.log('BLUEY_DEBUG: Last "value:" position:', valueIndex);
+                        
                         
                         // Use the closest prefix to this specific calculation
                         if (orderIndex > valueIndex && orderIndex >= 0) {
                           containerValueType = 'active_tab_order';
-                          console.log('BLUEY_DEBUG: Found "order:" closest to this calculation, using active_tab_order');
+                          
                         } else if (valueIndex > orderIndex && valueIndex >= 0) {
                           containerValueType = 'active_tab_value';
-                          console.log('BLUEY_DEBUG: Found "value:" closest to this calculation, using active_tab_value');
+                          
                         } else {
-                          console.log('BLUEY_DEBUG: No clear prefix found, using default active_tab_value');
+                          
                         }
                       }
                       
-                      console.log('BLUEY_DEBUG: Determined container value type:', containerValueType);
+                      
                       
                       // Create synthetic tabs calculation
                       calculationStorage[originalCalcId] = {
@@ -407,7 +378,7 @@ const AppRuntime = () => {
                         window.superTextCalculations = {};
                       }
                       window.superTextCalculations[originalCalcId] = calculationStorage[originalCalcId];
-                      console.log('BLUEY_DEBUG: Created synthetic tabs calculation:', originalCalcId);
+                      
                     }
                   }
                 }
@@ -423,18 +394,14 @@ const AppRuntime = () => {
                   const originalCalcId = match.match(/{{CALC:([^}]+)}}/)[1];
                   // Create a unique calculation ID for this row instance
                   const rowSpecificCalcId = `${originalCalcId}_row_${repeatingContext.rowIndex}`;
-                  console.log('BLUEY_DEBUG: Creating synthetic calculation for:', originalCalcId, '→', rowSpecificCalcId, 'Row:', repeatingContext.rowIndex);
-                  console.log('BLUEY_DEBUG: Element text value:', element.properties.value);
-                  console.log('BLUEY_DEBUG: Repeating context:', repeatingContext);
-                  console.log('BLUEY_DEBUG: Available record data:', repeatingContext.recordData);
+                  
                   
                   // Try to determine the correct column from the calculation ID or element context
                   let columnName = 'value'; // Default fallback
                   
                   // More sophisticated column detection based on the element's text content
                   const elementText = element.properties.value.toLowerCase();
-                  console.log('BLUEY_DEBUG: Element text for analysis:', elementText);
-                  console.log('BLUEY_DEBUG: Looking for calculation:', originalCalcId.toLowerCase());
+                  
                   
                   // Find the specific calculation in the text and check what prefix comes before it
                   const escapedCalcId = originalCalcId.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -444,50 +411,49 @@ const AppRuntime = () => {
                   if (calcMatch) {
                     const calcPosition = calcMatch.index;
                     const textBeforeCalc = elementText.substring(0, calcPosition);
-                    console.log('BLUEY_DEBUG: Text before this calculation:', textBeforeCalc);
+                    
                     
                     // Find the closest prefix before this specific calculation
                     const idIndex = textBeforeCalc.lastIndexOf('id:');
                     const valueIndex = textBeforeCalc.lastIndexOf('value:');
                     
-                    console.log('BLUEY_DEBUG: Last "id:" position:', idIndex);
-                    console.log('BLUEY_DEBUG: Last "value:" position:', valueIndex);
+                    
                     
                     if (idIndex > valueIndex && idIndex >= 0) {
                       columnName = 'id';
-                      console.log('BLUEY_DEBUG: Found "id:" prefix closest to this calculation, using id column');
+                      
                     } else if (valueIndex > idIndex && valueIndex >= 0) {
                       columnName = 'value';
-                      console.log('BLUEY_DEBUG: Found "value:" prefix closest to this calculation, using value column');
+                      
                     }
                     // Check if calculation ID itself suggests a column
                     else if (originalCalcId.toLowerCase().includes('id')) {
                       columnName = 'id';
-                      console.log('BLUEY_DEBUG: Calculation ID contains "id", using id column');
+                      
                     }
                     else if (originalCalcId.toLowerCase().includes('value')) {
                       columnName = 'value';
-                      console.log('BLUEY_DEBUG: Calculation ID contains "value", using value column');
+                      
                     }
                     else {
                       // Default to 'value' but log this decision
-                      console.log('BLUEY_DEBUG: No clear column indicator found, defaulting to value column');
+                      
                     }
                   } else {
-                    console.log('BLUEY_DEBUG: Could not find calculation in text, using fallback logic');
+                    
                     // Fallback to original logic
                     if (originalCalcId.toLowerCase().includes('id')) {
                       columnName = 'id';
-                      console.log('BLUEY_DEBUG: Calculation ID contains "id", using id column');
+                      
                     } else if (originalCalcId.toLowerCase().includes('value')) {
                       columnName = 'value';
-                      console.log('BLUEY_DEBUG: Calculation ID contains "value", using value column');
+                    
                     } else {
-                      console.log('BLUEY_DEBUG: No clear column indicator found, defaulting to value column');
+                      
                     }
                   }
                   
-                  console.log('BLUEY_DEBUG: Determined column name:', columnName);
+                  
                   
                   // Create a synthetic calculation that references the repeating container
                   // Store both with original ID (for local use) and row-specific ID (for global storage)
@@ -503,7 +469,7 @@ const AppRuntime = () => {
                       }
                     }]
                   };
-                  console.log('BLUEY_DEBUG: Synthetic calculation created:', calculationStorage[originalCalcId]);
+                  
                   
                   // CRITICAL: Store both original and row-specific versions in global storage
                   if (!window.superTextCalculations) {
@@ -516,7 +482,7 @@ const AppRuntime = () => {
                   };
                   // Also store with original ID for this specific context
                   window.superTextCalculations[originalCalcId] = calculationStorage[originalCalcId];
-                  console.log('BLUEY_DEBUG: Stored synthetic calculation in global storage with IDs:', originalCalcId, 'and', rowSpecificCalcId);
+                  
                 }
               }
             }
@@ -776,7 +742,6 @@ const AppRuntime = () => {
     
     // Find repeating containers in main screen elements
     const repeatingContainers = findRepeatingContainers(elements);
-    console.log('🔄 Found repeating containers in main screen:', repeatingContainers.map(c => c.id));
     
     // Also find repeating containers in page content
     const pageContainers = findPageContainers(elements);
@@ -785,21 +750,21 @@ const AppRuntime = () => {
         const selectedScreen = app.screens.find(screen => screen.id == pageContainer.pageConfig.selectedPageId);
         if (selectedScreen && selectedScreen.elements) {
           const pageRepeatingContainers = findRepeatingContainers(selectedScreen.elements);
-          console.log('🔄 Found repeating containers in page content:', pageRepeatingContainers.map(c => c.id));
+          
           repeatingContainers.push(...pageRepeatingContainers);
         }
       }
     }
     
-    console.log('🔄 Total repeating containers to load data for:', repeatingContainers.map(c => c.id));
+    
     
     for (const container of repeatingContainers) {
       const { databaseId, tableId, filters } = container.repeatingConfig;
       
       try {
-        console.log(`🔄 Loading data for repeating container ${container.id}:`, { databaseId, tableId, filters });
+        
         const records = await executeRepeatingContainerQuery(databaseId, tableId, filters);
-        console.log(`✅ Loaded ${records.length} records for container ${container.id}`);
+        
         containerData[container.id] = {
           records,
           config: container.repeatingConfig
@@ -814,7 +779,7 @@ const AppRuntime = () => {
       }
     }
     
-    console.log('🔄 Final container data:', Object.keys(containerData));
+    
     return containerData;
   };
 
@@ -1015,18 +980,15 @@ const AppRuntime = () => {
   };
 
   const getRepeatingContextForElement = (element, containerData) => {
-    console.log('BLUEY_DEBUG: Getting repeating context for element:', element.id);
-    console.log('BLUEY_DEBUG: Element parentRepeatingContext:', element.parentRepeatingContext);
-    console.log('BLUEY_DEBUG: Element repeatingContext:', element.repeatingContext);
-    console.log('BLUEY_DEBUG: Available container data:', Object.keys(containerData));
+    
     
     if (element.parentRepeatingContext) {
-      console.log('BLUEY_DEBUG: Using parentRepeatingContext:', element.parentRepeatingContext);
+      
       return element.parentRepeatingContext;
     }
     
     if (element.repeatingContext) {
-      console.log('BLUEY_DEBUG: Using repeatingContext:', element.repeatingContext);
+      
       return element.repeatingContext;
     }
     
@@ -1035,7 +997,6 @@ const AppRuntime = () => {
 
   // Execute calculations for nested page elements
   const executeNestedPageElementCalculations = async (pageElements, parentContainerId, allElements, results, errors, containerData) => {
-    console.log('🔄 Executing nested page element calculations for container:', parentContainerId);
     
     const processElements = async (elements, depth = 0) => {
       for (const element of elements) {
@@ -1293,7 +1254,7 @@ const LivePreviewListenerIntegrated = ({ appId }) => {
 
     // Listen for app updates
     const handleAppUpdate = (data) => {
-      console.log('🔄 App updated, refreshing preview...', data);
+      
       
       // Add a small delay to ensure the backend has processed the save
       setTimeout(() => {
