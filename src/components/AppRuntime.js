@@ -336,35 +336,187 @@ const AppRuntime = () => {
             // Get repeating context if element is inside a repeating container
             const repeatingContext = getRepeatingContextForElement(element, containerData);
             
-            // ENHANCED: If no calculation storage found but we have repeating context,
-            // create a synthetic calculation for repeating container values
-            if (Object.keys(calculationStorage).length === 0 && repeatingContext && element.properties.value.includes('{{CALC:')) {
+            // ENHANCED: Create synthetic calculations for missing calculations, whether in repeating context or not
+            if (element.properties.value.includes('{{CALC:')) {
               const calcMatches = element.properties.value.match(/{{CALC:([^}]+)}}/g);
               if (calcMatches) {
                 for (const match of calcMatches) {
-                  const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
-                  console.log('🔧 Creating synthetic calculation for:', calcId);
+                  const originalCalcId = match.match(/{{CALC:([^}]+)}}/)[1];
+                  
+                  // Check if calculation already exists in storage
+                  const existsInStorage = calculationStorage[originalCalcId] || 
+                                        (window.superTextCalculations && window.superTextCalculations[originalCalcId]);
+                  
+                  if (!existsInStorage) {
+                    console.log('BLUEY_DEBUG: Missing calculation detected:', originalCalcId, 'Element:', element.id);
+                    console.log('BLUEY_DEBUG: Element text:', element.properties.value);
+                    console.log('BLUEY_DEBUG: Has repeating context:', !!repeatingContext);
+                    
+                    // Check if this might be a tabs container calculation
+                    if (originalCalcId.includes('calc_') && (element.properties.value.toLowerCase().includes('tab') || 
+                        element.properties.value.toLowerCase().includes('active'))) {
+                      console.log('BLUEY_DEBUG: Detected potential tabs calculation, creating synthetic tabs calculation');
+                      
+                      // Determine the correct calculation type based on the specific calculation ID and text context
+                      let containerValueType = 'active_tab_value'; // Default
+                      
+                      // Check the text around this specific calculation
+                      const calcText = element.properties.value.toLowerCase();
+                      const calcPosition = calcText.indexOf(`{{calc:${originalCalcId.toLowerCase()}}`);
+                      
+                      if (calcPosition >= 0) {
+                        // Find the closest prefix before this specific calculation
+                        const textBeforeCalc = calcText.substring(0, calcPosition);
+                        const orderIndex = textBeforeCalc.lastIndexOf('order:');
+                        const valueIndex = textBeforeCalc.lastIndexOf('value:');
+                        
+                        console.log('BLUEY_DEBUG: Calc position:', calcPosition);
+                        console.log('BLUEY_DEBUG: Text before calc:', textBeforeCalc);
+                        console.log('BLUEY_DEBUG: Last "order:" position:', orderIndex);
+                        console.log('BLUEY_DEBUG: Last "value:" position:', valueIndex);
+                        
+                        // Use the closest prefix to this specific calculation
+                        if (orderIndex > valueIndex && orderIndex >= 0) {
+                          containerValueType = 'active_tab_order';
+                          console.log('BLUEY_DEBUG: Found "order:" closest to this calculation, using active_tab_order');
+                        } else if (valueIndex > orderIndex && valueIndex >= 0) {
+                          containerValueType = 'active_tab_value';
+                          console.log('BLUEY_DEBUG: Found "value:" closest to this calculation, using active_tab_value');
+                        } else {
+                          console.log('BLUEY_DEBUG: No clear prefix found, using default active_tab_value');
+                        }
+                      }
+                      
+                      console.log('BLUEY_DEBUG: Determined container value type:', containerValueType);
+                      
+                      // Create synthetic tabs calculation
+                      calculationStorage[originalCalcId] = {
+                        id: originalCalcId,
+                        steps: [{
+                          id: 'synthetic_tabs_step',
+                          config: {
+                            source: 'element',
+                            elementId: '1748746946008', // The tabs container ID from the canvas
+                            containerValueType: containerValueType
+                          }
+                        }]
+                      };
+                      
+                      // Store in global storage
+                      if (!window.superTextCalculations) {
+                        window.superTextCalculations = {};
+                      }
+                      window.superTextCalculations[originalCalcId] = calculationStorage[originalCalcId];
+                      console.log('BLUEY_DEBUG: Created synthetic tabs calculation:', originalCalcId);
+                    }
+                  }
+                }
+              }
+            }
+            
+            // ENHANCED: If we have repeating context, always create/update synthetic calculations
+            // for this specific row instance, even if calculations exist globally
+            if (repeatingContext && element.properties.value.includes('{{CALC:')) {
+              const calcMatches = element.properties.value.match(/{{CALC:([^}]+)}}/g);
+              if (calcMatches) {
+                for (const match of calcMatches) {
+                  const originalCalcId = match.match(/{{CALC:([^}]+)}}/)[1];
+                  // Create a unique calculation ID for this row instance
+                  const rowSpecificCalcId = `${originalCalcId}_row_${repeatingContext.rowIndex}`;
+                  console.log('BLUEY_DEBUG: Creating synthetic calculation for:', originalCalcId, '→', rowSpecificCalcId, 'Row:', repeatingContext.rowIndex);
+                  console.log('BLUEY_DEBUG: Element text value:', element.properties.value);
+                  console.log('BLUEY_DEBUG: Repeating context:', repeatingContext);
+                  console.log('BLUEY_DEBUG: Available record data:', repeatingContext.recordData);
+                  
+                  // Try to determine the correct column from the calculation ID or element context
+                  let columnName = 'value'; // Default fallback
+                  
+                  // More sophisticated column detection based on the element's text content
+                  const elementText = element.properties.value.toLowerCase();
+                  console.log('BLUEY_DEBUG: Element text for analysis:', elementText);
+                  console.log('BLUEY_DEBUG: Looking for calculation:', originalCalcId.toLowerCase());
+                  
+                  // Find the specific calculation in the text and check what prefix comes before it
+                  const escapedCalcId = originalCalcId.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const calcPattern = new RegExp(`{{calc:${escapedCalcId}}}`, 'i');
+                  const calcMatch = elementText.match(calcPattern);
+                  
+                  if (calcMatch) {
+                    const calcPosition = calcMatch.index;
+                    const textBeforeCalc = elementText.substring(0, calcPosition);
+                    console.log('BLUEY_DEBUG: Text before this calculation:', textBeforeCalc);
+                    
+                    // Find the closest prefix before this specific calculation
+                    const idIndex = textBeforeCalc.lastIndexOf('id:');
+                    const valueIndex = textBeforeCalc.lastIndexOf('value:');
+                    
+                    console.log('BLUEY_DEBUG: Last "id:" position:', idIndex);
+                    console.log('BLUEY_DEBUG: Last "value:" position:', valueIndex);
+                    
+                    if (idIndex > valueIndex && idIndex >= 0) {
+                      columnName = 'id';
+                      console.log('BLUEY_DEBUG: Found "id:" prefix closest to this calculation, using id column');
+                    } else if (valueIndex > idIndex && valueIndex >= 0) {
+                      columnName = 'value';
+                      console.log('BLUEY_DEBUG: Found "value:" prefix closest to this calculation, using value column');
+                    }
+                    // Check if calculation ID itself suggests a column
+                    else if (originalCalcId.toLowerCase().includes('id')) {
+                      columnName = 'id';
+                      console.log('BLUEY_DEBUG: Calculation ID contains "id", using id column');
+                    }
+                    else if (originalCalcId.toLowerCase().includes('value')) {
+                      columnName = 'value';
+                      console.log('BLUEY_DEBUG: Calculation ID contains "value", using value column');
+                    }
+                    else {
+                      // Default to 'value' but log this decision
+                      console.log('BLUEY_DEBUG: No clear column indicator found, defaulting to value column');
+                    }
+                  } else {
+                    console.log('BLUEY_DEBUG: Could not find calculation in text, using fallback logic');
+                    // Fallback to original logic
+                    if (originalCalcId.toLowerCase().includes('id')) {
+                      columnName = 'id';
+                      console.log('BLUEY_DEBUG: Calculation ID contains "id", using id column');
+                    } else if (originalCalcId.toLowerCase().includes('value')) {
+                      columnName = 'value';
+                      console.log('BLUEY_DEBUG: Calculation ID contains "value", using value column');
+                    } else {
+                      console.log('BLUEY_DEBUG: No clear column indicator found, defaulting to value column');
+                    }
+                  }
+                  
+                  console.log('BLUEY_DEBUG: Determined column name:', columnName);
                   
                   // Create a synthetic calculation that references the repeating container
-                  calculationStorage[calcId] = {
-                    id: calcId,
+                  // Store both with original ID (for local use) and row-specific ID (for global storage)
+                  calculationStorage[originalCalcId] = {
+                    id: originalCalcId,
                     steps: [{
                       id: 'synthetic_step',
                       config: {
                         source: 'repeating_container',
                         repeatingContainerId: repeatingContext.containerId,
-                        repeatingColumn: 'value' // Default to 'value' column
+                        repeatingColumn: columnName,
+                        rowIndex: repeatingContext.rowIndex
                       }
                     }]
                   };
-                  console.log('🔧 Synthetic calculation created:', calculationStorage[calcId]);
+                  console.log('BLUEY_DEBUG: Synthetic calculation created:', calculationStorage[originalCalcId]);
                   
-                  // CRITICAL: Also store in global storage for the calculation engine
+                  // CRITICAL: Store both original and row-specific versions in global storage
                   if (!window.superTextCalculations) {
                     window.superTextCalculations = {};
                   }
-                  window.superTextCalculations[calcId] = calculationStorage[calcId];
-                  console.log('🔧 Stored synthetic calculation in global storage');
+                  // Store with row-specific ID to avoid conflicts between rows
+                  window.superTextCalculations[rowSpecificCalcId] = {
+                    ...calculationStorage[originalCalcId],
+                    id: rowSpecificCalcId
+                  };
+                  // Also store with original ID for this specific context
+                  window.superTextCalculations[originalCalcId] = calculationStorage[originalCalcId];
+                  console.log('BLUEY_DEBUG: Stored synthetic calculation in global storage with IDs:', originalCalcId, 'and', rowSpecificCalcId);
                 }
               }
             }
@@ -863,87 +1015,19 @@ const AppRuntime = () => {
   };
 
   const getRepeatingContextForElement = (element, containerData) => {
+    console.log('BLUEY_DEBUG: Getting repeating context for element:', element.id);
+    console.log('BLUEY_DEBUG: Element parentRepeatingContext:', element.parentRepeatingContext);
+    console.log('BLUEY_DEBUG: Element repeatingContext:', element.repeatingContext);
+    console.log('BLUEY_DEBUG: Available container data:', Object.keys(containerData));
+    
     if (element.parentRepeatingContext) {
+      console.log('BLUEY_DEBUG: Using parentRepeatingContext:', element.parentRepeatingContext);
       return element.parentRepeatingContext;
     }
     
     if (element.repeatingContext) {
+      console.log('BLUEY_DEBUG: Using repeatingContext:', element.repeatingContext);
       return element.repeatingContext;
-    }
-    
-    // For nested page elements, check if they need repeating context from main screen containers
-    // This handles cases where page elements reference repeating containers from the main screen
-    if (element.properties?.value && element.properties.value.includes('{{CALC:')) {
-      // Extract calculation IDs to see if they reference repeating containers
-      const calcMatches = element.properties.value.match(/{{CALC:([^}]+)}}/g);
-      
-      if (calcMatches) {
-        for (const match of calcMatches) {
-          const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
-          
-          // Get calculation config from global storage
-          const calcData = window.superTextCalculations?.[calcId];
-          
-          if (calcData && calcData.source === 'repeating_container') {
-            const containerId = calcData.repeatingContainerId;
-            
-            // Check if we have container data for this container
-            if (containerData[containerId] && containerData[containerId].records) {
-              // For page elements, we'll use the first record as context
-              const context = {
-                containerId: containerId,
-                recordData: containerData[containerId].records[0],
-                rowIndex: 0
-              };
-              return context;
-            }
-          }
-        }
-      }
-      
-      // FALLBACK: If no global calculation data is available, but we have container data,
-      // provide context for any available repeating container
-      // This is a fallback for when calculation data isn't passed properly
-      if (!window.superTextCalculations && Object.keys(containerData).length > 0) {
-        console.log('🔍 FALLBACK: Using fallback context for element:', element.id);
-        console.log('🔍 FALLBACK: Available containers:', Object.keys(containerData));
-        console.log('🔍 FALLBACK: Active tabs state:', window.__activeTabs);
-        
-        // Check if the calculation seems to reference a known container
-        for (const containerId of Object.keys(containerData)) {
-          if (containerData[containerId] && containerData[containerId].records && containerData[containerId].records.length > 0) {
-            // Determine which record to use based on active tab state
-            let recordIndex = 0; // Default to first record
-            
-            console.log(`🔍 FALLBACK: Checking container ${containerId} with ${containerData[containerId].records.length} records`);
-            
-            // Check if this container is used in a tabs container and get the active tab
-            if (window.__activeTabs) {
-              console.log('🔍 FALLBACK: Active tabs found:', window.__activeTabs);
-              // Find tabs containers that might contain this repeating container
-              for (const [tabsContainerId, activeTabIndex] of Object.entries(window.__activeTabs)) {
-                console.log(`🔍 FALLBACK: Checking tabs container ${tabsContainerId} with active tab ${activeTabIndex}`);
-                // Use the active tab index if available
-                if (typeof activeTabIndex === 'number' && activeTabIndex < containerData[containerId].records.length) {
-                  recordIndex = activeTabIndex;
-                  console.log(`🔍 FALLBACK: Using record index ${recordIndex} for container ${containerId}`);
-                  break;
-                }
-              }
-            } else {
-              console.log('🔍 FALLBACK: No active tabs found, using default record index 0');
-            }
-            
-            const context = {
-              containerId: containerId,
-              recordData: containerData[containerId].records[recordIndex],
-              rowIndex: recordIndex
-            };
-            console.log('🔍 FALLBACK: Returning context:', context);
-            return context;
-          }
-        }
-      }
     }
     
     return null;
@@ -952,12 +1036,6 @@ const AppRuntime = () => {
   // Execute calculations for nested page elements
   const executeNestedPageElementCalculations = async (pageElements, parentContainerId, allElements, results, errors, containerData) => {
     console.log('🔄 Executing nested page element calculations for container:', parentContainerId);
-    console.log('🔄 Original page elements:', pageElements);
-    console.log('🔄 Container data available:', Object.keys(containerData));
-    
-    // First, expand any repeating containers in the page elements
-    const expandedPageElements = await expandRepeatingContainers(pageElements, containerData);
-    console.log('🔄 Expanded page elements:', expandedPageElements);
     
     const processElements = async (elements, depth = 0) => {
       for (const element of elements) {
@@ -967,58 +1045,25 @@ const AppRuntime = () => {
             
             // Get repeating context for this element if it exists
             const repeatingContext = getRepeatingContextForElement(element, containerData);
-            console.log('🔄 Repeating context for nested element:', element.id, repeatingContext);
-            
-            // Debug: Log the record data being used
-            if (repeatingContext && repeatingContext.recordData) {
-              console.log('🔍 CALC DEBUG: Record data for element', element.id, ':', repeatingContext.recordData);
-              console.log('🔍 CALC DEBUG: Row index:', repeatingContext.rowIndex);
-            }
             
             const executedValue = await executeTextCalculations(
               element.properties.value,
               allElements,
               calculationStorage,
-              repeatingContext, // Pass the repeating context
-              elements // Use page elements as context
+              repeatingContext,
+              elements
             );
             
-            console.log('🔍 CALC RESULT: Executed value for element', element.id, ':', executedValue);
-            
-            // Use original element ID for storage (strip repeating context suffixes)
-            const originalElementId = element.originalId || element.id;
-            
-            // Store with multiple ID patterns that Container.js expects
-            const nestedId = `nested_${parentContainerId}_${originalElementId}`;
-            const simpleNestedId = `nested_${originalElementId}`;
+            // Store with multiple ID patterns
+            const nestedId = `nested_${parentContainerId}_${element.id}`;
+            const simpleNestedId = `nested_${element.id}`;
             
             results[nestedId] = executedValue;
             results[simpleNestedId] = executedValue;
-            results[originalElementId] = executedValue; // Also store with original ID
-            
-            // Also store with the current (expanded) ID for compatibility
             results[element.id] = executedValue;
-            
-            console.log('✅ Executed nested page calculation:', {
-              elementId: element.id,
-              nestedId,
-              simpleNestedId,
-              value: element.properties.value,
-              result: executedValue,
-              repeatingContext: repeatingContext
-            });
           } catch (error) {
             console.error(`Error executing calculation for nested page element ${element.id}:`, error);
             errors[element.id] = error.message;
-            
-            // Store error with multiple ID patterns
-            const nestedId = `nested_${parentContainerId}_${element.id}`;
-            const simpleNestedId = `nested_${element.id}`;
-            const errorMessage = `[Error: ${error.message}]`;
-            
-            results[nestedId] = errorMessage;
-            results[simpleNestedId] = errorMessage;
-            results[element.id] = errorMessage;
           }
         }
         
@@ -1029,7 +1074,7 @@ const AppRuntime = () => {
       }
     };
     
-    await processElements(expandedPageElements);
+    await processElements(pageElements);
   };
 
   const extractCalculationStorage = (textValue) => {

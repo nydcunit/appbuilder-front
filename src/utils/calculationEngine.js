@@ -84,9 +84,10 @@ export class CalculationEngine {
   // Execute tabs container value
   async executeTabsContainerValue(element, valueType) {
     console.log('\n📑 === TABS CONTAINER VALUE EXECUTION ===');
-    console.log('Element:', element.id);
-    console.log('Value type:', valueType);
-    console.log('Element structure:', JSON.stringify(element, null, 2));
+    console.log('BLUEY_DEBUG: Element:', element.id);
+    console.log('BLUEY_DEBUG: Value type:', valueType);
+    console.log('BLUEY_DEBUG: Element structure:', JSON.stringify(element, null, 2));
+    console.log('BLUEY_DEBUG: Repeating context:', this.repeatingContext);
     
     // ENHANCED: Try to find expanded tabs container if available
     let tabsElement = element;
@@ -128,12 +129,17 @@ export class CalculationEngine {
     
     // Check global active tabs state
     let currentActiveTab;
+    console.log('BLUEY_DEBUG: Checking active tab state for element:', element.id);
+    console.log('BLUEY_DEBUG: Global active tabs:', window.__activeTabs);
+    console.log('BLUEY_DEBUG: Element in global tabs:', window.__activeTabs?.[element.id]);
+    
     if (element.id && window.__activeTabs && window.__activeTabs[element.id] !== undefined) {
       currentActiveTab = window.__activeTabs[element.id];
-      console.log('Using global active tab:', currentActiveTab);
+      console.log('BLUEY_DEBUG: Using global active tab:', currentActiveTab);
     } else {
       // Parse activeTab from config (could be number or text value)
       const activeTab = tabsConfig.activeTab || '1';
+      console.log('BLUEY_DEBUG: Using config activeTab:', activeTab);
       const tabNumber = parseInt(activeTab);
       if (!isNaN(tabNumber) && tabNumber > 0) {
         currentActiveTab = tabNumber - 1; // Convert to 0-based
@@ -142,7 +148,7 @@ export class CalculationEngine {
         currentActiveTab = this.findTabIndexByValue(activeTab, tabsElement);
         if (currentActiveTab === -1) currentActiveTab = 0;
       }
-      console.log('Using config active tab:', currentActiveTab);
+      console.log('BLUEY_DEBUG: Using config active tab (0-based):', currentActiveTab);
     }
     
     if (valueType === 'active_tab_order') {
