@@ -1333,6 +1333,7 @@ export const InputElement = {
             defaultValue={props.defaultValue || ''}
             style={{
               ...inputStyle,
+              pointerEvents: isExecuteMode ? 'auto' : 'none',
               '::placeholder': {
                 color: placeholderColor
               }
@@ -1346,6 +1347,7 @@ export const InputElement = {
             defaultValue={props.defaultValue || ''}
             style={{
               ...inputStyle,
+              pointerEvents: isExecuteMode ? 'auto' : 'none',
               '::placeholder': {
                 color: placeholderColor
               }
