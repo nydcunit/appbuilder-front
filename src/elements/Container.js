@@ -2123,14 +2123,72 @@ const PageContainerWithParameters = ({ element, selectedScreen, availableScreens
 const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecuteMode, depth, pageParameters = [], calculationResults = {}, parentContainerId = null }) => {
   
   
-  // Helper function to apply calculated values to elements
-  const applyCalculatedValues = (elements, parentContainerId) => {
+  // Helper function to get processed page elements from V2 execution engine or fallback to legacy
+  const getProcessedPageElements = (selectedScreen, parentContainerId) => {
+    // Check if we have processed page elements from V2 execution engine
+    const executionEngine = window.__v2ExecutionEngine;
+    
+    if (executionEngine && isExecuteMode) {
+      console.log('🧮 V2: Looking for processed page elements from execution engine');
+      console.log('🧮 V2: Looking for page container with ID:', parentContainerId);
+      console.log('🧮 V2: Target screen ID:', selectedScreen.id);
+      
+      // Try to find the page container in the executed screen data
+      const executedScreen = executionEngine.lastExecutedScreen;
+      if (executedScreen && executedScreen.elements) {
+        console.log('🧮 V2: Searching in executed screen elements:', executedScreen.elements.length);
+        
+        const findPageContainer = (elements, depth = 0) => {
+          const indent = '  '.repeat(depth);
+          console.log(`🧮 V2: ${indent}Searching ${elements.length} elements at depth ${depth}`);
+          
+          for (const el of elements) {
+            console.log(`🧮 V2: ${indent}Checking element ${el.id} (${el.type})`);
+            
+            if (el.type === 'container' && el.contentType === 'page') {
+              console.log(`🧮 V2: ${indent}Found page container ${el.id}`);
+              console.log(`🧮 V2: ${indent}  - selectedPageId: ${el.pageConfig?.selectedPageId}`);
+              console.log(`🧮 V2: ${indent}  - target screen ID: ${selectedScreen.id}`);
+              console.log(`🧮 V2: ${indent}  - has processedPageElements: ${!!el.processedPageElements}`);
+              
+              if (el.pageConfig?.selectedPageId == selectedScreen.id && el.processedPageElements) {
+                console.log('🧮 V2: ✅ FOUND PROCESSED PAGE ELEMENTS:', el.processedPageElements.length);
+                console.log('🧮 V2: ✅ Processed elements:', el.processedPageElements.map(pe => ({ id: pe.id, type: pe.type, value: pe.properties?.value })));
+                return el.processedPageElements;
+              }
+            }
+            
+            if (el.children && el.children.length > 0) {
+              console.log(`🧮 V2: ${indent}Recursively searching ${el.children.length} children of ${el.id}`);
+              const found = findPageContainer(el.children, depth + 1);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const processedElements = findPageContainer(executedScreen.elements);
+        if (processedElements) {
+          console.log('🧮 V2: ✅ RETURNING PROCESSED ELEMENTS:', processedElements.length);
+          return processedElements;
+        }
+      }
+      
+      console.log('🧮 V2: ❌ No processed page elements found, using original elements');
+    }
+    
+    // Fallback to legacy calculation results or original elements
+    return applyCalculatedValuesLegacy(selectedScreen.elements, parentContainerId);
+  };
+  
+  // Legacy function to apply calculated values (fallback)
+  const applyCalculatedValuesLegacy = (elements, parentContainerId) => {
     return elements.map(pageElement => {
       let processedElement = { ...pageElement };
       
       // Apply calculated values for text elements if available
-      if (pageElement.type === 'text' && pageElement.properties?.value) {
-        // Check multiple possible nested element ID patterns
+      if (pageElement.type === 'text' && pageElement.properties?.value && isExecuteMode) {
+        // Fallback to legacy calculation results
         const possibleIds = [
           `nested_${parentContainerId}_${pageElement.id}`,
           `nested_${pageElement.id}`,
@@ -2149,7 +2207,7 @@ const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecu
         }
         
         if (calculatedValue !== undefined) {
-          
+          console.log('🧮 Legacy: Using calculated value for', pageElement.id, ':', calculatedValue);
           processedElement = {
             ...pageElement,
             properties: {
@@ -2158,13 +2216,13 @@ const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecu
             }
           };
         } else {
-          
+          console.log('🧮 Legacy: No calculated value found for', pageElement.id);
         }
       }
       
       // Recursively process children
       if (pageElement.children && pageElement.children.length > 0) {
-        processedElement.children = applyCalculatedValues(pageElement.children, parentContainerId);
+        processedElement.children = applyCalculatedValuesLegacy(pageElement.children, parentContainerId);
       }
       
       return processedElement;
@@ -2172,7 +2230,7 @@ const PageContentWithCalculations = ({ selectedScreen, availableScreens, isExecu
   };
 
   // Apply calculated values to elements
-  const processedElements = isExecuteMode ? applyCalculatedValues(selectedScreen.elements, parentContainerId) : selectedScreen.elements;
+  const processedElements = isExecuteMode ? getProcessedPageElements(selectedScreen, parentContainerId) : selectedScreen.elements;
 
   // Render the page elements with calculated values
   return processedElements.map((pageElement, index) => {

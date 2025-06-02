@@ -178,6 +178,12 @@ export class InMemoryExecutionEngine {
       // Step 4: Apply conditional rendering
       const visibleElements = await this.applyConditionalRendering(calculatedElements);
       
+      // Store the last executed screen for Container.js to access
+      this.lastExecutedScreen = {
+        id: screenId,
+        elements: calculatedElements // Store the calculated elements (before conditional rendering)
+      };
+      
       return {
         elements: visibleElements,
         errors: {},
@@ -463,6 +469,53 @@ export class InMemoryExecutionEngine {
         calculatedElement.properties = updatedProperties;
       }
       
+      // Handle page containers - execute calculations on referenced page content
+      if (element.type === 'container' && element.contentType === 'page' && element.pageConfig?.selectedPageId) {
+        try {
+          console.log(`\n🔥 ===== PAGE CONTAINER PROCESSING START =====`);
+          console.log(`📄 Processing page container ${element.id} referencing page ${element.pageConfig.selectedPageId}`);
+          console.log(`📄 Page container config:`, element.pageConfig);
+          console.log(`📄 Page container parameters:`, element.pageConfig.parameters);
+          
+          // Find the referenced screen (use loose equality to handle string vs number mismatch)
+          const referencedScreen = this.appData.screens.find(s => s.id == element.pageConfig.selectedPageId);
+          if (referencedScreen && referencedScreen.elements) {
+            console.log(`📄 Found referenced screen '${referencedScreen.name}' with ${referencedScreen.elements.length} elements`);
+            console.log(`📄 Referenced screen elements:`, referencedScreen.elements.map(el => ({ id: el.id, type: el.type, value: el.properties?.value })));
+            
+            // Create parameter context for the target page
+            const parameterContext = this.createParameterContext(element.pageConfig.parameters || []);
+            console.log(`📄 Created parameter context with ${parameterContext.size} parameters:`);
+            parameterContext.forEach((value, key) => {
+              console.log(`📄   - ${key}: ${value}`);
+            });
+            
+            // Execute calculations on the referenced page elements with parameter context
+            console.log(`📄 Starting calculation execution with parameter context...`);
+            const processedPageElements = await this.executeCalculationsWithParameterContext(
+              referencedScreen.elements, 
+              repeatingData, 
+              parameterContext
+            );
+            
+            // Store the processed page elements in the container
+            calculatedElement.processedPageElements = processedPageElements;
+            console.log(`📄 Processed ${processedPageElements.length} page elements for container ${element.id}`);
+            console.log(`📄 Processed elements:`, processedPageElements.map(el => ({ id: el.id, type: el.type, value: el.properties?.value })));
+            console.log(`🔥 ===== PAGE CONTAINER PROCESSING END =====\n`);
+          } else {
+            console.log(`⚠️ Referenced screen ${element.pageConfig.selectedPageId} not found`);
+            console.log(`⚠️ Available screens:`, this.appData.screens.map(s => ({ id: s.id, name: s.name })));
+            console.log(`⚠️ Looking for screen with ID: ${element.pageConfig.selectedPageId}`);
+            console.log(`⚠️ Available screen IDs: ${this.appData.screens.map(s => s.id).join(', ')}`);
+            console.log(`⚠️ Screen ID types:`, this.appData.screens.map(s => ({ id: s.id, type: typeof s.id })));
+            console.log(`⚠️ Target screen ID type:`, typeof element.pageConfig.selectedPageId);
+          }
+        } catch (error) {
+          console.error(`❌ Error processing page container ${element.id}:`, error);
+        }
+      }
+      
       // Recursively process children
       if (element.children && element.children.length > 0) {
         calculatedElement.children = await this.executeCalculations(element.children, repeatingData);
@@ -598,6 +651,9 @@ export class InMemoryExecutionEngine {
       
       case 'database':
         return await this.executeDatabaseQuery(config);
+      
+      case 'passed_parameter':
+        return this.getPassedParameterValue(config);
       
       case 'timestamp':
         return new Date().toISOString();
@@ -1116,5 +1172,297 @@ export class InMemoryExecutionEngine {
     } else {
       return Boolean(value);
     }
+  }
+
+  // Get passed parameter value from page containers
+  getPassedParameterValue(config) {
+    const { passedParameterName, passedParameterFromScreen } = config;
+    
+    console.log(`📄 Getting passed parameter: ${passedParameterName} from screen: ${passedParameterFromScreen}`);
+    
+    if (!passedParameterName || !passedParameterFromScreen) {
+      console.log(`⚠️ Missing parameter name or source screen`);
+      return '';
+    }
+    
+    // Find the source screen
+    const sourceScreen = this.appData.screens.find(screen => screen.name === passedParameterFromScreen);
+    if (!sourceScreen) {
+      console.log(`⚠️ Source screen '${passedParameterFromScreen}' not found`);
+      return '';
+    }
+    
+    // Find page containers in the source screen that pass this parameter
+    const pageContainer = this.findPageContainerWithParameter(sourceScreen.elements, passedParameterName);
+    if (!pageContainer) {
+      console.log(`⚠️ No page container found with parameter '${passedParameterName}' in screen '${passedParameterFromScreen}'`);
+      return '';
+    }
+    
+    // Get the parameter value
+    const parameter = pageContainer.pageConfig.parameters.find(param => param.name === passedParameterName);
+    if (!parameter) {
+      console.log(`⚠️ Parameter '${passedParameterName}' not found in page container`);
+      return '';
+    }
+    
+    console.log(`✅ Found passed parameter value: ${parameter.value}`);
+    return parameter.value || '';
+  }
+  
+  // Find page container with specific parameter
+  findPageContainerWithParameter(elements, parameterName) {
+    for (const element of elements) {
+      if (element.type === 'container' && 
+          element.contentType === 'page' && 
+          element.pageConfig?.parameters) {
+        const hasParameter = element.pageConfig.parameters.some(param => param.name === parameterName);
+        if (hasParameter) {
+          return element;
+        }
+      }
+      
+      // Recursively search in children
+      if (element.children && element.children.length > 0) {
+        const found = this.findPageContainerWithParameter(element.children, parameterName);
+        if (found) return found;
+      }
+    }
+    
+    return null;
+  }
+
+  // Create parameter context from page container parameters
+  createParameterContext(parameters) {
+    const context = new Map();
+    
+    for (const param of parameters) {
+      if (param.name && param.value !== undefined) {
+        context.set(param.name, param.value);
+        console.log(`📄 Added parameter to context: ${param.name} = ${param.value}`);
+      }
+    }
+    
+    return context;
+  }
+
+  // Execute calculations with parameter context for page elements
+  async executeCalculationsWithParameterContext(elements, repeatingData, parameterContext) {
+    const calculated = [];
+    
+    for (const element of elements) {
+      const calculatedElement = { ...element };
+      
+      // Add parameter context to element for passed_parameter calculations
+      calculatedElement.parameterContext = parameterContext;
+      
+      // Execute calculations for text elements
+      if (element.type === 'text' && element.properties?.value) {
+        try {
+          const executedValue = await this.executeTextCalculationsWithParameterContext(
+            element.properties.value,
+            element.repeatingContext || element.parentRepeatingContext,
+            parameterContext
+          );
+          calculatedElement.properties = {
+            ...element.properties,
+            value: executedValue
+          };
+        } catch (error) {
+          console.error(`❌ Error executing calculations for text element ${element.id}:`, error);
+          calculatedElement.properties = {
+            ...element.properties,
+            value: `[Error: ${error.message}]`
+          };
+        }
+      }
+      
+      // Execute calculations for input elements
+      if (element.type === 'input') {
+        const updatedProperties = { ...element.properties };
+        
+        if (element.properties?.placeholder) {
+          try {
+            updatedProperties.placeholder = await this.executeTextCalculationsWithParameterContext(
+              element.properties.placeholder,
+              element.repeatingContext || element.parentRepeatingContext,
+              parameterContext
+            );
+          } catch (error) {
+            console.error(`❌ Error executing placeholder calculation for ${element.id}:`, error);
+          }
+        }
+        
+        if (element.properties?.defaultValue) {
+          try {
+            updatedProperties.defaultValue = await this.executeTextCalculationsWithParameterContext(
+              element.properties.defaultValue,
+              element.repeatingContext || element.parentRepeatingContext,
+              parameterContext
+            );
+          } catch (error) {
+            console.error(`❌ Error executing defaultValue calculation for ${element.id}:`, error);
+          }
+        }
+        
+        calculatedElement.properties = updatedProperties;
+      }
+      
+      // Recursively process children with parameter context
+      if (element.children && element.children.length > 0) {
+        calculatedElement.children = await this.executeCalculationsWithParameterContext(
+          element.children, 
+          repeatingData, 
+          parameterContext
+        );
+      }
+      
+      calculated.push(calculatedElement);
+    }
+    
+    return calculated;
+  }
+
+  // Execute text calculations with parameter context
+  async executeTextCalculationsWithParameterContext(text, repeatingContext = null, parameterContext = null) {
+    console.log(`\n🔥 ===== TEXT CALCULATION WITH PARAMETER CONTEXT =====`);
+    console.log(`📄 Input text: ${text}`);
+    console.log(`📄 Has parameter context: ${!!parameterContext}`);
+    console.log(`📄 Parameter context size: ${parameterContext ? parameterContext.size : 0}`);
+    
+    if (!text || !text.includes('{{CALC:')) {
+      console.log(`📄 No calculations found in text, returning as-is`);
+      return text;
+    }
+    
+    let result = text;
+    const calcMatches = text.match(/{{CALC:([^}]+)}}/g);
+    console.log(`📄 Found ${calcMatches ? calcMatches.length : 0} calculation matches:`, calcMatches);
+    
+    if (calcMatches) {
+      for (const match of calcMatches) {
+        const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+        console.log(`📄 Processing calculation: ${calcId}`);
+        
+        try {
+          const calculatedValue = await this.executeCalculationWithParameterContext(
+            calcId, 
+            repeatingContext, 
+            parameterContext
+          );
+          console.log(`📄 Calculation ${calcId} result: ${calculatedValue}`);
+          result = result.replace(match, calculatedValue);
+          console.log(`📄 Text after replacement: ${result}`);
+        } catch (error) {
+          console.error(`❌ Error executing calculation ${calcId}:`, error);
+          result = result.replace(match, `[Error: ${error.message}]`);
+        }
+      }
+    }
+    
+    console.log(`📄 Final result: ${result}`);
+    console.log(`🔥 ===== TEXT CALCULATION WITH PARAMETER CONTEXT END =====\n`);
+    return result;
+  }
+
+  // Execute calculation with parameter context
+  async executeCalculationWithParameterContext(calcId, repeatingContext = null, parameterContext = null) {
+    console.log(`🧮 Executing calculation with parameter context: ${calcId}`);
+    
+    // Get calculation from stored calculations
+    const calculation = this.calculations.get(calcId);
+    if (!calculation || !calculation.steps || calculation.steps.length === 0) {
+      console.log(`⚠️ No calculation steps found for ${calcId}, using fallback`);
+      return this.executeCalculationFallback(calcId, repeatingContext);
+    }
+    
+    // Execute calculation steps with parameter context
+    let result = null;
+    
+    for (let i = 0; i < calculation.steps.length; i++) {
+      const step = calculation.steps[i];
+      
+      try {
+        const stepValue = await this.executeCalculationStepWithParameterContext(
+          step, 
+          repeatingContext, 
+          parameterContext
+        );
+        
+        if (i === 0) {
+          result = stepValue;
+        } else {
+          // Check for operation in step.config.operation or step.operation
+          const operation = step.config?.operation || step.operation;
+          console.log(`🔧 Applying operation: ${operation} between ${result} and ${stepValue}`);
+          result = this.applyCalculationOperation(result, stepValue, operation);
+        }
+      } catch (error) {
+        console.error(`❌ Error executing calculation step ${i}:`, error);
+        return `[Error: ${error.message}]`;
+      }
+    }
+    
+    return result !== null ? String(result) : '';
+  }
+
+  // Execute calculation step with parameter context
+  async executeCalculationStepWithParameterContext(step, repeatingContext = null, parameterContext = null) {
+    console.log(`🔧 Executing step with parameter context:`, step);
+    
+    const { config } = step;
+    
+    switch (config.source) {
+      case 'custom':
+        console.log(`📝 Custom value: ${config.value}`);
+        return config.value || '';
+      
+      case 'element':
+        return this.getElementValue(config.elementId, config.containerValueType);
+      
+      case 'repeating_container':
+        return this.getRepeatingContainerValueForCalculation(config, repeatingContext);
+      
+      case 'database':
+        return await this.executeDatabaseQuery(config);
+      
+      case 'passed_parameter':
+        return this.getPassedParameterValueFromContext(config, parameterContext);
+      
+      case 'timestamp':
+        return new Date().toISOString();
+      
+      case 'screen_width':
+        return window.innerWidth;
+      
+      case 'screen_height':
+        return window.innerHeight;
+      
+      default:
+        console.log(`⚠️ Unknown source: ${config.source}`);
+        return '';
+    }
+  }
+
+  // Get passed parameter value from parameter context
+  getPassedParameterValueFromContext(config, parameterContext) {
+    const { passedParameterName } = config;
+    
+    console.log(`📄 Getting passed parameter from context: ${passedParameterName}`);
+    console.log(`📄 Available parameters:`, parameterContext ? Array.from(parameterContext.keys()) : 'No context');
+    
+    if (!passedParameterName || !parameterContext) {
+      console.log(`⚠️ Missing parameter name or context`);
+      return '';
+    }
+    
+    const value = parameterContext.get(passedParameterName);
+    if (value !== undefined) {
+      console.log(`✅ Found parameter value in context: ${passedParameterName} = ${value}`);
+      return value;
+    }
+    
+    console.log(`⚠️ Parameter '${passedParameterName}' not found in context`);
+    return '';
   }
 }
