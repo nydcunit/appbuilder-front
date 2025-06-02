@@ -1064,29 +1064,76 @@ const getRenderProperties = (element, matchedConditionIndex = null) => {
 const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isActiveTab, matchedConditionIndex, handlers }) => {
   const { onClick, onDelete, onDragStart } = handlers;
   
+  console.log('🔵 INPUT_DEBUG: InputRenderer props:', {
+    elementId: element.id,
+    isExecuteMode,
+    isSelected,
+    isActiveSlide,
+    isActiveTab,
+    matchedConditionIndex,
+    hasHandlers: !!handlers
+  });
+  
   // State for controlled input in execute mode
   const [inputValue, setInputValue] = React.useState('');
   const [isInitialized, setIsInitialized] = React.useState(false);
+  const [userHasEdited, setUserHasEdited] = React.useState(false);
+  
+  console.log('🔵 INPUT_DEBUG: State values:', {
+    elementId: element.id,
+    inputValue,
+    isInitialized,
+    userHasEdited,
+    defaultValue: element.properties?.defaultValue
+  });
   
   // Initialize input value with calculated result in execute mode
   React.useEffect(() => {
+    console.log('🔵 INPUT_DEBUG: Initialization effect running:', {
+      elementId: element.id,
+      isExecuteMode,
+      isInitialized,
+      calculatedValue: element.properties?.defaultValue
+    });
+    
     if (isExecuteMode && !isInitialized) {
       const calculatedValue = element.properties?.defaultValue || '';
+      console.log('🔵 INPUT_DEBUG: Initializing input value:', {
+        elementId: element.id,
+        calculatedValue
+      });
       setInputValue(calculatedValue);
       setIsInitialized(true);
     }
   }, [isExecuteMode, element.properties?.defaultValue, isInitialized]);
   
-  // Update input value when calculated value changes
+  // Update input value when calculated value changes (but only if user hasn't edited)
   React.useEffect(() => {
-    if (isExecuteMode && isInitialized) {
+    console.log('🔵 INPUT_DEBUG: Update effect running:', {
+      elementId: element.id,
+      isExecuteMode,
+      isInitialized,
+      userHasEdited,
+      calculatedValue: element.properties?.defaultValue,
+      currentInputValue: inputValue,
+      containsCalcTokens: element.properties?.defaultValue?.includes('{{CALC:')
+    });
+    
+    if (isExecuteMode && isInitialized && !userHasEdited) {
       const calculatedValue = element.properties?.defaultValue || '';
       // Only update if the calculated value is different and doesn't contain calc tokens
       if (calculatedValue !== inputValue && !calculatedValue.includes('{{CALC:')) {
+        console.log('🔵 INPUT_DEBUG: Updating input value (user has not edited):', {
+          elementId: element.id,
+          from: inputValue,
+          to: calculatedValue
+        });
         setInputValue(calculatedValue);
       }
+    } else if (userHasEdited) {
+      console.log('🔵 INPUT_DEBUG: Skipping update - user has edited the input');
     }
-  }, [element.properties?.defaultValue, isExecuteMode, isInitialized, inputValue]);
+  }, [element.properties?.defaultValue, isExecuteMode, isInitialized, inputValue, userHasEdited]);
   
   // Get render properties with matched condition index
   let props = getRenderProperties(element, matchedConditionIndex);
@@ -1283,38 +1330,65 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       )}
 
       {/* Input Element */}
-      {isTextarea ? (
-        <textarea
-          placeholder={props.placeholder || 'Enter text...'}
-          value={isExecuteMode ? inputValue : undefined}
-          defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
-          onChange={isExecuteMode ? (e) => setInputValue(e.target.value) : undefined}
-          style={{
-            ...inputStyle,
-            pointerEvents: isExecuteMode ? 'auto' : 'none',
-            '::placeholder': {
-              color: placeholderColor
-            }
-          }}
-          disabled={!isExecuteMode}
-        />
-      ) : (
-        <input
-          type={inputType}
-          placeholder={props.placeholder || 'Enter text...'}
-          value={isExecuteMode ? inputValue : undefined}
-          defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
-          onChange={isExecuteMode ? (e) => setInputValue(e.target.value) : undefined}
-          style={{
-            ...inputStyle,
-            pointerEvents: isExecuteMode ? 'auto' : 'none',
-            '::placeholder': {
-              color: placeholderColor
-            }
-          }}
-          disabled={!isExecuteMode}
-        />
-      )}
+      {(() => {
+        console.log('🔵 INPUT_DEBUG: Rendering input element:', {
+          elementId: element.id,
+          isExecuteMode,
+          isTextarea,
+          inputType,
+          disabled: !isExecuteMode,
+          value: isExecuteMode ? inputValue : undefined,
+          defaultValue: !isExecuteMode ? (props.defaultValue || '') : undefined,
+          placeholder: props.placeholder
+        });
+        
+        return isTextarea ? (
+          <textarea
+            placeholder={props.placeholder || 'Enter text...'}
+            value={isExecuteMode ? inputValue : undefined}
+            defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
+            onChange={isExecuteMode ? (e) => {
+              console.log('🔵 INPUT_DEBUG: Textarea onChange:', {
+                elementId: element.id,
+                newValue: e.target.value
+              });
+              setInputValue(e.target.value);
+              setUserHasEdited(true);
+            } : undefined}
+            style={{
+              ...inputStyle,
+              pointerEvents: isExecuteMode ? 'auto' : 'none',
+              '::placeholder': {
+                color: placeholderColor
+              }
+            }}
+            disabled={!isExecuteMode}
+          />
+        ) : (
+          <input
+            type={inputType}
+            placeholder={props.placeholder || 'Enter text...'}
+            value={isExecuteMode ? inputValue : undefined}
+            defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
+            onChange={isExecuteMode ? (e) => {
+              console.log('🔵 INPUT_DEBUG: Input onChange:', {
+                elementId: element.id,
+                newValue: e.target.value
+              });
+              setInputValue(e.target.value);
+              setUserHasEdited(true);
+            } : undefined}
+            style={{
+              ...inputStyle,
+              pointerEvents: isExecuteMode ? 'auto' : 'none',
+              '::placeholder': {
+                color: placeholderColor
+              }
+            }}
+            disabled={!isExecuteMode}
+          />
+        );
+      })()}
       
       {/* Add CSS for placeholder styling */}
       <style>
@@ -1398,6 +1472,18 @@ export const InputElement = {
 
   // Render function
   render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false) => {
+    console.log('🔵 INPUT_DEBUG: Render function called:', {
+      elementId: element.id,
+      depth,
+      isSelected,
+      isDropZone,
+      matchedConditionIndex,
+      isExecuteMode,
+      isActiveSlide,
+      isActiveTab,
+      hasHandlers: !!handlers
+    });
+    
     return React.createElement(InputRenderer, {
       element,
       isExecuteMode,
