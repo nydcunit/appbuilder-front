@@ -11,6 +11,8 @@ export class CalculationEngine {
     this.availableElements.forEach(element => {
       if (element.type === 'text' && element.properties?.value) {
         this.elementValues[element.id] = element.properties.value;
+      } else if (element.type === 'input' && element.properties?.value !== undefined) {
+        this.elementValues[element.id] = element.properties.value;
       }
     });
   }
@@ -725,6 +727,11 @@ export class CalculationEngine {
       return await this.executeTabsContainerValue(elementToSearch, containerValueType);
     }
     
+    // Handle input elements - get current value from DOM
+    if (element.type === 'input') {
+      return this.getInputElementValue(elementId);
+    }
+    
     const elementValue = this.elementValues[elementId];
     if (elementValue === undefined) {
       throw new Error(`Element with ID ${elementId} not found`);
@@ -917,6 +924,48 @@ export class CalculationEngine {
     
     const num = parseFloat(value);
     return isNaN(num) ? 0 : num;
+  }
+
+  // Get current value from input element in DOM
+  getInputElementValue(elementId) {
+    console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
+    
+    // Try to find the input element in the DOM
+    // Input elements are rendered with their element ID as a data attribute or in a container
+    const inputElement = document.querySelector(`input[data-element-id="${elementId}"]`) ||
+                        document.querySelector(`textarea[data-element-id="${elementId}"]`) ||
+                        document.querySelector(`[data-element-id="${elementId}"] input`) ||
+                        document.querySelector(`[data-element-id="${elementId}"] textarea`);
+    
+    if (inputElement) {
+      const value = inputElement.value || '';
+      console.log('🔵 INPUT_DEBUG: Found input element, value:', value);
+      return value;
+    }
+    
+    // Fallback: Try to find by element ID in any input/textarea
+    const allInputs = document.querySelectorAll('input, textarea');
+    for (const input of allInputs) {
+      // Check if the input is inside a container with the element ID
+      const container = input.closest(`[data-element-id="${elementId}"]`);
+      if (container) {
+        const value = input.value || '';
+        console.log('🔵 INPUT_DEBUG: Found input via container search, value:', value);
+        return value;
+      }
+    }
+    
+    // If we can't find the input in DOM, try to get from element properties as fallback
+    const element = this.availableElements.find(el => el.id === elementId);
+    if (element && element.properties) {
+      // For input elements, try to get the defaultValue or current value
+      const fallbackValue = element.properties.defaultValue || element.properties.value || '';
+      console.log('🔵 INPUT_DEBUG: Using fallback value from element properties:', fallbackValue);
+      return fallbackValue;
+    }
+    
+    console.log('🔵 INPUT_DEBUG: No input value found, returning empty string');
+    return '';
   }
 }
 

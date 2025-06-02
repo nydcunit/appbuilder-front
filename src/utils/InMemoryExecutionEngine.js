@@ -1094,6 +1094,12 @@ export class InMemoryExecutionEngine {
       return this.getTabValue(elementId, 'value');
     }
     
+    // Check if this is an input element by finding it in the app data
+    const inputElement = this.findElementById(elementId);
+    if (inputElement && inputElement.type === 'input') {
+      return this.getInputElementValue(elementId);
+    }
+    
     // Handle regular element values
     return this.elementValues.get(elementId) || '';
   }
@@ -1463,6 +1469,76 @@ export class InMemoryExecutionEngine {
     }
     
     console.log(`⚠️ Parameter '${passedParameterName}' not found in context`);
+    return '';
+  }
+
+  // Find element by ID in app data
+  findElementById(elementId) {
+    console.log(`🔍 Finding element by ID: ${elementId}`);
+    
+    const findInElements = (elements) => {
+      for (const element of elements) {
+        if (element.id === elementId) {
+          console.log(`✅ Found element: ${element.id} (${element.type})`);
+          return element;
+        }
+        if (element.children && element.children.length > 0) {
+          const found = findInElements(element.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    // Search in all screens
+    for (const screen of this.appData.screens) {
+      const found = findInElements(screen.elements || []);
+      if (found) return found;
+    }
+    
+    console.log(`❌ Element ${elementId} not found`);
+    return null;
+  }
+
+  // Get current value from input element in DOM
+  getInputElementValue(elementId) {
+    console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
+    
+    // Try to find the input element in the DOM
+    // Input elements are rendered with their element ID as a data attribute or in a container
+    const inputElement = document.querySelector(`input[data-element-id="${elementId}"]`) ||
+                        document.querySelector(`textarea[data-element-id="${elementId}"]`) ||
+                        document.querySelector(`[data-element-id="${elementId}"] input`) ||
+                        document.querySelector(`[data-element-id="${elementId}"] textarea`);
+    
+    if (inputElement) {
+      const value = inputElement.value || '';
+      console.log('🔵 INPUT_DEBUG: Found input element, value:', value);
+      return value;
+    }
+    
+    // Fallback: Try to find by element ID in any input/textarea
+    const allInputs = document.querySelectorAll('input, textarea');
+    for (const input of allInputs) {
+      // Check if the input is inside a container with the element ID
+      const container = input.closest(`[data-element-id="${elementId}"]`);
+      if (container) {
+        const value = input.value || '';
+        console.log('🔵 INPUT_DEBUG: Found input via container search, value:', value);
+        return value;
+      }
+    }
+    
+    // If we can't find the input in DOM, try to get from element properties as fallback
+    const element = this.findElementById(elementId);
+    if (element && element.properties) {
+      // For input elements, try to get the defaultValue or current value
+      const fallbackValue = element.properties.defaultValue || element.properties.value || '';
+      console.log('🔵 INPUT_DEBUG: Using fallback value from element properties:', fallbackValue);
+      return fallbackValue;
+    }
+    
+    console.log('🔵 INPUT_DEBUG: No input value found, returning empty string');
     return '';
   }
 }

@@ -779,9 +779,10 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
     }
   }, [passedParameters, onUpdate]);
 
-  // Filter available elements to show text elements, slider containers, and tabs containers
+  // Filter available elements to show text elements, input elements, slider containers, and tabs containers
   const valueElements = availableElements.filter(element => 
     element.type === 'text' || 
+    element.type === 'input' ||
     (element.type === 'container' && element.containerType === 'slider') ||
     (element.type === 'container' && element.containerType === 'tabs')
   );
@@ -875,6 +876,8 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
           let label;
           if (element.type === 'text') {
             label = `Text (${element.id.slice(-6)})`;
+          } else if (element.type === 'input') {
+            label = `Input (${element.id.slice(-6)})`;
           } else if (element.type === 'container' && element.containerType === 'slider') {
             label = `Slider Container (${element.id.slice(-6)})`;
           } else if (element.type === 'container' && element.containerType === 'tabs') {
@@ -900,7 +903,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
           color: '#666',
           textAlign: 'center'
         }}>
-          No text elements, slider containers, or tabs containers found in current screen
+          No text elements, input elements, slider containers, or tabs containers found in current screen
         </div>
       )}
 
@@ -1355,7 +1358,7 @@ const ValueTab = ({ config, onUpdate, availableElements = [], parentZIndex = 100
               opacity: 0.8,
               marginTop: '2px'
             }}>
-              Get value from a text element, slider container, or tabs container
+              Get value from a text element, input element, slider container, or tabs container
             </div>
           </div>
           {selectedOption === 'element' && (

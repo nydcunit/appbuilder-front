@@ -1344,6 +1344,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
         
         return isTextarea ? (
           <textarea
+            data-element-id={element.id}
             placeholder={props.placeholder || 'Enter text...'}
             value={isExecuteMode ? inputValue : undefined}
             defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
@@ -1366,6 +1367,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           />
         ) : (
           <input
+            data-element-id={element.id}
             type={inputType}
             placeholder={props.placeholder || 'Enter text...'}
             value={isExecuteMode ? inputValue : undefined}
