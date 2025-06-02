@@ -604,10 +604,258 @@ export const getAllElementsInScreen = (elements) => {
   return allElements;
 };
 
-// Copy canvas data to clipboard
+// Helper function to get actual calculations from current storage systems
+const getActualCalculations = () => {
+  const calculations = {};
+  
+  // Get from global storage (window.superTextCalculations)
+  if (window.superTextCalculations) {
+    Object.assign(calculations, window.superTextCalculations);
+  }
+  
+  // Get from localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('calc_')) {
+      try {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const calculation = JSON.parse(stored);
+          calculations[calculation.id] = calculation;
+        }
+      } catch (error) {
+        console.error('Error loading calculation from localStorage:', error);
+      }
+    }
+  }
+  
+  return calculations;
+};
+
+// Helper function to extract calculation IDs from elements
+const extractCalculationIdsFromElements = (elements) => {
+  const calcIds = new Set();
+  
+  const traverse = (elementList) => {
+    elementList.forEach(element => {
+      // Extract from text elements
+      if (element.type === 'text' && element.properties?.value) {
+        extractCalculationIdsFromText(element.properties.value, calcIds);
+      }
+      
+      // Extract from input elements
+      if (element.type === 'input') {
+        if (element.properties?.placeholder) {
+          extractCalculationIdsFromText(element.properties.placeholder, calcIds);
+        }
+        if (element.properties?.defaultValue) {
+          extractCalculationIdsFromText(element.properties.defaultValue, calcIds);
+        }
+      }
+      
+      // Extract from page container parameters
+      if (element.type === 'container' && element.contentType === 'page' && element.pageConfig?.parameters) {
+        element.pageConfig.parameters.forEach(param => {
+          if (param.value) {
+            extractCalculationIdsFromText(param.value, calcIds);
+          }
+        });
+      }
+      
+      // Recursively process children
+      if (element.children && element.children.length > 0) {
+        traverse(element.children);
+      }
+    });
+  };
+  
+  traverse(elements);
+  return Array.from(calcIds);
+};
+
+// Helper function to attach calculations to their respective elements
+const attachCalculationsToElements = (elements) => {
+  // Get actual calculations from current storage
+  const actualCalculations = getActualCalculations();
+  
+  const processElements = (elementList) => {
+    return elementList.map(element => {
+      const updatedElement = { ...element };
+      
+      // Find calculations used by this element
+      const elementCalcIds = new Set();
+      
+      // Extract from text elements
+      if (element.type === 'text' && element.properties?.value) {
+        extractCalculationIdsFromText(element.properties.value, elementCalcIds);
+      }
+      
+      // Extract from input elements
+      if (element.type === 'input') {
+        if (element.properties?.placeholder) {
+          extractCalculationIdsFromText(element.properties.placeholder, elementCalcIds);
+        }
+        if (element.properties?.defaultValue) {
+          extractCalculationIdsFromText(element.properties.defaultValue, elementCalcIds);
+        }
+      }
+      
+      // Extract from page container parameters
+      if (element.type === 'container' && element.contentType === 'page' && element.pageConfig?.parameters) {
+        element.pageConfig.parameters.forEach(param => {
+          if (param.value) {
+            extractCalculationIdsFromText(param.value, elementCalcIds);
+          }
+        });
+      }
+      
+      // Attach calculations to this element
+      if (elementCalcIds.size > 0) {
+        updatedElement.calculations = {};
+        
+        Array.from(elementCalcIds).forEach(calcId => {
+          if (actualCalculations[calcId]) {
+            // Use actual calculation if it exists
+            updatedElement.calculations[calcId] = actualCalculations[calcId];
+          } else {
+            // Create synthetic calculation for missing ones
+            console.log(`⚠️ Creating synthetic calculation for missing: ${calcId} on element ${element.id}`);
+            updatedElement.calculations[calcId] = {
+              id: calcId,
+              name: `Calculation ${calcId}`,
+              description: `Auto-generated calculation for ${calcId}`,
+              steps: createSyntheticCalculationSteps(calcId, element.id)
+            };
+          }
+        });
+      }
+      
+      // Recursively process children
+      if (element.children && element.children.length > 0) {
+        updatedElement.children = processElements(element.children);
+      }
+      
+      return updatedElement;
+    });
+  };
+  
+  return processElements(elements);
+};
+
+// Helper function to extract calculation IDs from text
+const extractCalculationIdsFromText = (text, calcIds) => {
+  if (!text || typeof text !== 'string') return;
+  
+  const calcMatches = text.match(/{{CALC:([^}]+)}}/g);
+  if (calcMatches) {
+    calcMatches.forEach(match => {
+      const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+      calcIds.add(calcId);
+    });
+  }
+};
+
+const extractCalculationsFromText = (text, elementId, calculations) => {
+  if (!text || typeof text !== 'string') return;
+  
+  const calcMatches = text.match(/{{CALC:([^}]+)}}/g);
+  if (calcMatches) {
+    calcMatches.forEach(match => {
+      const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+      
+      if (!calculations.has(calcId)) {
+        // Create synthetic calculation structure for V2 format
+        const syntheticCalculation = {
+          id: calcId,
+          name: `Calculation ${calcId}`,
+          description: `Auto-generated calculation for ${calcId}`,
+          steps: createSyntheticCalculationSteps(calcId, elementId)
+        };
+        
+        calculations.set(calcId, syntheticCalculation);
+      }
+    });
+  }
+};
+
+const createSyntheticCalculationSteps = (calcId, elementId) => {
+  const steps = [];
+  
+  // Determine calculation type based on calcId
+  if (calcId.toLowerCase().includes('tab')) {
+    // Tabs calculation
+    steps.push({
+      id: 'synthetic_step_1',
+      type: 'operation',
+      operation: null,
+      config: {
+        source: 'element',
+        elementId: '1748746946008', // Default tabs container ID
+        containerValueType: calcId.toLowerCase().includes('order') ? 'active_tab_order' : 'active_tab_value'
+      }
+    });
+  } else if (calcId.toLowerCase().includes('id') || calcId.toLowerCase().includes('value')) {
+    // Repeating container calculation
+    steps.push({
+      id: 'synthetic_step_1',
+      type: 'operation',
+      operation: null,
+      config: {
+        source: 'repeating_container',
+        repeatingContainerId: 'unknown', // Will be determined at runtime
+        repeatingColumn: calcId.toLowerCase().includes('id') ? 'id' : 'value'
+      }
+    });
+  } else {
+    // Custom value calculation
+    steps.push({
+      id: 'synthetic_step_1',
+      type: 'operation',
+      operation: null,
+      config: {
+        source: 'custom',
+        value: `Synthetic value for ${calcId}`
+      }
+    });
+  }
+  
+  return steps;
+};
+
+// Helper function to extract conditions from elements
+const extractConditionsFromElements = (elements) => {
+  const conditions = [];
+  
+  const traverse = (elementList) => {
+    elementList.forEach(element => {
+      if (element.renderType === 'conditional' && element.conditions) {
+        element.conditions.forEach(condition => {
+          conditions.push({
+            ...condition,
+            elementId: element.id,
+            elementType: element.type
+          });
+        });
+      }
+      
+      if (element.children && element.children.length > 0) {
+        traverse(element.children);
+      }
+    });
+  };
+  
+  traverse(elements);
+  return conditions;
+};
+
+// Copy canvas data to clipboard with both V1 and V2 formats
 export const copyCanvasToClipboard = async (app, appId, currentScreen, screens, selectedElement, allElements) => {
   try {
-    const canvasData = {
+    // Extract conditions for metadata
+    const extractedConditions = extractConditionsFromElements(currentScreen?.elements || []);
+    
+    // V1 Format (Legacy)
+    const v1Data = {
       app: {
         name: app?.name,
         id: appId,
@@ -643,11 +891,105 @@ export const copyCanvasToClipboard = async (app, appId, currentScreen, screens, 
         )
       }
     };
+    
+    // V2 Format (New In-Memory System) - Attach calculations to elements
+    const v2ScreensWithCalculations = screens.map(screen => ({
+      id: screen.id,
+      name: screen.name,
+      url: screen.url || '',
+      elements: attachCalculationsToElements(screen.elements || [])
+    }));
+    
+    // Count total calculations across all elements
+    let totalCalculationsCount = 0;
+    const countCalculations = (elements) => {
+      elements.forEach(element => {
+        if (element.calculations) {
+          totalCalculationsCount += Object.keys(element.calculations).length;
+        }
+        if (element.children && element.children.length > 0) {
+          countCalculations(element.children);
+        }
+      });
+    };
+    
+    v2ScreensWithCalculations.forEach(screen => {
+      countCalculations(screen.elements);
+    });
+    
+    const v2Data = {
+      _id: appId,
+      name: app?.name || 'Untitled App',
+      description: app?.description || '',
+      appType: app?.appType || 'web',
+      subdomain: app?.subdomain,
+      owner: app?.owner,
+      screens: v2ScreensWithCalculations,
+      homeScreenId: app?.homeScreenId || screens[0]?.id || 1,
+      settings: app?.settings || {
+        theme: 'light',
+        layout: 'fluid'
+      },
+      isPublished: app?.isPublished || false,
+      publishedAt: app?.publishedAt,
+      version: app?.version || 1,
+      isPublic: app?.isPublic || false,
+      views: app?.views || 0,
+      // NEW V2 FIELDS
+      globalState: {
+        activeTabs: {},
+        activeSliders: {},
+        customVariables: {}
+      },
+      executionSettings: {
+        enableInMemoryExecution: true,
+        cacheDatabase: true,
+        debugMode: false
+      },
+      // Metadata for V2
+      v2Metadata: {
+        calculationsAttachedToElements: totalCalculationsCount,
+        extractedConditionsCount: extractedConditions.length,
+        totalElementsCount: allElements.length,
+        hasConditionalElements: (currentScreen?.elements || []).some(el => el.renderType === 'conditional'),
+        hasRepeatingContainers: (currentScreen?.elements || []).some(el => 
+          el.type === 'container' && el.contentType === 'repeating'
+        ),
+        extractedConditions: extractedConditions
+      }
+    };
+    
+    // Combined output with both formats
+    const canvasData = {
+      format: 'AppBuilder Canvas Data',
+      timestamp: new Date().toISOString(),
+      versions: {
+        v1: {
+          description: 'Legacy format with PostMessage/localStorage',
+          data: v1Data
+        },
+        v2: {
+          description: 'New in-memory execution format with enhanced MongoDB schema',
+          data: v2Data
+        }
+      },
+      migration: {
+        calculationsAttachedToElements: totalCalculationsCount,
+        conditionsFound: extractedConditions.length,
+        migrationNotes: [
+          'V2 format attaches calculations directly to elements that use them',
+          'Each element.calculations contains the actual calculation configurations',
+          'V2 format includes enhanced condition schemas',
+          'V2 format supports in-memory execution without PostMessage',
+          'Use ?v2=true URL parameter to test V2 runtime'
+        ]
+      }
+    };
 
     const formattedJSON = JSON.stringify(canvasData, null, 2);
     await navigator.clipboard.writeText(formattedJSON);
     
-    console.log('Canvas data copied to clipboard:', canvasData);
+    console.log('Canvas data copied to clipboard (V1 + V2 formats):', canvasData);
     return true;
   } catch (error) {
     console.error('Error copying to clipboard:', error);
@@ -746,6 +1088,7 @@ const BuilderHeader = ({
   copyCanvasToClipboard,
   copySuccess,
   handleExecute,
+  handleExecuteV1,
   handleOldExecute,
   saveApp,
   saving
@@ -818,7 +1161,7 @@ const BuilderHeader = ({
           🔍 Old Execute
         </button>
 
-        {/* Execute Button */}
+        {/* Execute V2 Button (Default) */}
         <button
           onClick={handleExecute}
           style={{
@@ -833,9 +1176,29 @@ const BuilderHeader = ({
             alignItems: 'center',
             gap: '5px'
           }}
-          title="Open app in new window - auto-updates when you save"
+          title="Execute with V2 (In-Memory) - Faster, self-contained execution"
         >
-          ▶️ Execute
+          ▶️ Execute V2
+        </button>
+
+        {/* Execute V1 Button (Legacy) */}
+        <button
+          onClick={handleExecuteV1}
+          style={{
+            padding: '8px 15px',
+            backgroundColor: '#ffc107',
+            color: '#212529',
+            border: 'none',
+            cursor: 'pointer',
+            borderRadius: '4px',
+            fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}
+          title="Execute with V1 (Legacy) - PostMessage/localStorage system"
+        >
+          🔄 Execute V1
         </button>
 
         <button
@@ -1207,11 +1570,26 @@ const Builder = () => {
   // Enhanced save function that notifies WebSocket
   const handleSaveApp = async () => {
     try {
-      await saveApp();
-      // Notify WebSocket that app was saved
-      if (app?._id) {
-        websocketService.notifyAppSaved(app._id);
-      }
+      // Before saving, attach calculations to elements for V2 compatibility
+      const screensWithCalculations = screens.map(screen => ({
+        ...screen,
+        elements: attachCalculationsToElements(screen.elements || [])
+      }));
+      
+      console.log('💾 Saving app with calculations attached to elements:', screensWithCalculations);
+      
+      // Update screens with calculations before saving
+      updateScreens(screensWithCalculations);
+      
+      // Small delay to ensure state is updated
+      setTimeout(async () => {
+        await saveApp();
+        // Notify WebSocket that app was saved
+        if (app?._id) {
+          websocketService.notifyAppSaved(app._id);
+        }
+      }, 100);
+      
     } catch (error) {
       console.error('Error saving app:', error);
     }
@@ -1265,7 +1643,28 @@ const Builder = () => {
       return;
     }
 
-    // Open new preview window with app runtime
+    // Open new preview window with V2 runtime (in-memory execution)
+    const newPreviewWindow = websocketService.openPreviewWindow(app.subdomain, '?v2=true');
+    if (newPreviewWindow) {
+      setPreviewWindow(newPreviewWindow);
+      
+      // Monitor when window is closed
+      const checkClosed = setInterval(() => {
+        if (newPreviewWindow.closed) {
+          setPreviewWindow(null);
+          clearInterval(checkClosed);
+        }
+      }, 1000);
+    }
+  };
+
+  const handleExecuteV1 = () => {
+    if (!app?.subdomain) {
+      alert('App subdomain not found. Please ensure the app has a subdomain configured.');
+      return;
+    }
+
+    // Open new preview window with V1 runtime (legacy)
     const newPreviewWindow = websocketService.openPreviewWindow(app.subdomain);
     if (newPreviewWindow) {
       setPreviewWindow(newPreviewWindow);
@@ -1371,6 +1770,7 @@ const Builder = () => {
           copyCanvasToClipboard={handleCopyCanvas}
           copySuccess={copySuccess}
           handleExecute={handleExecute}
+          handleExecuteV1={handleExecuteV1}
           handleOldExecute={handleOldExecute}
           saveApp={handleSaveApp}
           saving={saving}

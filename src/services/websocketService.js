@@ -90,11 +90,24 @@ class WebSocketService {
     }
   }
 
-  openPreviewWindow(appSubdomain) {
+  openPreviewWindow(appSubdomain, additionalParams = '') {
     // Get auth token and pass it via URL parameter
     const authToken = localStorage.getItem('token');
     const tokenParam = authToken ? `?token=${encodeURIComponent(authToken)}` : '';
-    const previewUrl = `http://${appSubdomain}.localhost:3000${tokenParam}`;
+    
+    // Combine token param with additional params
+    let finalParams = tokenParam;
+    if (additionalParams) {
+      if (tokenParam) {
+        // If we have a token, append additional params with &
+        finalParams = tokenParam + '&' + additionalParams.replace(/^\?/, '');
+      } else {
+        // If no token, use additional params as-is
+        finalParams = additionalParams;
+      }
+    }
+    
+    const previewUrl = `http://${appSubdomain}.localhost:3000${finalParams}`;
     
     console.log('🔐 Opening preview with URL:', previewUrl.replace(authToken || '', '[TOKEN]'));
     

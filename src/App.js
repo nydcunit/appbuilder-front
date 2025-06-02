@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Databases from './pages/Databases/Databases';
 import Builder from './pages/Builder/Builder';
 import AppRuntime from './components/AppRuntime';
+import AppRuntimeV2 from './components/AppRuntimeV2';
 import Layout from './components/Layout';
 import './App.css';
 
@@ -25,9 +26,13 @@ function AppRoutes() {
   
   // If on subdomain, show app runtime with routing support
   if (isSubdomain) {
+    // Check URL parameter to determine which runtime to use
+    const urlParams = new URLSearchParams(window.location.search);
+    const useV2 = urlParams.get('v2') === 'true' || urlParams.get('runtime') === 'v2';
+    
     return (
       <Routes>
-        <Route path="/*" element={<AppRuntime />} />
+        <Route path="/*" element={useV2 ? <AppRuntimeV2 /> : <AppRuntime />} />
       </Routes>
     );
   }

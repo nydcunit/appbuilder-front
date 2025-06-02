@@ -2382,6 +2382,12 @@ export const ContainerElement = {
 
     
     if (shouldApplyActiveStyles) {
+      console.log(`🎨 APPLYING ACTIVE STYLES for ${element.id}:`, {
+        isActiveTab,
+        isExecuteMode,
+        originalBg: props.backgroundColor,
+        activeBg: props.activeBackgroundColor
+      });
       
       // Merge active properties over default properties
       const activeProps = {};
@@ -2391,11 +2397,17 @@ export const ContainerElement = {
           activeProps[key] = props[activeKey];
         }
       });
- 
+      
+      console.log(`🎨 Active props merged:`, activeProps);
       props = { ...props, ...activeProps };
+      console.log(`🎨 Final props after merge:`, { backgroundColor: props.backgroundColor });
   
     } else {
-      
+      console.log(`🎨 NOT applying active styles for ${element.id}:`, {
+        isActiveTab,
+        isExecuteMode,
+        shouldApplyActiveStyles
+      });
     }
     
 
@@ -3420,18 +3432,24 @@ export const ContainerElement = {
     
     // Handle tabs container in execute mode - elements are clickable tabs
     if (isExecuteMode && isTabsContainer && children && children.length > 0) {
+      // Get execution engine from global context (set by AppRuntimeV2)
+      const executionEngine = window.__v2ExecutionEngine;
+      
       // FIXED: Check if we already have an active tab stored globally, otherwise use initial
       let currentActiveTab;
-      if (element && element.id && window.__activeTabs && window.__activeTabs[element.id] !== undefined) {
-        // Use the stored active tab
+      if (executionEngine) {
+        // Use V2 execution engine for tab state
+        const tabOrder = executionEngine.getTabValue(element.id, 'order');
+        currentActiveTab = tabOrder - 1; // Convert to 0-based
+        console.log(`🎯 V2 Engine tab state: order=${tabOrder}, currentActiveTab=${currentActiveTab}`);
+      } else if (element && element.id && window.__activeTabs && window.__activeTabs[element.id] !== undefined) {
+        // Fallback to global storage
         currentActiveTab = window.__activeTabs[element.id];
-        
       } else {
         // Use initial active tab from config
         currentActiveTab = getInitialActiveTab(tabsConfig, children);
         
-        
-        // Store it globally
+        // Store it globally as fallback
         if (element && element.id) {
           window.__activeTabs = window.__activeTabs || {};
           window.__activeTabs[element.id] = currentActiveTab;
@@ -3440,32 +3458,28 @@ export const ContainerElement = {
       
       // Create click handler for tab activation
       const handleTabClick = (tabIndex) => {
+        console.log(`🖱️ Tab clicked in Container: ${element.id}, tab ${tabIndex + 1}`);
+        console.log(`🖱️ Current active tab before click: ${currentActiveTab}`);
         
-        
-        // Initialize tabsConfig if it doesn't exist
-        if (!element.tabsConfig) {
-          element.tabsConfig = {
-            activeTab: '1'
-          };
+        if (executionEngine) {
+          // Use V2 execution engine for proper tab handling
+          executionEngine.handleTabClick(element.id, tabIndex + 1); // Convert to 1-based
+        } else {
+          // Fallback to old method
+          if (!element.tabsConfig) {
+            element.tabsConfig = { activeTab: '1' };
+          }
           
-        }
-        
-        if (element && element.tabsConfig) {
-          element.tabsConfig.activeTab = String(tabIndex + 1); // Convert to 1-based string
-          
-          // Store active tab globally
+          element.tabsConfig.activeTab = String(tabIndex + 1);
           window.__activeTabs = window.__activeTabs || {};
           window.__activeTabs[element.id] = tabIndex;
           
-   
-          
-          // Trigger a refresh to update active states
+          // Trigger refresh
           setTimeout(() => {
             const buttons = document.querySelectorAll('button');
             for (const button of buttons) {
               const buttonText = button.textContent || '';
               if (buttonText.includes('Refresh') || buttonText.includes('🔄')) {
-                
                 button.click();
                 break;
               }
@@ -3495,44 +3509,48 @@ export const ContainerElement = {
             {children.map((child, index) => {
               const isActiveTab = index === currentActiveTab;
               
+              console.log(`🎯 Rendering tab ${index}: isActiveTab=${isActiveTab}, currentActiveTab=${currentActiveTab}`);
+              
               // Clone child with click handler and active state
               if (React.isValidElement(child)) {
                 // Get the element definition to call its render function with isActiveTab
                 const elementDef = getElementByType(child.props.element?.type);
                 if (elementDef && elementDef.render) {
                   // Re-render the child element with isActiveTab prop
-                  return React.cloneElement(
-                    elementDef.render(
-                      child.props.element,
-                      depth + 1,
-                      false, // not selected
-                      false, // not drop zone
-                      {
-                        onClick: (e) => {
-                          e.stopPropagation();
-                          handleTabClick(index);
-                        }
-                      },
-                      child.props.children,
-                      null, // matchedConditionIndex
-                      true, // isExecuteMode
-                      false, // isActiveSlide
-                      isActiveTab // isActiveTab
-                    ),
+                  const renderedChild = elementDef.render(
+                    child.props.element,
+                    depth + 1,
+                    false, // not selected
+                    false, // not drop zone
                     {
-                      key: child.key || index,
-                      'data-active-tab': isActiveTab ? 'true' : 'false',
-                      style: {
-                        cursor: 'pointer'
+                      onClick: (e) => {
+                        e.stopPropagation();
+                        handleTabClick(index);
                       }
-                    }
+                    },
+                    child.props.children,
+                    null, // matchedConditionIndex
+                    true, // isExecuteMode
+                    false, // isActiveSlide
+                    isActiveTab, // isActiveTab
+                    availableScreens || [], // availableScreens
+                    {}, // calculationResults
+                    {} // repeatingContainerData
                   );
+                  
+                  return React.cloneElement(renderedChild, {
+                    key: child.key || index,
+                    'data-active-tab': isActiveTab ? 'true' : 'false',
+                    style: {
+                      ...renderedChild.props.style,
+                      cursor: 'pointer'
+                    }
+                  });
                 } else {
                   // Fallback to simple cloning
                   return React.cloneElement(child, {
                     ...child.props,
                     key: child.key || index,
-
                     'data-active-tab': isActiveTab ? 'true' : 'false',
                     onClick: (e) => {
                       e.stopPropagation();

@@ -1,0 +1,1067 @@
+import axios from 'axios';
+
+export class InMemoryExecutionEngine {
+  constructor(appData) {
+    this.appData = appData;
+    this.calculations = new Map(); // Store all calculations from app data
+    this.conditions = new Map(); // Store all conditions from app data
+    this.databases = new Map(); // Cache database data
+    this.elementValues = new Map(); // Cache element values
+    this.activeStates = new Map(); // Store active tab/slider states
+    this.tabStates = new Map(); // Store active tab states per container
+    this.onStateChange = null; // Callback for state changes
+    
+    console.log('🚀 Initializing InMemoryExecutionEngine with app data:', appData);
+    
+    // Extract and index all calculations and conditions from app data
+    this.indexAppData();
+  }
+
+  // Index all calculations and conditions from the app data
+  indexAppData() {
+    console.log('📊 Indexing app data for calculations and conditions...');
+    
+    // Traverse all screens and elements to find calculations and conditions
+    if (this.appData.screens) {
+      for (const screen of this.appData.screens) {
+        this.indexScreenElements(screen.elements || []);
+      }
+    }
+    
+    console.log('✅ Indexing complete:', {
+      calculations: this.calculations.size,
+      conditions: this.conditions.size
+    });
+  }
+
+  // Index elements in a screen recursively
+  indexScreenElements(elements) {
+    for (const element of elements) {
+      // Index calculations that are attached to this element
+      if (element.calculations) {
+        for (const [calcId, calculation] of Object.entries(element.calculations)) {
+          console.log(`📊 Indexing calculation ${calcId} from element ${element.id}:`, calculation);
+          this.calculations.set(calcId, calculation);
+        }
+      }
+      
+      // Index calculations from text elements (fallback for missing calculations)
+      if (element.type === 'text' && element.properties?.value) {
+        this.extractCalculationsFromText(element.properties.value, element.id);
+      }
+      
+      // Index calculations from input elements
+      if (element.type === 'input') {
+        if (element.properties?.placeholder) {
+          this.extractCalculationsFromText(element.properties.placeholder, element.id);
+        }
+        if (element.properties?.defaultValue) {
+          this.extractCalculationsFromText(element.properties.defaultValue, element.id);
+        }
+      }
+      
+      // Index calculations from page container parameters
+      if (element.type === 'container' && element.contentType === 'page' && element.pageConfig?.parameters) {
+        for (const param of element.pageConfig.parameters) {
+          if (param.value) {
+            this.extractCalculationsFromText(param.value, element.id);
+          }
+        }
+      }
+      
+      // Index conditions from conditional elements
+      if (element.renderType === 'conditional' && element.conditions) {
+        for (const condition of element.conditions) {
+          this.conditions.set(condition.id, {
+            ...condition,
+            elementId: element.id
+          });
+        }
+      }
+      
+      // Store element values for reference
+      if (element.type === 'text' && element.properties?.value) {
+        this.elementValues.set(element.id, element.properties.value);
+      }
+      
+      // Recursively index children
+      if (element.children && element.children.length > 0) {
+        this.indexScreenElements(element.children);
+      }
+    }
+  }
+
+  // Extract calculation references from text and store them
+  extractCalculationsFromText(text, elementId) {
+    if (!text || typeof text !== 'string') return;
+    
+    const calcMatches = text.match(/{{CALC:([^}]+)}}/g);
+    if (calcMatches) {
+      for (const match of calcMatches) {
+        const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+        
+        // Only create synthetic calculation if not already indexed from element.calculations
+        if (!this.calculations.has(calcId)) {
+          // Check if calculation exists in app data
+          if (this.appData.calculations && this.appData.calculations[calcId]) {
+            console.log(`📊 Found calculation ${calcId} in app.calculations`);
+            this.calculations.set(calcId, this.appData.calculations[calcId]);
+          } else {
+            // Create synthetic calculation if not found anywhere
+            console.log(`⚠️ Creating synthetic calculation for ${calcId} - not found in element or app data`);
+            this.calculations.set(calcId, {
+              id: calcId,
+              elementId: elementId,
+              steps: this.createSyntheticCalculationSteps(calcId, elementId)
+            });
+          }
+        } else {
+          console.log(`✅ Calculation ${calcId} already indexed from element`);
+        }
+      }
+    }
+  }
+
+  // Execute a screen and return rendered elements
+  async executeScreen(screenId) {
+    console.log('🎯 Executing screen:', screenId);
+    
+    const screen = this.appData.screens.find(s => s.id === screenId);
+    if (!screen) {
+      throw new Error(`Screen ${screenId} not found`);
+    }
+    
+    try {
+      // Step 1: Load repeating container data
+      const repeatingData = await this.loadRepeatingContainerData(screen.elements);
+      
+      // Step 2: Expand repeating containers
+      const expandedElements = await this.expandRepeatingContainers(screen.elements, repeatingData);
+      
+      // Step 3: Execute calculations on all elements
+      const calculatedElements = await this.executeCalculations(expandedElements, repeatingData);
+      
+      // Step 4: Apply conditional rendering
+      const visibleElements = await this.applyConditionalRendering(calculatedElements);
+      
+      return {
+        elements: visibleElements,
+        errors: {},
+        metadata: {
+          originalElementCount: screen.elements.length,
+          expandedElementCount: expandedElements.length,
+          visibleElementCount: visibleElements.length
+        }
+      };
+      
+    } catch (error) {
+      console.error('❌ Screen execution failed:', error);
+      return {
+        elements: [],
+        errors: { general: error.message },
+        metadata: {}
+      };
+    }
+  }
+
+  // Load data for repeating containers
+  async loadRepeatingContainerData(elements) {
+    const repeatingData = new Map();
+    const repeatingContainers = this.findRepeatingContainers(elements);
+    
+    for (const container of repeatingContainers) {
+      const { databaseId, tableId, filters } = container.repeatingConfig;
+      
+      try {
+        console.log(`📊 Loading data for repeating container ${container.id}`);
+        
+        // Use cached data if available
+        const cacheKey = `${databaseId}_${tableId}`;
+        let records;
+        
+        if (this.databases.has(cacheKey)) {
+          records = this.databases.get(cacheKey);
+        } else {
+          const response = await axios.get(`/api/databases/${databaseId}/tables/${tableId}/records`);
+          if (response.data.success) {
+            records = response.data.data;
+            this.databases.set(cacheKey, records);
+          } else {
+            records = [];
+          }
+        }
+        
+        // Apply filters if any
+        if (filters && filters.length > 0) {
+          records = this.applyFilters(records, filters);
+        }
+        
+        repeatingData.set(container.id, {
+          records,
+          config: container.repeatingConfig
+        });
+        
+      } catch (error) {
+        console.error(`❌ Error loading data for container ${container.id}:`, error);
+        repeatingData.set(container.id, {
+          records: [],
+          config: container.repeatingConfig,
+          error: error.message
+        });
+      }
+    }
+    
+    return repeatingData;
+  }
+
+  // Find repeating containers in elements
+  findRepeatingContainers(elements) {
+    const containers = [];
+    
+    const traverse = (elementList) => {
+      for (const element of elementList) {
+        if (element.type === 'container' && 
+            element.contentType === 'repeating' && 
+            element.repeatingConfig?.databaseId && 
+            element.repeatingConfig?.tableId) {
+          containers.push(element);
+        }
+        
+        if (element.children && element.children.length > 0) {
+          traverse(element.children);
+        }
+      }
+    };
+    
+    traverse(elements);
+    return containers;
+  }
+
+  // Apply filters to records
+  applyFilters(records, filters) {
+    return records.filter(record => {
+      let result = true;
+      let currentLogic = 'and';
+      
+      for (const filter of filters) {
+        if (!filter.column || !filter.operator || filter.value === '') {
+          continue;
+        }
+        
+        const recordValue = record[filter.column];
+        const filterValue = filter.value;
+        let conditionResult = false;
+        
+        switch (filter.operator) {
+          case 'equals':
+            conditionResult = String(recordValue) === String(filterValue);
+            break;
+          case 'not_equals':
+            conditionResult = String(recordValue) !== String(filterValue);
+            break;
+          case 'greater_than':
+            conditionResult = Number(recordValue) > Number(filterValue);
+            break;
+          case 'less_than':
+            conditionResult = Number(recordValue) < Number(filterValue);
+            break;
+          case 'greater_equal':
+            conditionResult = Number(recordValue) >= Number(filterValue);
+            break;
+          case 'less_equal':
+            conditionResult = Number(recordValue) <= Number(filterValue);
+            break;
+          case 'contains':
+            conditionResult = String(recordValue).toLowerCase().includes(String(filterValue).toLowerCase());
+            break;
+          default:
+            conditionResult = false;
+        }
+        
+        if (currentLogic === 'and') {
+          result = result && conditionResult;
+        } else if (currentLogic === 'or') {
+          result = result || conditionResult;
+        }
+        
+        currentLogic = filter.logic || 'and';
+      }
+      
+      return result;
+    });
+  }
+
+  // Expand repeating containers into multiple instances
+  async expandRepeatingContainers(elements, repeatingData) {
+    const expanded = [];
+    
+    for (const element of elements) {
+      if (element.type === 'container' && element.contentType === 'repeating') {
+        const data = repeatingData.get(element.id);
+        
+        if (data && data.records && data.records.length > 0) {
+          for (let i = 0; i < data.records.length; i++) {
+            const record = data.records[i];
+            const instanceId = `${element.id}_instance_${i}`;
+            
+            const containerInstance = {
+              ...element,
+              id: instanceId,
+              originalId: element.id,
+              repeatingContext: {
+                containerId: element.id,
+                recordData: record,
+                rowIndex: i
+              },
+              children: element.children ? await this.expandRepeatingContainers(element.children, repeatingData) : []
+            };
+            
+            // Update children with repeating context
+            containerInstance.children = this.updateChildrenWithRepeatingContext(
+              containerInstance.children, 
+              element.id, 
+              record, 
+              i
+            );
+            
+            expanded.push(containerInstance);
+          }
+        } else {
+          expanded.push({
+            ...element,
+            children: element.children ? await this.expandRepeatingContainers(element.children, repeatingData) : []
+          });
+        }
+      } else {
+        const expandedElement = {
+          ...element,
+          children: element.children ? await this.expandRepeatingContainers(element.children, repeatingData) : []
+        };
+        expanded.push(expandedElement);
+      }
+    }
+    
+    return expanded;
+  }
+
+  // Update children with repeating context
+  updateChildrenWithRepeatingContext(children, containerId, recordData, rowIndex) {
+    return children.map(child => ({
+      ...child,
+      id: `${child.id}_repeat_${containerId}_${rowIndex}`,
+      originalId: child.id,
+      parentRepeatingContext: {
+        containerId,
+        recordData,
+        rowIndex
+      },
+      children: child.children ? this.updateChildrenWithRepeatingContext(
+        child.children, 
+        containerId, 
+        recordData, 
+        rowIndex
+      ) : []
+    }));
+  }
+
+  // Execute calculations on elements
+  async executeCalculations(elements, repeatingData) {
+    const calculated = [];
+    
+    for (const element of elements) {
+      const calculatedElement = { ...element };
+      
+      // Execute calculations for text elements
+      if (element.type === 'text' && element.properties?.value) {
+        try {
+          const executedValue = await this.executeTextCalculations(
+            element.properties.value,
+            element.repeatingContext || element.parentRepeatingContext
+          );
+          calculatedElement.properties = {
+            ...element.properties,
+            value: executedValue
+          };
+        } catch (error) {
+          console.error(`❌ Error executing calculations for text element ${element.id}:`, error);
+          calculatedElement.properties = {
+            ...element.properties,
+            value: `[Error: ${error.message}]`
+          };
+        }
+      }
+      
+      // Execute calculations for input elements
+      if (element.type === 'input') {
+        const updatedProperties = { ...element.properties };
+        
+        if (element.properties?.placeholder) {
+          try {
+            updatedProperties.placeholder = await this.executeTextCalculations(
+              element.properties.placeholder,
+              element.repeatingContext || element.parentRepeatingContext
+            );
+          } catch (error) {
+            console.error(`❌ Error executing placeholder calculation for ${element.id}:`, error);
+          }
+        }
+        
+        if (element.properties?.defaultValue) {
+          try {
+            updatedProperties.defaultValue = await this.executeTextCalculations(
+              element.properties.defaultValue,
+              element.repeatingContext || element.parentRepeatingContext
+            );
+          } catch (error) {
+            console.error(`❌ Error executing defaultValue calculation for ${element.id}:`, error);
+          }
+        }
+        
+        calculatedElement.properties = updatedProperties;
+      }
+      
+      // Recursively process children
+      if (element.children && element.children.length > 0) {
+        calculatedElement.children = await this.executeCalculations(element.children, repeatingData);
+      }
+      
+      calculated.push(calculatedElement);
+    }
+    
+    return calculated;
+  }
+
+  // Execute calculations in text
+  async executeTextCalculations(text, repeatingContext = null) {
+    if (!text || !text.includes('{{CALC:')) {
+      return text;
+    }
+    
+    let result = text;
+    const calcMatches = text.match(/{{CALC:([^}]+)}}/g);
+    
+    if (calcMatches) {
+      for (const match of calcMatches) {
+        const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+        
+        try {
+          const calculatedValue = await this.executeCalculation(calcId, repeatingContext);
+          result = result.replace(match, calculatedValue);
+        } catch (error) {
+          console.error(`❌ Error executing calculation ${calcId}:`, error);
+          result = result.replace(match, `[Error: ${error.message}]`);
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  // Create synthetic calculation steps for missing calculations
+  createSyntheticCalculationSteps(calcId, elementId) {
+    const steps = [];
+    
+    // Determine calculation type based on calcId
+    if (calcId.toLowerCase().includes('tab')) {
+      // Tabs calculation
+      steps.push({
+        id: 'synthetic_step_1',
+        type: 'operation',
+        config: {
+          source: 'element',
+          elementId: '1748746946008', // Default tabs container ID
+          containerValueType: calcId.toLowerCase().includes('order') ? 'active_tab_order' : 'active_tab_value'
+        }
+      });
+    } else if (calcId.toLowerCase().includes('id') || calcId.toLowerCase().includes('value')) {
+      // Repeating container calculation
+      steps.push({
+        id: 'synthetic_step_1',
+        type: 'operation',
+        config: {
+          source: 'repeating_container',
+          repeatingContainerId: 'unknown', // Will be determined at runtime
+          repeatingColumn: calcId.toLowerCase().includes('id') ? 'id' : 'value'
+        }
+      });
+    } else {
+      // Custom value calculation
+      steps.push({
+        id: 'synthetic_step_1',
+        type: 'operation',
+        config: {
+          source: 'custom',
+          value: `Synthetic value for ${calcId}`
+        }
+      });
+    }
+    
+    return steps;
+  }
+
+  // Execute a single calculation using stored steps
+  async executeCalculation(calcId, repeatingContext = null) {
+    console.log(`🧮 Executing calculation: ${calcId}`);
+    
+    // Get calculation from stored calculations
+    const calculation = this.calculations.get(calcId);
+    if (!calculation || !calculation.steps || calculation.steps.length === 0) {
+      console.log(`⚠️ No calculation steps found for ${calcId}, using fallback`);
+      return this.executeCalculationFallback(calcId, repeatingContext);
+    }
+    
+    // Execute calculation steps
+    let result = null;
+    
+    for (let i = 0; i < calculation.steps.length; i++) {
+      const step = calculation.steps[i];
+      
+      try {
+        const stepValue = await this.executeCalculationStep(step, repeatingContext);
+        
+        if (i === 0) {
+          result = stepValue;
+        } else {
+          // Check for operation in step.config.operation or step.operation
+          const operation = step.config?.operation || step.operation;
+          console.log(`🔧 Applying operation: ${operation} between ${result} and ${stepValue}`);
+          result = this.applyCalculationOperation(result, stepValue, operation);
+        }
+      } catch (error) {
+        console.error(`❌ Error executing calculation step ${i}:`, error);
+        return `[Error: ${error.message}]`;
+      }
+    }
+    
+    return result !== null ? String(result) : '';
+  }
+
+  // Execute a calculation step
+  async executeCalculationStep(step, repeatingContext = null) {
+    console.log(`🔧 Executing step:`, step);
+    
+    const { config } = step;
+    
+    switch (config.source) {
+      case 'custom':
+        console.log(`📝 Custom value: ${config.value}`);
+        return config.value || '';
+      
+      case 'element':
+        return this.getElementValue(config.elementId, config.containerValueType);
+      
+      case 'repeating_container':
+        return this.getRepeatingContainerValueForCalculation(config, repeatingContext);
+      
+      case 'database':
+        return await this.executeDatabaseQuery(config);
+      
+      case 'timestamp':
+        return new Date().toISOString();
+      
+      case 'screen_width':
+        return window.innerWidth;
+      
+      case 'screen_height':
+        return window.innerHeight;
+      
+      default:
+        console.log(`⚠️ Unknown source: ${config.source}`);
+        return '';
+    }
+  }
+
+  // Fallback calculation execution for missing calculations
+  executeCalculationFallback(calcId, repeatingContext = null) {
+    if (repeatingContext) {
+      // Handle repeating container calculations
+      const { recordData, rowIndex } = repeatingContext;
+      
+      // Determine column from calcId
+      let columnName = 'value';
+      if (calcId.toLowerCase().includes('id')) {
+        columnName = 'id';
+      } else if (calcId.toLowerCase().includes('value')) {
+        columnName = 'value';
+      }
+      
+      if (columnName === 'row_number') {
+        return rowIndex + 1;
+      }
+      
+      if (recordData && recordData[columnName] !== undefined) {
+        return recordData[columnName];
+      }
+      
+      return '';
+    }
+    
+    // Handle other calculation types
+    if (calcId.includes('calc_') && calcId.toLowerCase().includes('tab')) {
+      // Handle tabs calculations
+      return this.executeTabsCalculation(calcId);
+    }
+    
+    // Default fallback
+    return `[Calc: ${calcId}]`;
+  }
+
+  // Get repeating container value for calculations
+  getRepeatingContainerValueForCalculation(config, repeatingContext) {
+    const { repeatingContainerId, repeatingColumn } = config;
+    
+    if (!repeatingContext) {
+      return '';
+    }
+    
+    const { recordData, rowIndex } = repeatingContext;
+    
+    if (repeatingColumn === 'row_number') {
+      return rowIndex + 1;
+    }
+    
+    return recordData[repeatingColumn] || '';
+  }
+
+  // Apply calculation operation
+  applyCalculationOperation(leftValue, rightValue, operation) {
+    const left = this.convertValue(leftValue);
+    const right = this.convertValue(rightValue);
+    
+    console.log(`🔢 Operation: ${operation} with values ${left} (${typeof left}) and ${right} (${typeof right})`);
+    
+    switch (operation) {
+      case 'add':
+        // Always try numeric addition first for 'add' operation
+        const leftNum = this.toNumber(left);
+        const rightNum = this.toNumber(right);
+        console.log(`🔢 Numeric conversion: ${leftNum} + ${rightNum}`);
+        return leftNum + rightNum;
+      
+      case 'subtract':
+        return this.toNumber(left) - this.toNumber(right);
+      
+      case 'multiply':
+        return this.toNumber(left) * this.toNumber(right);
+      
+      case 'divide':
+        const divisor = this.toNumber(right);
+        if (divisor === 0) {
+          throw new Error('Division by zero');
+        }
+        return this.toNumber(left) / divisor;
+      
+      case 'concatenate':
+        return String(left) + String(right);
+      
+      default:
+        return rightValue; // Default to right value if no operation
+    }
+  }
+
+  // Helper: Force conversion to number
+  toNumber(value) {
+    if (typeof value === 'number') {
+      return value;
+    }
+    
+    const num = parseFloat(value);
+    return isNaN(num) ? 0 : num;
+  }
+
+  // Execute database query for calculations
+  async executeDatabaseQuery(config) {
+    const { databaseId, tableId, filters = [], action = 'value', selectedColumn } = config;
+    
+    if (!databaseId || !tableId) {
+      throw new Error('Database and table must be selected');
+    }
+    
+    try {
+      const queryPayload = {
+        filters: filters,
+        action: action,
+        column: selectedColumn
+      };
+      
+      const response = await axios.post(`/api/databases/${databaseId}/tables/${tableId}/query`, queryPayload);
+      
+      if (response.data.success) {
+        return this.formatDatabaseResult(response.data.data, action);
+      } else {
+        throw new Error(response.data.message || 'Database query failed');
+      }
+    } catch (error) {
+      console.error('❌ Database query error:', error);
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  // Format database query results
+  formatDatabaseResult(data, action) {
+    switch (action) {
+      case 'count':
+        return data.count || (Array.isArray(data) ? data.length : 0);
+      
+      case 'value':
+        if (Array.isArray(data) && data.length > 0) {
+          const firstRow = data[0];
+          const firstValue = Object.values(firstRow)[0];
+          return firstValue !== undefined ? firstValue : '';
+        }
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          const firstValue = Object.values(data)[0];
+          return firstValue !== undefined ? firstValue : '';
+        }
+        return '';
+      
+      case 'values':
+        if (Array.isArray(data)) {
+          return data
+            .map(row => Object.values(row)[0])
+            .filter(val => val !== undefined && val !== null)
+            .join(', ');
+        }
+        return '';
+      
+      default:
+        return String(data);
+    }
+  }
+
+  // Execute tabs calculations
+  executeTabsCalculation(calcId) {
+    // Extract container ID from calculation config
+    const calculation = this.calculations.get(calcId);
+    if (calculation && calculation.steps && calculation.steps[0]) {
+      const elementId = calculation.steps[0].config?.elementId;
+      if (elementId) {
+        return this.getTabValue(elementId, calcId.toLowerCase().includes('order') ? 'order' : 'value');
+      }
+    }
+    
+    // Fallback to default values
+    if (calcId.toLowerCase().includes('order')) {
+      return 1; // Default active tab order
+    } else {
+      return 'Tab 1'; // Default active tab value
+    }
+  }
+
+  // Get tab value (order or value) for a tabs container
+  getTabValue(containerId, type) {
+    const tabState = this.tabStates.get(containerId);
+    if (!tabState) {
+      // Initialize tab state if not exists
+      this.initializeTabState(containerId);
+      return type === 'order' ? 1 : this.getTabValueByOrder(containerId, 1);
+    }
+    
+    if (type === 'order') {
+      return tabState.activeTabOrder;
+    } else {
+      return tabState.activeTabValue;
+    }
+  }
+
+  // Initialize tab state for a container
+  initializeTabState(containerId) {
+    // Find the tabs container in the current screen
+    const tabsContainer = this.findTabsContainer(containerId);
+    if (!tabsContainer) {
+      console.warn(`Tabs container ${containerId} not found`);
+      return;
+    }
+    
+    // Get initial active tab from tabsConfig or default to 1
+    const initialActiveTab = parseInt(tabsContainer.tabsConfig?.activeTab || '1');
+    const tabValue = this.getTabValueByOrder(containerId, initialActiveTab);
+    
+    this.tabStates.set(containerId, {
+      activeTabOrder: initialActiveTab,
+      activeTabValue: tabValue,
+      totalTabs: tabsContainer.children?.length || 0
+    });
+    
+    console.log(`🏷️ Initialized tab state for ${containerId}:`, this.tabStates.get(containerId));
+  }
+
+  // Find tabs container by ID in current screen
+  findTabsContainer(containerId) {
+    const findInElements = (elements) => {
+      for (const element of elements) {
+        if (element.id === containerId && element.containerType === 'tabs') {
+          return element;
+        }
+        if (element.children) {
+          const found = findInElements(element.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    // Search in all screens
+    for (const screen of this.appData.screens) {
+      const found = findInElements(screen.elements || []);
+      if (found) return found;
+    }
+    
+    return null;
+  }
+
+  // Get tab value by order (find text element with isTabValue: true)
+  getTabValueByOrder(containerId, order) {
+    const tabsContainer = this.findTabsContainer(containerId);
+    if (!tabsContainer || !tabsContainer.children) {
+      return `Tab ${order}`;
+    }
+    
+    // Get the tab at the specified order (1-based)
+    const tabContainer = tabsContainer.children[order - 1];
+    if (!tabContainer) {
+      return `Tab ${order}`;
+    }
+    
+    // Find text element with isTabValue: true
+    const findTabValueText = (elements) => {
+      for (const element of elements) {
+        if (element.type === 'text' && element.properties?.isTabValue) {
+          return element.properties.value || `Tab ${order}`;
+        }
+        if (element.children) {
+          const found = findTabValueText(element.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const tabValue = findTabValueText(tabContainer.children || []);
+    return tabValue || `Tab ${order}`;
+  }
+
+  // Handle tab click - switch active tab
+  handleTabClick(containerId, tabOrder) {
+    console.log(`🖱️ Tab clicked: container ${containerId}, tab ${tabOrder}`);
+    
+    const tabValue = this.getTabValueByOrder(containerId, tabOrder);
+    
+    // Update tab state
+    this.tabStates.set(containerId, {
+      activeTabOrder: tabOrder,
+      activeTabValue: tabValue,
+      totalTabs: this.tabStates.get(containerId)?.totalTabs || 0
+    });
+    
+    console.log(`🏷️ Updated tab state for ${containerId}:`, this.tabStates.get(containerId));
+    
+    // Trigger state change callback if set
+    if (this.onStateChange) {
+      this.onStateChange('tab', containerId, { order: tabOrder, value: tabValue });
+    }
+  }
+
+  // Set state change callback
+  setStateChangeCallback(callback) {
+    this.onStateChange = callback;
+  }
+
+  // Apply conditional rendering
+  async applyConditionalRendering(elements) {
+    const visible = [];
+    
+    for (const element of elements) {
+      if (element.renderType === 'conditional' && element.conditions && element.conditions.length > 0) {
+        try {
+          const shouldRender = await this.evaluateConditions(element.conditions, element);
+          
+          if (shouldRender) {
+            let elementToRender = { ...element };
+            
+            // Process children recursively
+            if (element.children && element.children.length > 0) {
+              elementToRender.children = await this.applyConditionalRendering(element.children);
+            }
+            
+            visible.push(elementToRender);
+          }
+        } catch (error) {
+          console.error(`❌ Error evaluating conditions for element ${element.id}:`, error);
+          // Include element on error (fail-safe)
+          visible.push(element);
+        }
+      } else {
+        let elementToRender = { ...element };
+        
+        // Process children recursively
+        if (element.children && element.children.length > 0) {
+          elementToRender.children = await this.applyConditionalRendering(element.children);
+        }
+        
+        visible.push(elementToRender);
+      }
+    }
+    
+    return visible;
+  }
+
+  // Evaluate conditions for an element
+  async evaluateConditions(conditions, element) {
+    // Evaluate conditions in order - first true condition wins
+    for (const condition of conditions) {
+      try {
+        const result = await this.evaluateCondition(condition, element);
+        if (result) {
+          return true;
+        }
+      } catch (error) {
+        console.error(`❌ Error evaluating condition:`, error);
+        // Continue to next condition on error
+      }
+    }
+    
+    return false;
+  }
+
+  // Evaluate a single condition
+  async evaluateCondition(condition, element) {
+    if (!condition.steps || condition.steps.length === 0) {
+      return false;
+    }
+    
+    let result = null;
+    
+    for (let i = 0; i < condition.steps.length; i++) {
+      const step = condition.steps[i];
+      
+      try {
+        const stepValue = await this.evaluateConditionStep(step, element);
+        
+        if (i === 0) {
+          result = stepValue;
+        } else {
+          result = this.applyConditionOperation(result, stepValue, step.operation);
+        }
+      } catch (error) {
+        console.error(`❌ Error evaluating condition step:`, error);
+        return false;
+      }
+    }
+    
+    return this.toBooleanResult(result);
+  }
+
+  // Evaluate a condition step
+  async evaluateConditionStep(step, element) {
+    const { config } = step;
+    
+    switch (config.source) {
+      case 'custom':
+        return config.value || '';
+      
+      case 'element':
+        return this.getElementValue(config.elementId);
+      
+      case 'repeating_container':
+        return this.getRepeatingContainerValue(config, element);
+      
+      case 'timestamp':
+        return new Date().toISOString();
+      
+      default:
+        return '';
+    }
+  }
+
+  // Get element value
+  getElementValue(elementId, containerValueType = null) {
+    // Handle tabs container values
+    if (containerValueType === 'active_tab_order') {
+      return this.getTabValue(elementId, 'order');
+    }
+    
+    if (containerValueType === 'active_tab_value') {
+      return this.getTabValue(elementId, 'value');
+    }
+    
+    // Handle regular element values
+    return this.elementValues.get(elementId) || '';
+  }
+
+  // Get repeating container value
+  getRepeatingContainerValue(config, element) {
+    const { repeatingContainerId, repeatingColumn } = config;
+    
+    const repeatingContext = element.repeatingContext || element.parentRepeatingContext;
+    
+    if (!repeatingContext || repeatingContext.containerId !== repeatingContainerId) {
+      return '';
+    }
+    
+    const { recordData, rowIndex } = repeatingContext;
+    
+    if (repeatingColumn === 'row_number') {
+      return rowIndex + 1;
+    }
+    
+    return recordData[repeatingColumn] || '';
+  }
+
+  // Apply condition operation
+  applyConditionOperation(leftValue, rightValue, operation) {
+    const left = this.convertValue(leftValue);
+    const right = this.convertValue(rightValue);
+    
+    switch (operation) {
+      case 'equals':
+        return String(left) === String(right);
+      
+      case 'not_equals':
+        return String(left) !== String(right);
+      
+      case 'greater_than':
+        return Number(left) > Number(right);
+      
+      case 'less_than':
+        return Number(left) < Number(right);
+      
+      case 'greater_equal':
+        return Number(left) >= Number(right);
+      
+      case 'less_equal':
+        return Number(left) <= Number(right);
+      
+      case 'and':
+        return this.toBooleanResult(left) && this.toBooleanResult(right);
+      
+      case 'or':
+        return this.toBooleanResult(left) || this.toBooleanResult(right);
+      
+      default:
+        return false;
+    }
+  }
+
+  // Convert value to appropriate type
+  convertValue(value) {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    return value;
+  }
+
+  // Convert to boolean result
+  toBooleanResult(value) {
+    if (typeof value === 'boolean') {
+      return value;
+    } else if (typeof value === 'number') {
+      return value !== 0;
+    } else if (typeof value === 'string') {
+      const trimmed = value.trim().toLowerCase();
+      return trimmed !== '' && trimmed !== 'false' && trimmed !== '0';
+    } else {
+      return Boolean(value);
+    }
+  }
+}
