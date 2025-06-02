@@ -1060,6 +1060,274 @@ const getRenderProperties = (element, matchedConditionIndex = null) => {
   return baseProperties;
 };
 
+// Separate component for input rendering with hooks
+const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isActiveTab, matchedConditionIndex, handlers }) => {
+  const { onClick, onDelete, onDragStart } = handlers;
+  
+  // State for controlled input in execute mode
+  const [inputValue, setInputValue] = React.useState('');
+  const [isInitialized, setIsInitialized] = React.useState(false);
+  
+  // Initialize input value with calculated result in execute mode
+  React.useEffect(() => {
+    if (isExecuteMode && !isInitialized) {
+      const calculatedValue = element.properties?.defaultValue || '';
+      setInputValue(calculatedValue);
+      setIsInitialized(true);
+    }
+  }, [isExecuteMode, element.properties?.defaultValue, isInitialized]);
+  
+  // Update input value when calculated value changes
+  React.useEffect(() => {
+    if (isExecuteMode && isInitialized) {
+      const calculatedValue = element.properties?.defaultValue || '';
+      // Only update if the calculated value is different and doesn't contain calc tokens
+      if (calculatedValue !== inputValue && !calculatedValue.includes('{{CALC:')) {
+        setInputValue(calculatedValue);
+      }
+    }
+  }, [element.properties?.defaultValue, isExecuteMode, isInitialized, inputValue]);
+  
+  // Get render properties with matched condition index
+  let props = getRenderProperties(element, matchedConditionIndex);
+  
+  // Apply active styles if this element is in the active slide OR active tab
+  const shouldApplyActiveStyles = (isActiveSlide || isActiveTab) && isExecuteMode;
+  
+  if (shouldApplyActiveStyles) {
+    // Merge active properties over default properties
+    const activeProps = {};
+    Object.keys(props).forEach(key => {
+      const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+      if (props[activeKey] !== undefined) {
+        activeProps[key] = props[activeKey];
+      }
+    });
+    props = { ...props, ...activeProps };
+  }
+  
+  // Determine input type based on selected options
+  const inputTypes = props.inputTypes || [];
+  let inputType = 'text';
+  let isTextarea = false;
+  
+  if (inputTypes.includes('password')) {
+    inputType = 'password';
+  } else if (inputTypes.includes('number')) {
+    inputType = 'number';
+  }
+  
+  if (inputTypes.includes('long')) {
+    isTextarea = true;
+  }
+  
+  // Build styles from properties
+  const inputStyle = {
+    // Typography
+    fontSize: `${props.fontSize || 16}px`,
+    fontWeight: props.fontWeight || '400',
+    textAlign: props.textAlignment || 'left',
+    
+    // Colors
+    color: props.textColor || '#333333',
+    backgroundColor: props.boxBackgroundColor || '#ffffff',
+    
+    // Spacing
+    marginTop: `${props.marginTop || 0}px`,
+    marginBottom: `${props.marginBottom || 0}px`,
+    marginLeft: `${props.marginLeft || 0}px`,
+    marginRight: `${props.marginRight || 0}px`,
+    paddingTop: `${props.paddingTop || 12}px`,
+    paddingBottom: `${props.paddingBottom || 12}px`,
+    paddingLeft: `${props.paddingLeft || 16}px`,
+    paddingRight: `${props.paddingRight || 16}px`,
+    
+    // Border Radius
+    borderTopLeftRadius: `${props.borderRadiusTopLeft || 4}px`,
+    borderTopRightRadius: `${props.borderRadiusTopRight || 4}px`,
+    borderBottomLeftRadius: `${props.borderRadiusBottomLeft || 4}px`,
+    borderBottomRightRadius: `${props.borderRadiusBottomRight || 4}px`,
+    
+    // Border
+    border: `${props.borderWidth || 1}px solid ${props.borderColor || '#ddd'}`,
+    
+    // Layout
+    width: '100%',
+    outline: 'none',
+    transition: 'all 0.2s ease',
+    fontFamily: 'inherit',
+    resize: isTextarea ? 'vertical' : 'none',
+    minHeight: isTextarea ? '80px' : 'auto',
+    
+    // Canvas specific styles
+    ...(isSelected && {
+      borderColor: '#007bff',
+      borderWidth: '2px'
+    })
+  };
+  
+  // Placeholder color
+  const placeholderColor = props.placeholderColor || '#999999';
+  
+  return (
+    <div
+      key={element.id}
+      draggable={!isExecuteMode}
+      onClick={(e) => {
+        if (!isExecuteMode) {
+          onClick && onClick(element, e);
+        }
+      }}
+      onDragStart={(e) => {
+        if (!isExecuteMode) {
+          e.stopPropagation();
+          onDragStart && onDragStart(e);
+        }
+      }}
+      style={{
+        position: 'relative',
+        display: 'inline-block',
+        width: '100%'
+      }}
+      onMouseDown={(e) => {
+        if (!isExecuteMode) {
+          e.currentTarget.style.cursor = 'grabbing';
+        }
+      }}
+      onMouseUp={(e) => {
+        if (!isExecuteMode) {
+          e.currentTarget.style.cursor = 'grab';
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isExecuteMode) {
+          e.currentTarget.style.cursor = 'grab';
+        }
+      }}
+    >
+      {/* Element Label - Hide in execute mode */}
+      {!isExecuteMode && isSelected && (
+        <div 
+          style={{
+            position: 'absolute',
+            top: '-20px',
+            left: '0px',
+            fontSize: '10px',
+            color: '#007bff',
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            padding: '2px 6px',
+            borderRadius: '3px',
+            border: '1px solid #007bff',
+            zIndex: 1,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          Input Element (ID: {element.id.slice(-6)})
+          {element.renderType === 'conditional' && (
+            <span style={{ color: '#28a745', marginLeft: '4px' }}>• Conditional</span>
+          )}
+        </div>
+      )}
+      
+      {/* Delete Button - Hide in execute mode */}
+      {!isExecuteMode && isSelected && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete && onDelete(element.id);
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
+          style={{
+            position: 'absolute',
+            top: '-10px',
+            right: '-10px',
+            background: '#dc3545',
+            color: 'white',
+            border: 'none',
+            width: '20px',
+            height: '20px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            borderRadius: '50%',
+            zIndex: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          ×
+        </button>
+      )}
+
+      {/* Drag Handle - Hide in execute mode */}
+      {!isExecuteMode && isSelected && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '-10px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            fontSize: '10px',
+            color: '#007bff',
+            cursor: 'grab',
+            padding: '2px 4px',
+            zIndex: 1,
+            pointerEvents: 'none'
+          }}
+        >
+          ⋮⋮
+        </div>
+      )}
+
+      {/* Input Element */}
+      {isTextarea ? (
+        <textarea
+          placeholder={props.placeholder || 'Enter text...'}
+          value={isExecuteMode ? inputValue : undefined}
+          defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
+          onChange={isExecuteMode ? (e) => setInputValue(e.target.value) : undefined}
+          style={{
+            ...inputStyle,
+            pointerEvents: isExecuteMode ? 'auto' : 'none',
+            '::placeholder': {
+              color: placeholderColor
+            }
+          }}
+          disabled={!isExecuteMode}
+        />
+      ) : (
+        <input
+          type={inputType}
+          placeholder={props.placeholder || 'Enter text...'}
+          value={isExecuteMode ? inputValue : undefined}
+          defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
+          onChange={isExecuteMode ? (e) => setInputValue(e.target.value) : undefined}
+          style={{
+            ...inputStyle,
+            pointerEvents: isExecuteMode ? 'auto' : 'none',
+            '::placeholder': {
+              color: placeholderColor
+            }
+          }}
+          disabled={!isExecuteMode}
+        />
+      )}
+      
+      {/* Add CSS for placeholder styling */}
+      <style>
+        {`
+          input::placeholder, textarea::placeholder {
+            color: ${placeholderColor} !important;
+          }
+        `}
+      </style>
+    </div>
+  );
+};
+
 export const InputElement = {
   type: 'input',
   label: 'Input',
@@ -1130,242 +1398,15 @@ export const InputElement = {
 
   // Render function
   render: (element, depth = 0, isSelected = false, isDropZone = false, handlers = {}, children = null, matchedConditionIndex = null, isExecuteMode = false, isActiveSlide = false, isActiveTab = false) => {
-    const { onClick, onDelete, onDragStart } = handlers;
-    
-    // Get render properties with matched condition index
-    let props = getRenderProperties(element, matchedConditionIndex);
-    
-    // Apply active styles if this element is in the active slide OR active tab
-    const shouldApplyActiveStyles = (isActiveSlide || isActiveTab) && isExecuteMode;
-    
-    if (shouldApplyActiveStyles) {
-      // Merge active properties over default properties
-      const activeProps = {};
-      Object.keys(props).forEach(key => {
-        const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
-        if (props[activeKey] !== undefined) {
-          activeProps[key] = props[activeKey];
-        }
-      });
-      props = { ...props, ...activeProps };
-    }
-    
-    // Determine input type based on selected options
-    const inputTypes = props.inputTypes || [];
-    let inputType = 'text';
-    let isTextarea = false;
-    
-    if (inputTypes.includes('password')) {
-      inputType = 'password';
-    } else if (inputTypes.includes('number')) {
-      inputType = 'number';
-    }
-    
-    if (inputTypes.includes('long')) {
-      isTextarea = true;
-    }
-    
-    // Build styles from properties
-    const inputStyle = {
-      // Typography
-      fontSize: `${props.fontSize || 16}px`,
-      fontWeight: props.fontWeight || '400',
-      textAlign: props.textAlignment || 'left',
-      
-      // Colors
-      color: props.textColor || '#333333',
-      backgroundColor: props.boxBackgroundColor || '#ffffff',
-      
-      // Spacing
-      marginTop: `${props.marginTop || 0}px`,
-      marginBottom: `${props.marginBottom || 0}px`,
-      marginLeft: `${props.marginLeft || 0}px`,
-      marginRight: `${props.marginRight || 0}px`,
-      paddingTop: `${props.paddingTop || 12}px`,
-      paddingBottom: `${props.paddingBottom || 12}px`,
-      paddingLeft: `${props.paddingLeft || 16}px`,
-      paddingRight: `${props.paddingRight || 16}px`,
-      
-      // Border Radius
-      borderTopLeftRadius: `${props.borderRadiusTopLeft || 4}px`,
-      borderTopRightRadius: `${props.borderRadiusTopRight || 4}px`,
-      borderBottomLeftRadius: `${props.borderRadiusBottomLeft || 4}px`,
-      borderBottomRightRadius: `${props.borderRadiusBottomRight || 4}px`,
-      
-      // Border
-      border: `${props.borderWidth || 1}px solid ${props.borderColor || '#ddd'}`,
-      
-      // Layout
-      width: '100%',
-      outline: 'none',
-      transition: 'all 0.2s ease',
-      fontFamily: 'inherit',
-      resize: isTextarea ? 'vertical' : 'none',
-      minHeight: isTextarea ? '80px' : 'auto',
-      
-      // Canvas specific styles
-      ...(isSelected && {
-        borderColor: '#007bff',
-        borderWidth: '2px'
-      })
-    };
-    
-    // Placeholder color
-    const placeholderColor = props.placeholderColor || '#999999';
-    
-    return (
-      <div
-        key={element.id}
-        draggable={!isExecuteMode}
-        onClick={(e) => {
-          if (!isExecuteMode) {
-            onClick && onClick(element, e);
-          }
-        }}
-        onDragStart={(e) => {
-          if (!isExecuteMode) {
-            e.stopPropagation();
-            onDragStart && onDragStart(e);
-          }
-        }}
-        style={{
-          position: 'relative',
-          display: 'inline-block',
-          width: '100%'
-        }}
-        onMouseDown={(e) => {
-          if (!isExecuteMode) {
-            e.currentTarget.style.cursor = 'grabbing';
-          }
-        }}
-        onMouseUp={(e) => {
-          if (!isExecuteMode) {
-            e.currentTarget.style.cursor = 'grab';
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isExecuteMode) {
-            e.currentTarget.style.cursor = 'grab';
-          }
-        }}
-      >
-        {/* Element Label - Hide in execute mode */}
-        {!isExecuteMode && isSelected && (
-          <div 
-            style={{
-              position: 'absolute',
-              top: '-20px',
-              left: '0px',
-              fontSize: '10px',
-              color: '#007bff',
-              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-              padding: '2px 6px',
-              borderRadius: '3px',
-              border: '1px solid #007bff',
-              zIndex: 1,
-              pointerEvents: 'none',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Input Element (ID: {element.id.slice(-6)})
-            {element.renderType === 'conditional' && (
-              <span style={{ color: '#28a745', marginLeft: '4px' }}>• Conditional</span>
-            )}
-          </div>
-        )}
-        
-        {/* Delete Button - Hide in execute mode */}
-        {!isExecuteMode && isSelected && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete && onDelete(element.id);
-            }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-            }}
-            style={{
-              position: 'absolute',
-              top: '-10px',
-              right: '-10px',
-              background: '#dc3545',
-              color: 'white',
-              border: 'none',
-              width: '20px',
-              height: '20px',
-              cursor: 'pointer',
-              fontSize: '12px',
-              borderRadius: '50%',
-              zIndex: 2,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            ×
-          </button>
-        )}
-
-        {/* Drag Handle - Hide in execute mode */}
-        {!isExecuteMode && isSelected && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '-10px',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              fontSize: '10px',
-              color: '#007bff',
-              cursor: 'grab',
-              padding: '2px 4px',
-              zIndex: 1,
-              pointerEvents: 'none'
-            }}
-          >
-            ⋮⋮
-          </div>
-        )}
-
-        {/* Input Element */}
-        {isTextarea ? (
-          <textarea
-            placeholder={props.placeholder || 'Enter text...'}
-            defaultValue={props.defaultValue || ''}
-            style={{
-              ...inputStyle,
-              pointerEvents: isExecuteMode ? 'auto' : 'none',
-              '::placeholder': {
-                color: placeholderColor
-              }
-            }}
-            disabled={!isExecuteMode}
-          />
-        ) : (
-          <input
-            type={inputType}
-            placeholder={props.placeholder || 'Enter text...'}
-            defaultValue={props.defaultValue || ''}
-            style={{
-              ...inputStyle,
-              pointerEvents: isExecuteMode ? 'auto' : 'none',
-              '::placeholder': {
-                color: placeholderColor
-              }
-            }}
-            disabled={!isExecuteMode}
-          />
-        )}
-        
-        {/* Add CSS for placeholder styling */}
-        <style>
-          {`
-            input::placeholder, textarea::placeholder {
-              color: ${placeholderColor} !important;
-            }
-          `}
-        </style>
-      </div>
-    );
+    return React.createElement(InputRenderer, {
+      element,
+      isExecuteMode,
+      isSelected,
+      isActiveSlide,
+      isActiveTab,
+      matchedConditionIndex,
+      handlers
+    });
   },
 
   // Use the properties panel

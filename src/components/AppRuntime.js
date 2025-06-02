@@ -508,6 +508,43 @@ const AppRuntime = () => {
           }
         }
         
+        // Handle input elements with calculations
+        if (element.type === 'input') {
+          try {
+            // Get repeating context if element is inside a repeating container
+            const repeatingContext = getRepeatingContextForElement(element, containerData);
+            
+            // Execute calculations for placeholder
+            if (element.properties?.placeholder && element.properties.placeholder.includes('{{CALC:')) {
+              const calculationStorage = extractCalculationStorage(element.properties.placeholder);
+              const executedValue = await executeTextCalculations(
+                element.properties.placeholder,
+                allElements,
+                calculationStorage,
+                repeatingContext,
+                filteredElements
+              );
+              results[`${element.id}_placeholder`] = executedValue;
+            }
+            
+            // Execute calculations for defaultValue
+            if (element.properties?.defaultValue && element.properties.defaultValue.includes('{{CALC:')) {
+              const calculationStorage = extractCalculationStorage(element.properties.defaultValue);
+              const executedValue = await executeTextCalculations(
+                element.properties.defaultValue,
+                allElements,
+                calculationStorage,
+                repeatingContext,
+                filteredElements
+              );
+              results[`${element.id}_defaultValue`] = executedValue;
+            }
+          } catch (error) {
+            console.error(`Error executing calculations for input element ${element.id}:`, error);
+            errors[element.id] = error.message;
+          }
+        }
+        
         // Handle page containers with parameter calculations AND nested page elements
         if (element.type === 'container' && element.contentType === 'page') {
           try {
@@ -577,6 +614,14 @@ const AppRuntime = () => {
         ...element.properties,
         ...(element.type === 'text' && calculationResults[element.id] && {
           value: calculationResults[element.id]
+        }),
+        ...(element.type === 'input' && {
+          ...(calculationResults[`${element.id}_placeholder`] && {
+            placeholder: calculationResults[`${element.id}_placeholder`]
+          }),
+          ...(calculationResults[`${element.id}_defaultValue`] && {
+            defaultValue: calculationResults[`${element.id}_defaultValue`]
+          })
         })
       }
     };
