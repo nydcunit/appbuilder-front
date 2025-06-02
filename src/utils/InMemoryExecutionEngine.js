@@ -34,6 +34,37 @@ export class InMemoryExecutionEngine {
     });
   }
 
+  // Deep index calculations in children recursively
+  indexCalculationsInChildren(children) {
+    if (!children || children.length === 0) {
+      console.log(`🔍 No children to index calculations from`);
+      return;
+    }
+    
+    console.log(`🔍 Indexing calculations in ${children.length} children:`, children.map(c => ({ id: c.id, type: c.type, hasCalculations: !!c.calculations })));
+    
+    for (const child of children) {
+      console.log(`🔍 Checking child ${child.id} (${child.type}) for calculations...`);
+      
+      // Index calculations on this child
+      if (child.calculations) {
+        console.log(`✅ Found calculations on child ${child.id}:`, Object.keys(child.calculations));
+        for (const [calcId, calculation] of Object.entries(child.calculations)) {
+          console.log(`📊 Indexing calculation ${calcId} from child element ${child.id}:`, calculation);
+          this.calculations.set(calcId, calculation);
+        }
+      } else {
+        console.log(`❌ No calculations found on child ${child.id}`);
+      }
+      
+      // Recursively index calculations in grandchildren
+      if (child.children && child.children.length > 0) {
+        console.log(`🔍 Recursively checking ${child.children.length} grandchildren of ${child.id}`);
+        this.indexCalculationsInChildren(child.children);
+      }
+    }
+  }
+
   // Index elements in a screen recursively
   indexScreenElements(elements) {
     for (const element of elements) {
@@ -44,6 +75,9 @@ export class InMemoryExecutionEngine {
           this.calculations.set(calcId, calculation);
         }
       }
+      
+      // SPECIAL: Deep search for calculations in all nested children (especially in repeating containers)
+      this.indexCalculationsInChildren(element.children || []);
       
       // Index calculations from text elements (fallback for missing calculations)
       if (element.type === 'text' && element.properties?.value) {
@@ -610,7 +644,15 @@ export class InMemoryExecutionEngine {
   getRepeatingContainerValueForCalculation(config, repeatingContext) {
     const { repeatingContainerId, repeatingColumn } = config;
     
+    console.log(`🔄 Getting repeating container value:`, {
+      repeatingContainerId,
+      repeatingColumn,
+      hasRepeatingContext: !!repeatingContext,
+      repeatingContext
+    });
+    
     if (!repeatingContext) {
+      console.log(`⚠️ No repeating context available for ${repeatingContainerId}`);
       return '';
     }
     
@@ -620,7 +662,9 @@ export class InMemoryExecutionEngine {
       return rowIndex + 1;
     }
     
-    return recordData[repeatingColumn] || '';
+    const value = recordData[repeatingColumn] || '';
+    console.log(`✅ Repeating container value: ${repeatingColumn} = ${value}`);
+    return value;
   }
 
   // Apply calculation operation

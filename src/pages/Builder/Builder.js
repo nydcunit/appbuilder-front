@@ -122,18 +122,19 @@ export const useAppState = () => {
     }
   };
 
-  const saveApp = async () => {
+  const saveApp = async (screensToSave = null) => {
     setSaving(true);
     try {
-      console.log('Saving app with screens:', screens);
+      const screensData = screensToSave || screens;
+      console.log('Saving app with screens:', screensData);
       
       // Log the current screen elements to see what we're saving
-      const currentScreen = screens.find(screen => screen.id === currentScreenId);
+      const currentScreen = screensData.find(screen => screen.id === currentScreenId);
       const currentScreenElements = currentScreen?.elements || [];
       console.log('Current screen elements being saved:', JSON.stringify(currentScreenElements, null, 2));
       
       const response = await axios.put(`/api/apps/${appId}`, {
-        screens: screens,
+        screens: screensData,
         homeScreenId: app?.homeScreenId
       });
       
@@ -604,16 +605,30 @@ export const getAllElementsInScreen = (elements) => {
   return allElements;
 };
 
-// Helper function to get actual calculations from current storage systems
-const getActualCalculations = () => {
+// Helper function to get actual calculations from elements that already have them
+const getActualCalculations = (elements) => {
   const calculations = {};
   
-  // Get from global storage (window.superTextCalculations)
+  // Recursively extract calculations from elements
+  const extractFromElements = (elementList) => {
+    elementList.forEach(element => {
+      if (element.calculations) {
+        Object.assign(calculations, element.calculations);
+      }
+      if (element.children && element.children.length > 0) {
+        extractFromElements(element.children);
+      }
+    });
+  };
+  
+  extractFromElements(elements);
+  
+  // Also get from global storage as fallback
   if (window.superTextCalculations) {
     Object.assign(calculations, window.superTextCalculations);
   }
   
-  // Get from localStorage
+  // Get from localStorage as fallback
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
     if (key && key.startsWith('calc_')) {
@@ -675,8 +690,8 @@ const extractCalculationIdsFromElements = (elements) => {
 
 // Helper function to attach calculations to their respective elements
 const attachCalculationsToElements = (elements) => {
-  // Get actual calculations from current storage
-  const actualCalculations = getActualCalculations();
+  // Get actual calculations from current storage and elements
+  const actualCalculations = getActualCalculations(elements);
   
   const processElements = (elementList) => {
     return elementList.map(element => {
@@ -1578,17 +1593,13 @@ const Builder = () => {
       
       console.log('💾 Saving app with calculations attached to elements:', screensWithCalculations);
       
-      // Update screens with calculations before saving
-      updateScreens(screensWithCalculations);
+      // Directly pass the screens with calculations to saveApp
+      await saveApp(screensWithCalculations);
       
-      // Small delay to ensure state is updated
-      setTimeout(async () => {
-        await saveApp();
-        // Notify WebSocket that app was saved
-        if (app?._id) {
-          websocketService.notifyAppSaved(app._id);
-        }
-      }, 100);
+      // Notify WebSocket that app was saved
+      if (app?._id) {
+        websocketService.notifyAppSaved(app._id);
+      }
       
     } catch (error) {
       console.error('Error saving app:', error);
