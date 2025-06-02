@@ -28,6 +28,29 @@ const AppRuntimeV2 = () => {
       try {
         setLoading(true);
         
+        // Set up authentication for V2 runtime (same as Old Execute)
+        // Check for token in URL parameters first
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlToken = urlParams.get('token');
+        
+        if (urlToken) {
+          localStorage.setItem('token', urlToken);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${urlToken}`;
+          
+          // Clean up URL by removing token parameter
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.delete('token');
+          window.history.replaceState({}, document.title, newUrl.toString());
+        } else {
+          // Check if we already have a token in localStorage and set up axios
+          const existingToken = localStorage.getItem('token');
+          if (existingToken) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${existingToken}`;
+          } else {
+            console.log('⚠️ No authentication token found for V2 runtime');
+          }
+        }
+        
         // Get subdomain from URL if not from params
         const hostname = window.location.hostname;
         const appSubdomain = subdomain || (hostname !== 'localhost' ? hostname.split('.')[0] : null);

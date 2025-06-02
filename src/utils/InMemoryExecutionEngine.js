@@ -216,7 +216,16 @@ export class InMemoryExecutionEngine {
         if (this.databases.has(cacheKey)) {
           records = this.databases.get(cacheKey);
         } else {
-          const response = await axios.get(`/api/databases/${databaseId}/tables/${tableId}/records`);
+          // Get auth token from localStorage
+          const token = localStorage.getItem('token');
+          console.log('🔑 Auth token for database request:', token ? 'Found' : 'Not found');
+          
+          const headers = token ? { Authorization: `Bearer ${token}` } : {};
+          console.log('📡 Making database request with headers:', headers);
+          
+          const response = await axios.get(`/api/databases/${databaseId}/tables/${tableId}/records`, {
+            headers
+          });
           if (response.data.success) {
             records = response.data.data;
             this.databases.set(cacheKey, records);
