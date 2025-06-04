@@ -1515,6 +1515,42 @@ export class InMemoryExecutionEngine {
   getInputElementValue(elementId) {
     console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
     
+    // CRITICAL FIX: Check if we have a current calculated value for this input element first
+    // This ensures that when tab state changes, we get the correct calculated value immediately
+    // instead of waiting for DOM updates which happen after calculation execution
+    const element = this.findElementById(elementId);
+    if (element && element.type === 'input') {
+      // For input elements with calculated default values, get the current calculated value
+      if (element.properties?.defaultValue && element.properties.defaultValue.includes('{{CALC:')) {
+        // This is a dynamic input with calculated default value
+        // Execute the calculation to get the current value based on current state
+        try {
+          const currentCalculatedValue = this.executeTextCalculationsSync(element.properties.defaultValue);
+          if (currentCalculatedValue && !currentCalculatedValue.includes('{{CALC:')) {
+            console.log('🔵 INPUT_DEBUG: Using current calculated value:', currentCalculatedValue);
+            return currentCalculatedValue;
+          }
+        } catch (error) {
+          console.log('🔵 INPUT_DEBUG: Error calculating current value:', error);
+        }
+      }
+      
+      // For dropdown inputs, check selectedOption with calculations
+      if (element.properties?.inputType === 'dropdown' && element.properties?.selectedOption) {
+        if (element.properties.selectedOption.includes('{{CALC:')) {
+          try {
+            const currentCalculatedValue = this.executeTextCalculationsSync(element.properties.selectedOption);
+            if (currentCalculatedValue && !currentCalculatedValue.includes('{{CALC:')) {
+              console.log('🔵 INPUT_DEBUG: Using current calculated dropdown value:', currentCalculatedValue);
+              return currentCalculatedValue;
+            }
+          } catch (error) {
+            console.log('🔵 INPUT_DEBUG: Error calculating dropdown value:', error);
+          }
+        }
+      }
+    }
+    
     // BUTTON INPUT HANDLING: Check if this is a button input type first
     // For button inputs, we need to return the button label text, not a form value
     const buttonElement = document.querySelector(`button[data-element-id="${elementId}"][data-input-type="button"]`);
@@ -1556,7 +1592,6 @@ export class InMemoryExecutionEngine {
     }
     
     // BUTTON FALLBACK: Check if this is a button input by looking at element properties
-    const element = this.findElementById(elementId);
     if (element && element.type === 'input' && element.properties?.inputType === 'button') {
       const buttonLabel = element.properties.buttonLabel || 'Click Me';
       console.log('🔵 INPUT_DEBUG: Button input fallback, returning button label:', buttonLabel);
@@ -1573,5 +1608,103 @@ export class InMemoryExecutionEngine {
     
     console.log('🔵 INPUT_DEBUG: No input value found, returning empty string');
     return '';
+  }
+
+  // Synchronous version of executeTextCalculations for immediate value resolution
+  executeTextCalculationsSync(text) {
+    if (!text || !text.includes('{{CALC:')) {
+      return text;
+    }
+    
+    let result = text;
+    const calcMatches = text.match(/{{CALC:([^}]+)}}/g);
+    
+    if (calcMatches) {
+      for (const match of calcMatches) {
+        const calcId = match.match(/{{CALC:([^}]+)}}/)[1];
+        
+        try {
+          const calculatedValue = this.executeCalculationSync(calcId);
+          result = result.replace(match, calculatedValue);
+        } catch (error) {
+          console.error(`❌ Error executing sync calculation ${calcId}:`, error);
+          result = result.replace(match, `[Error: ${error.message}]`);
+        }
+      }
+    }
+    
+    return result;
+  }
+
+  // Synchronous version of executeCalculation for immediate value resolution
+  executeCalculationSync(calcId) {
+    console.log(`🧮 Executing sync calculation: ${calcId}`);
+    
+    // Get calculation from stored calculations
+    const calculation = this.calculations.get(calcId);
+    if (!calculation || !calculation.steps || calculation.steps.length === 0) {
+      console.log(`⚠️ No calculation steps found for ${calcId}, using fallback`);
+      return this.executeCalculationFallback(calcId, null);
+    }
+    
+    // Execute calculation steps synchronously
+    let result = null;
+    
+    for (let i = 0; i < calculation.steps.length; i++) {
+      const step = calculation.steps[i];
+      
+      try {
+        const stepValue = this.executeCalculationStepSync(step);
+        
+        if (i === 0) {
+          result = stepValue;
+        } else {
+          // Check for operation in step.config.operation or step.operation
+          const operation = step.config?.operation || step.operation;
+          console.log(`🔧 Applying sync operation: ${operation} between ${result} and ${stepValue}`);
+          result = this.applyCalculationOperation(result, stepValue, operation);
+        }
+      } catch (error) {
+        console.error(`❌ Error executing sync calculation step ${i}:`, error);
+        return `[Error: ${error.message}]`;
+      }
+    }
+    
+    return result !== null ? String(result) : '';
+  }
+
+  // Synchronous version of executeCalculationStep for immediate value resolution
+  executeCalculationStepSync(step) {
+    console.log(`🔧 Executing sync step:`, step);
+    
+    const { config } = step;
+    
+    switch (config.source) {
+      case 'custom':
+        console.log(`📝 Custom value: ${config.value}`);
+        return config.value || '';
+      
+      case 'element':
+        return this.getElementValue(config.elementId, config.containerValueType);
+      
+      case 'repeating_container':
+        return this.getRepeatingContainerValueForCalculation(config, null);
+      
+      case 'passed_parameter':
+        return this.getPassedParameterValue(config);
+      
+      case 'timestamp':
+        return new Date().toISOString();
+      
+      case 'screen_width':
+        return window.innerWidth;
+      
+      case 'screen_height':
+        return window.innerHeight;
+      
+      default:
+        console.log(`⚠️ Unknown source: ${config.source}`);
+        return '';
+    }
   }
 }

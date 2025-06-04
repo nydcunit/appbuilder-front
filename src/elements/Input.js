@@ -1336,7 +1336,9 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       inputType: element.properties?.inputType,
       selectedOption: element.properties?.selectedOption,
       defaultValue: element.properties?.defaultValue,
-      currentInputValue: inputValue
+      currentInputValue: inputValue,
+      isActiveTab,
+      isActiveSlide
     });
     
     if (isExecuteMode && isInitialized && !userHasEdited) {
@@ -1359,11 +1361,39 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           to: calculatedValue
         });
         setInputValue(calculatedValue);
+        
+        // CRITICAL FIX: Update the DOM element's value immediately to ensure calculation engine gets correct value
+        // This is essential for tab-dependent calculations to work properly
+        const domElement = document.querySelector(`input[data-element-id="${element.id}"]`) ||
+                          document.querySelector(`textarea[data-element-id="${element.id}"]`) ||
+                          document.querySelector(`select[data-element-id="${element.id}"]`);
+        
+        if (domElement) {
+          domElement.value = calculatedValue;
+          domElement.setAttribute('data-current-value', calculatedValue);
+          console.log('🔵 INPUT_DEBUG: Updated DOM element value:', {
+            elementId: element.id,
+            domValue: domElement.value,
+            calculatedValue
+          });
+        }
+        
+        // Update the calculation engine with the new value
+        if (!window.elementValues) {
+          window.elementValues = {};
+        }
+        window.elementValues[element.id] = calculatedValue;
+        
+        console.log('🔵 INPUT_DEBUG: Updated calculation engine value:', {
+          elementId: element.id,
+          newValue: calculatedValue,
+          elementValues: window.elementValues
+        });
       }
     } else if (userHasEdited) {
       console.log('🔵 INPUT_DEBUG: Skipping update - user has edited the input');
     }
-  }, [element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isExecuteMode, isInitialized, inputValue, userHasEdited]);
+  }, [element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isExecuteMode, isInitialized, inputValue, userHasEdited, isActiveTab, isActiveSlide]);
   
   // Get render properties with matched condition index
   let props = getRenderProperties(element, matchedConditionIndex);
