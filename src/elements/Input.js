@@ -257,6 +257,24 @@ const InputStyleSettings = ({
             }}
           />
         </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+          <label style={labelStyle}>
+            Arrow Color:
+          </label>
+          <input
+            type="color"
+            value={getValueWithActiveMode('arrowColor')}
+            onChange={(e) => updatePropertyWithActiveMode('arrowColor', e.target.value)}
+            style={{
+              width: '100%',
+              height: '30px',
+              border: '1px solid #ddd',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          />
+        </div>
       </div>
 
       {/* Spacing - Margin */}
@@ -673,8 +691,65 @@ const InputContentSettings = ({
         </div>
       )}
       
+      {/* Dropdown Configuration */}
+      {currentInputType === 'dropdown' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#f0f8ff',
+          borderRadius: '6px',
+          border: '1px solid #b3d9ff'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '8px'
+          }}>
+            Dropdown Configuration:
+          </label>
+          
+          {/* Selected Option SuperText */}
+          <div style={{ marginBottom: '12px' }}>
+            <SuperText
+              label="Selected Option"
+              placeholder="Enter selected option value..."
+              value={getValue('selectedOption')}
+              onChange={(value) => handleInputChange('selectedOption', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+          
+          {/* Available Options SuperText */}
+          <div style={{ marginBottom: '8px' }}>
+            <SuperText
+              label="Available Options"
+              placeholder="Enter options separated by commas (e.g., Option 1, Option 2, Option 3)"
+              value={getValue('availableOptions')}
+              onChange={(value) => handleInputChange('availableOptions', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+          
+          <div style={{
+            fontSize: '11px',
+            color: '#0066cc',
+            padding: '4px 8px',
+            backgroundColor: '#e6f3ff',
+            borderRadius: '3px'
+          }}>
+            💡 Tip: Separate options with commas. The selected option will be used as the default value.
+          </div>
+        </div>
+      )}
+
       {/* Show placeholder for other input types */}
-      {currentInputType !== 'text' && (
+      {currentInputType !== 'text' && currentInputType !== 'dropdown' && (
         <div style={{
           marginBottom: '16px',
           padding: '16px',
@@ -700,27 +775,32 @@ const InputContentSettings = ({
         </div>
       )}
       
-      {/* Placeholder SuperText */}
-      <SuperText
-        label="Placeholder"
-        placeholder="Enter placeholder text..."
-        value={getValue('placeholder')}
-        onChange={(value) => handleInputChange('placeholder', value)}
-        availableElements={availableElements}
-        screens={screens}
-        currentScreenId={currentScreenId}
-      />
-      
-      {/* Default Value SuperText */}
-      <SuperText
-        label="Default Value"
-        placeholder="Enter default value..."
-        value={getValue('defaultValue')}
-        onChange={(value) => handleInputChange('defaultValue', value)}
-        availableElements={availableElements}
-        screens={screens}
-        currentScreenId={currentScreenId}
-      />
+      {/* Placeholder and Default Value SuperTexts - Only show for non-dropdown types */}
+      {currentInputType !== 'dropdown' && (
+        <>
+          {/* Placeholder SuperText */}
+          <SuperText
+            label="Placeholder"
+            placeholder="Enter placeholder text..."
+            value={getValue('placeholder')}
+            onChange={(value) => handleInputChange('placeholder', value)}
+            availableElements={availableElements}
+            screens={screens}
+            currentScreenId={currentScreenId}
+          />
+          
+          {/* Default Value SuperText */}
+          <SuperText
+            label="Default Value"
+            placeholder="Enter default value..."
+            value={getValue('defaultValue')}
+            onChange={(value) => handleInputChange('defaultValue', value)}
+            availableElements={availableElements}
+            screens={screens}
+            currentScreenId={currentScreenId}
+          />
+        </>
+      )}
     </div>
   );
 };
@@ -1093,19 +1173,31 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       elementId: element.id,
       isExecuteMode,
       isInitialized,
-      calculatedValue: element.properties?.defaultValue
+      inputType: element.properties?.inputType,
+      selectedOption: element.properties?.selectedOption,
+      defaultValue: element.properties?.defaultValue
     });
     
     if (isExecuteMode && !isInitialized) {
-      const calculatedValue = element.properties?.defaultValue || '';
+      let calculatedValue = '';
+      
+      // For dropdown inputs, use selectedOption as the initial value
+      if (element.properties?.inputType === 'dropdown') {
+        calculatedValue = element.properties?.selectedOption || '';
+      } else {
+        // For other input types, use defaultValue
+        calculatedValue = element.properties?.defaultValue || '';
+      }
+      
       console.log('🔵 INPUT_DEBUG: Initializing input value:', {
         elementId: element.id,
+        inputType: element.properties?.inputType,
         calculatedValue
       });
       setInputValue(calculatedValue);
       setIsInitialized(true);
     }
-  }, [isExecuteMode, element.properties?.defaultValue, isInitialized]);
+  }, [isExecuteMode, element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isInitialized]);
   
   // Update input value when calculated value changes (but only if user hasn't edited)
   React.useEffect(() => {
@@ -1114,17 +1206,28 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       isExecuteMode,
       isInitialized,
       userHasEdited,
-      calculatedValue: element.properties?.defaultValue,
-      currentInputValue: inputValue,
-      containsCalcTokens: element.properties?.defaultValue?.includes('{{CALC:')
+      inputType: element.properties?.inputType,
+      selectedOption: element.properties?.selectedOption,
+      defaultValue: element.properties?.defaultValue,
+      currentInputValue: inputValue
     });
     
     if (isExecuteMode && isInitialized && !userHasEdited) {
-      const calculatedValue = element.properties?.defaultValue || '';
+      let calculatedValue = '';
+      
+      // For dropdown inputs, use selectedOption as the value to track
+      if (element.properties?.inputType === 'dropdown') {
+        calculatedValue = element.properties?.selectedOption || '';
+      } else {
+        // For other input types, use defaultValue
+        calculatedValue = element.properties?.defaultValue || '';
+      }
+      
       // Only update if the calculated value is different and doesn't contain calc tokens
       if (calculatedValue !== inputValue && !calculatedValue.includes('{{CALC:')) {
         console.log('🔵 INPUT_DEBUG: Updating input value (user has not edited):', {
           elementId: element.id,
+          inputType: element.properties?.inputType,
           from: inputValue,
           to: calculatedValue
         });
@@ -1133,7 +1236,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
     } else if (userHasEdited) {
       console.log('🔵 INPUT_DEBUG: Skipping update - user has edited the input');
     }
-  }, [element.properties?.defaultValue, isExecuteMode, isInitialized, inputValue, userHasEdited]);
+  }, [element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isExecuteMode, isInitialized, inputValue, userHasEdited]);
   
   // Get render properties with matched condition index
   let props = getRenderProperties(element, matchedConditionIndex);
@@ -1334,14 +1437,79 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
         console.log('🔵 INPUT_DEBUG: Rendering input element:', {
           elementId: element.id,
           isExecuteMode,
+          inputType: props.inputType,
           isTextarea,
-          inputType,
           disabled: !isExecuteMode,
           value: isExecuteMode ? inputValue : undefined,
           defaultValue: !isExecuteMode ? (props.defaultValue || '') : undefined,
           placeholder: props.placeholder
         });
         
+        // Handle dropdown input type
+        if (props.inputType === 'dropdown') {
+          // Parse available options from comma-separated string
+          const availableOptionsStr = props.availableOptions || '';
+          const optionsArray = availableOptionsStr.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0);
+          
+          // Get selected option value
+          const selectedOptionValue = props.selectedOption || '';
+          
+          // Dropdown styles with custom arrow
+          const dropdownStyle = {
+            ...inputStyle,
+            appearance: 'none',
+            backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${encodeURIComponent(props.arrowColor || '#666666')}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 12px center',
+            backgroundSize: '16px',
+            paddingRight: `${(props.paddingRight || 16) + 24}px`, // Add space for arrow
+            cursor: isExecuteMode ? 'pointer' : 'default',
+            pointerEvents: isExecuteMode ? 'auto' : 'none'
+          };
+          
+          return (
+            <select
+              data-element-id={element.id}
+              value={isExecuteMode ? inputValue : undefined}
+              defaultValue={!isExecuteMode ? selectedOptionValue : undefined}
+              onChange={isExecuteMode ? (e) => {
+                console.log('🔵 INPUT_DEBUG: Dropdown onChange:', {
+                  elementId: element.id,
+                  newValue: e.target.value
+                });
+                setInputValue(e.target.value);
+                setUserHasEdited(true);
+              } : undefined}
+              style={dropdownStyle}
+              disabled={!isExecuteMode}
+            >
+              {/* Placeholder option */}
+              {props.placeholder && (
+                <option value="" disabled style={{ color: placeholderColor }}>
+                  {props.placeholder}
+                </option>
+              )}
+              
+              {/* Available options */}
+              {optionsArray.map((option, index) => (
+                <option key={index} value={option}>
+                  {option}
+                </option>
+              ))}
+              
+              {/* Show default options if no options are configured */}
+              {optionsArray.length === 0 && (
+                <>
+                  <option value="Option 1">Option 1</option>
+                  <option value="Option 2">Option 2</option>
+                  <option value="Option 3">Option 3</option>
+                </>
+              )}
+            </select>
+          );
+        }
+        
+        // Handle text input types (textarea and regular inputs)
         return isTextarea ? (
           <textarea
             data-element-id={element.id}
@@ -1417,6 +1585,10 @@ export const InputElement = {
     placeholder: 'Enter text...',
     defaultValue: '',
     
+    // Dropdown Configuration
+    selectedOption: '',
+    availableOptions: '',
+    
     // Typography
     fontSize: 16,
     fontWeight: '400',
@@ -1426,6 +1598,7 @@ export const InputElement = {
     textColor: '#333333',
     placeholderColor: '#999999',
     boxBackgroundColor: '#ffffff',
+    arrowColor: '#666666',
     
     // Spacing
     marginTop: 0,
@@ -1454,6 +1627,7 @@ export const InputElement = {
     activeTextColor: '#333333',
     activePlaceholderColor: '#999999',
     activeBoxBackgroundColor: '#ffffff',
+    activeArrowColor: '#666666',
     activeMarginTop: 0,
     activeMarginBottom: 0,
     activeMarginLeft: 0,
