@@ -1510,12 +1510,16 @@ export class InMemoryExecutionEngine {
     return null;
   }
 
-  // Get current value from input element in DOM
+  // CALCULATION INTEGRATION: This method is called by the calculation engine to retrieve 
+  // current input values from the DOM. CRITICAL: Must support ALL input element types.
   getInputElementValue(elementId) {
     console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
     
-    // Try to find the input element in the DOM
-    // Input elements are rendered with their element ID as a data attribute or in a container
+    // DOM QUERY REQUIREMENTS: Must include ALL input element types for calculation support
+    // - input[data-element-id] : Standard text/number/password inputs
+    // - textarea[data-element-id] : Long text inputs  
+    // - select[data-element-id] : Dropdown inputs (CRITICAL: Was missing, caused dropdown calc issues)
+    // - Container queries : Fallback for nested input elements
     const inputElement = document.querySelector(`input[data-element-id="${elementId}"]`) ||
                         document.querySelector(`textarea[data-element-id="${elementId}"]`) ||
                         document.querySelector(`select[data-element-id="${elementId}"]`) ||

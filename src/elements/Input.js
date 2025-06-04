@@ -1510,13 +1510,15 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 setInputValue(e.target.value);
                 setUserHasEdited(true);
                 
-                // Expose value to calculation engine
+                // CALCULATION INTEGRATION STEP 1: Expose value to calculation engine
+                // CRITICAL: All input changes must update window.elementValues for calculation access
                 if (!window.elementValues) {
                   window.elementValues = {};
                 }
                 window.elementValues[element.id] = e.target.value;
                 
-                // Also expose via DOM element for calculation engine compatibility
+                // CALCULATION INTEGRATION STEP 2: DOM element value exposure
+                // Ensures calculation engine can access value via DOM queries
                 const selectElement = e.target;
                 if (selectElement) {
                   selectElement.value = e.target.value;
@@ -1530,7 +1532,9 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   domValue: selectElement.value
                 });
                 
-                // Trigger calculation re-execution for dependent elements
+                // CALCULATION INTEGRATION STEP 3: Trigger real-time calculation re-execution
+                // REAL-TIME UPDATE FLOW: User change → triggerCalculationUpdate() → 'input_change' event 
+                // → AppRuntimeV2 re-executes screen → Calculations update → UI re-renders
                 if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
                   console.log('🔵 INPUT_DEBUG: Triggering calculation update for dropdown change');
                   window.__v2ExecutionEngine.triggerCalculationUpdate();

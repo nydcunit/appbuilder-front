@@ -145,15 +145,21 @@ const AppRuntimeV2 = () => {
     if (executionEngine && currentScreenId) {
       executeCurrentScreen();
       
-      // Set up state change callback for tab clicks and input changes
+      // REAL-TIME UPDATE SYSTEM: Set up state change callback for dynamic re-execution
+      // This callback is triggered by the execution engine when state changes occur
+      // CRITICAL: Must handle ALL state change types that require screen re-execution
       executionEngine.setStateChangeCallback((type, containerId, data) => {
         if (type === 'tab') {
+          // Tab container state changed - re-execute to update active tab calculations
           console.log(`🔄 Tab state changed, re-executing screen...`);
           executeCurrentScreen();
         } else if (type === 'input_change') {
+          // Input value changed - re-execute to update dependent calculations
+          // FLOW: Input onChange → triggerCalculationUpdate() → 'input_change' event → Screen re-execution
           console.log(`🔄 Input value changed, re-executing screen...`);
           executeCurrentScreen();
         }
+        // ADD NEW STATE CHANGE TYPES HERE as needed (e.g., 'slider_change', 'toggle_change', etc.)
       });
     }
   }, [executionEngine, currentScreenId]);
