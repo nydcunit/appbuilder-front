@@ -710,6 +710,19 @@ const InputContentSettings = ({
             Dropdown Configuration:
           </label>
           
+          {/* Placeholder SuperText for Dropdown */}
+          <div style={{ marginBottom: '12px' }}>
+            <SuperText
+              label="Placeholder"
+              placeholder="Enter placeholder text (e.g., Select one)"
+              value={getValue('placeholder')}
+              onChange={(value) => handleInputChange('placeholder', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+          
           {/* Selected Option SuperText */}
           <div style={{ marginBottom: '12px' }}>
             <SuperText
@@ -1196,6 +1209,21 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       });
       setInputValue(calculatedValue);
       setIsInitialized(true);
+      
+      // Expose initial value to calculation engine for all input types
+      if (isExecuteMode) {
+        // Initialize elementValues if it doesn't exist
+        if (!window.elementValues) {
+          window.elementValues = {};
+        }
+        window.elementValues[element.id] = calculatedValue;
+        
+        console.log('🔵 INPUT_DEBUG: Exposed initial value to calculation engine:', {
+          elementId: element.id,
+          value: calculatedValue,
+          elementValues: window.elementValues
+        });
+      }
     }
   }, [isExecuteMode, element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isInitialized]);
   
@@ -1470,6 +1498,8 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           return (
             <select
               data-element-id={element.id}
+              data-element-type="input"
+              data-input-type="dropdown"
               value={isExecuteMode ? inputValue : undefined}
               defaultValue={!isExecuteMode ? selectedOptionValue : undefined}
               onChange={isExecuteMode ? (e) => {
@@ -1479,6 +1509,32 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 });
                 setInputValue(e.target.value);
                 setUserHasEdited(true);
+                
+                // Expose value to calculation engine
+                if (!window.elementValues) {
+                  window.elementValues = {};
+                }
+                window.elementValues[element.id] = e.target.value;
+                
+                // Also expose via DOM element for calculation engine compatibility
+                const selectElement = e.target;
+                if (selectElement) {
+                  selectElement.value = e.target.value;
+                  selectElement.setAttribute('data-current-value', e.target.value);
+                }
+                
+                console.log('🔵 INPUT_DEBUG: Updated dropdown value in calculation engine:', {
+                  elementId: element.id,
+                  newValue: e.target.value,
+                  elementValues: window.elementValues,
+                  domValue: selectElement.value
+                });
+                
+                // Trigger calculation re-execution for dependent elements
+                if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+                  console.log('🔵 INPUT_DEBUG: Triggering calculation update for dropdown change');
+                  window.__v2ExecutionEngine.triggerCalculationUpdate();
+                }
               } : undefined}
               style={dropdownStyle}
               disabled={!isExecuteMode}
@@ -1582,7 +1638,7 @@ export const InputElement = {
     // Input Configuration
     inputType: 'text', // Main input type: 'text', 'dropdown', 'button', 'toggle', 'datePicker', 'location', 'filePicker', 'audio'
     inputTypes: [], // Array of selected types for text input: 'number', 'password', 'long'
-    placeholder: 'Enter text...',
+    placeholder: 'Select one',
     defaultValue: '',
     
     // Dropdown Configuration

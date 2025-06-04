@@ -145,10 +145,13 @@ const AppRuntimeV2 = () => {
     if (executionEngine && currentScreenId) {
       executeCurrentScreen();
       
-      // Set up state change callback for tab clicks
+      // Set up state change callback for tab clicks and input changes
       executionEngine.setStateChangeCallback((type, containerId, data) => {
         if (type === 'tab') {
           console.log(`🔄 Tab state changed, re-executing screen...`);
+          executeCurrentScreen();
+        } else if (type === 'input_change') {
+          console.log(`🔄 Input value changed, re-executing screen...`);
           executeCurrentScreen();
         }
       });

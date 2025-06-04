@@ -976,6 +976,16 @@ export class InMemoryExecutionEngine {
     this.onStateChange = callback;
   }
 
+  // Trigger calculation update when input values change
+  triggerCalculationUpdate() {
+    console.log('🔄 Triggering calculation update due to input value change');
+    
+    // Trigger state change callback if set (this will cause the UI to re-render with new calculations)
+    if (this.onStateChange) {
+      this.onStateChange('input_change', null, { timestamp: Date.now() });
+    }
+  }
+
   // Apply conditional rendering
   async applyConditionalRendering(elements) {
     const visible = [];
@@ -1508,8 +1518,10 @@ export class InMemoryExecutionEngine {
     // Input elements are rendered with their element ID as a data attribute or in a container
     const inputElement = document.querySelector(`input[data-element-id="${elementId}"]`) ||
                         document.querySelector(`textarea[data-element-id="${elementId}"]`) ||
+                        document.querySelector(`select[data-element-id="${elementId}"]`) ||
                         document.querySelector(`[data-element-id="${elementId}"] input`) ||
-                        document.querySelector(`[data-element-id="${elementId}"] textarea`);
+                        document.querySelector(`[data-element-id="${elementId}"] textarea`) ||
+                        document.querySelector(`[data-element-id="${elementId}"] select`);
     
     if (inputElement) {
       const value = inputElement.value || '';
@@ -1517,8 +1529,8 @@ export class InMemoryExecutionEngine {
       return value;
     }
     
-    // Fallback: Try to find by element ID in any input/textarea
-    const allInputs = document.querySelectorAll('input, textarea');
+    // Fallback: Try to find by element ID in any input/textarea/select
+    const allInputs = document.querySelectorAll('input, textarea, select');
     for (const input of allInputs) {
       // Check if the input is inside a container with the element ID
       const container = input.closest(`[data-element-id="${elementId}"]`);
