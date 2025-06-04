@@ -204,77 +204,132 @@ const InputStyleSettings = ({
           Colors
         </h4>
         
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={labelStyle}>
-            Text Color:
-          </label>
-          <input
-            type="color"
-            value={getValueWithActiveMode('textColor')}
-            onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
-            style={{
-              width: '100%',
-              height: '30px',
-              border: '1px solid #ddd',
-              borderRadius: '3px',
-              cursor: 'pointer'
-            }}
-          />
-        </div>
+        {/* Get current input type for conditional color options */}
+        {(() => {
+          const currentInputType = getValue('inputType') || 'text';
+          
+          if (currentInputType === 'button') {
+            // Button-specific colors only
+            return (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Text Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('textColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={labelStyle}>
-            Placeholder Color:
-          </label>
-          <input
-            type="color"
-            value={getValueWithActiveMode('placeholderColor')}
-            onChange={(e) => updatePropertyWithActiveMode('placeholderColor', e.target.value)}
-            style={{
-              width: '100%',
-              height: '30px',
-              border: '1px solid #ddd',
-              borderRadius: '3px',
-              cursor: 'pointer'
-            }}
-          />
-        </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Background Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('backgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </>
+            );
+          } else {
+            // All other input types get full color options
+            return (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Text Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('textColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={labelStyle}>
-            Background:
-          </label>
-          <input
-            type="color"
-            value={getValueWithActiveMode('boxBackgroundColor')}
-            onChange={(e) => updatePropertyWithActiveMode('boxBackgroundColor', e.target.value)}
-            style={{
-              width: '100%',
-              height: '30px',
-              border: '1px solid #ddd',
-              borderRadius: '3px',
-              cursor: 'pointer'
-            }}
-          />
-        </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Placeholder Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('placeholderColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('placeholderColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-          <label style={labelStyle}>
-            Arrow Color:
-          </label>
-          <input
-            type="color"
-            value={getValueWithActiveMode('arrowColor')}
-            onChange={(e) => updatePropertyWithActiveMode('arrowColor', e.target.value)}
-            style={{
-              width: '100%',
-              height: '30px',
-              border: '1px solid #ddd',
-              borderRadius: '3px',
-              cursor: 'pointer'
-            }}
-          />
-        </div>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Background:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('boxBackgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('boxBackgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                {currentInputType === 'dropdown' && (
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                    <label style={labelStyle}>
+                      Arrow Color:
+                    </label>
+                    <input
+                      type="color"
+                      value={getValueWithActiveMode('arrowColor')}
+                      onChange={(e) => updatePropertyWithActiveMode('arrowColor', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+                )}
+              </>
+            );
+          }
+        })()}
       </div>
 
       {/* Spacing - Margin */}
@@ -761,8 +816,52 @@ const InputContentSettings = ({
         </div>
       )}
 
+      {/* Button Configuration */}
+      {currentInputType === 'button' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#f0fff0',
+          borderRadius: '6px',
+          border: '1px solid #90ee90'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '8px'
+          }}>
+            Button Configuration:
+          </label>
+          
+          {/* Label SuperText for Button */}
+          <div style={{ marginBottom: '8px' }}>
+            <SuperText
+              label="Label Text"
+              placeholder="Enter button label (e.g., Click Me)"
+              value={getValue('buttonLabel')}
+              onChange={(value) => handleInputChange('buttonLabel', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+          
+          <div style={{
+            fontSize: '11px',
+            color: '#228b22',
+            padding: '4px 8px',
+            backgroundColor: '#f0fff0',
+            borderRadius: '3px'
+          }}>
+            💡 Tip: The label text will be displayed on the button.
+          </div>
+        </div>
+      )}
+
       {/* Show placeholder for other input types */}
-      {currentInputType !== 'text' && currentInputType !== 'dropdown' && (
+      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && (
         <div style={{
           marginBottom: '16px',
           padding: '16px',
@@ -788,8 +887,8 @@ const InputContentSettings = ({
         </div>
       )}
       
-      {/* Placeholder and Default Value SuperTexts - Only show for non-dropdown types */}
-      {currentInputType !== 'dropdown' && (
+      {/* Placeholder and Default Value SuperTexts - Only show for text input types */}
+      {currentInputType === 'text' && (
         <>
           {/* Placeholder SuperText */}
           <SuperText
@@ -1473,6 +1572,46 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           placeholder: props.placeholder
         });
         
+        // Handle button input type
+        if (props.inputType === 'button') {
+          // Button styles
+          const buttonStyle = {
+            ...inputStyle,
+            cursor: isExecuteMode ? 'pointer' : 'default',
+            pointerEvents: isExecuteMode ? 'auto' : 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            userSelect: 'none',
+            // Use textColor directly for button label (not labelColor)
+            color: props.textColor || '#333333',
+            // Use backgroundColor directly for button background
+            backgroundColor: props.backgroundColor || '#ffffff'
+          };
+          
+          // Get button label
+          const buttonLabel = props.buttonLabel || 'Click Me';
+          
+          return (
+            <button
+              data-element-id={element.id}
+              data-element-type="input"
+              data-input-type="button"
+              onClick={isExecuteMode ? (e) => {
+                console.log('🔵 INPUT_DEBUG: Button onClick:', {
+                  elementId: element.id,
+                  buttonLabel
+                });
+                // Button click handling can be extended here for future functionality
+              } : undefined}
+              style={buttonStyle}
+              disabled={!isExecuteMode}
+            >
+              {buttonLabel}
+            </button>
+          );
+        }
+        
         // Handle dropdown input type
         if (props.inputType === 'dropdown') {
           // Parse available options from comma-separated string
@@ -1649,6 +1788,9 @@ export const InputElement = {
     selectedOption: '',
     availableOptions: '',
     
+    // Button Configuration
+    buttonLabel: 'Click Me',
+    
     // Typography
     fontSize: 16,
     fontWeight: '400',
@@ -1659,6 +1801,8 @@ export const InputElement = {
     placeholderColor: '#999999',
     boxBackgroundColor: '#ffffff',
     arrowColor: '#666666',
+    labelColor: '#333333', // Button label color
+    backgroundColor: '#ffffff', // Button background color
     
     // Spacing
     marginTop: 0,
@@ -1688,6 +1832,8 @@ export const InputElement = {
     activePlaceholderColor: '#999999',
     activeBoxBackgroundColor: '#ffffff',
     activeArrowColor: '#666666',
+    activeLabelColor: '#333333', // Active button label color
+    activeBackgroundColor: '#ffffff', // Active button background color
     activeMarginTop: 0,
     activeMarginBottom: 0,
     activeMarginLeft: 0,

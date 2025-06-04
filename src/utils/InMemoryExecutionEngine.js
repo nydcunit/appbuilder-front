@@ -1515,10 +1515,20 @@ export class InMemoryExecutionEngine {
   getInputElementValue(elementId) {
     console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
     
+    // BUTTON INPUT HANDLING: Check if this is a button input type first
+    // For button inputs, we need to return the button label text, not a form value
+    const buttonElement = document.querySelector(`button[data-element-id="${elementId}"][data-input-type="button"]`);
+    if (buttonElement) {
+      const buttonLabel = buttonElement.textContent || buttonElement.innerText || '';
+      console.log('🔵 INPUT_DEBUG: Found button element, label text:', buttonLabel);
+      return buttonLabel;
+    }
+    
     // DOM QUERY REQUIREMENTS: Must include ALL input element types for calculation support
     // - input[data-element-id] : Standard text/number/password inputs
     // - textarea[data-element-id] : Long text inputs  
     // - select[data-element-id] : Dropdown inputs (CRITICAL: Was missing, caused dropdown calc issues)
+    // - button[data-element-id] : Button inputs (returns button label text)
     // - Container queries : Fallback for nested input elements
     const inputElement = document.querySelector(`input[data-element-id="${elementId}"]`) ||
                         document.querySelector(`textarea[data-element-id="${elementId}"]`) ||
@@ -1545,8 +1555,15 @@ export class InMemoryExecutionEngine {
       }
     }
     
-    // If we can't find the input in DOM, try to get from element properties as fallback
+    // BUTTON FALLBACK: Check if this is a button input by looking at element properties
     const element = this.findElementById(elementId);
+    if (element && element.type === 'input' && element.properties?.inputType === 'button') {
+      const buttonLabel = element.properties.buttonLabel || 'Click Me';
+      console.log('🔵 INPUT_DEBUG: Button input fallback, returning button label:', buttonLabel);
+      return buttonLabel;
+    }
+    
+    // If we can't find the input in DOM, try to get from element properties as fallback
     if (element && element.properties) {
       // For input elements, try to get the defaultValue or current value
       const fallbackValue = element.properties.defaultValue || element.properties.value || '';
