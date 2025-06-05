@@ -1489,7 +1489,7 @@ const InputContentSettings = ({
             <div style={{ marginBottom: '12px' }}>
               <SuperText
                 label="Minimum Date"
-                placeholder="Enter minimum date (YYYY-MM-DD format)"
+                placeholder="Enter minimum date (MM/DD/YYYY format)"
                 value={getValue('datePickerMinDate')}
                 onChange={(value) => handleInputChange('datePickerMinDate', value)}
                 availableElements={availableElements}
@@ -1502,7 +1502,7 @@ const InputContentSettings = ({
             <div style={{ marginBottom: '12px' }}>
               <SuperText
                 label="Maximum Date"
-                placeholder="Enter maximum date (YYYY-MM-DD format)"
+                placeholder="Enter maximum date (MM/DD/YYYY format)"
                 value={getValue('datePickerMaxDate')}
                 onChange={(value) => handleInputChange('datePickerMaxDate', value)}
                 availableElements={availableElements}
@@ -1515,7 +1515,7 @@ const InputContentSettings = ({
             <div style={{ marginBottom: '8px' }}>
               <SuperText
                 label="Disabled Dates"
-                placeholder="Enter disabled dates separated by commas (YYYY-MM-DD,YYYY-MM-DD)"
+                placeholder="Enter disabled dates separated by commas (MM/DD/YYYY,MM/DD/YYYY)"
                 value={getValue('datePickerDisabledDates')}
                 onChange={(value) => handleInputChange('datePickerDisabledDates', value)}
                 availableElements={availableElements}
@@ -1531,7 +1531,7 @@ const InputContentSettings = ({
               backgroundColor: '#e6f3ff',
               borderRadius: '3px'
             }}>
-              💡 Tip: Use YYYY-MM-DD format for dates. Separate multiple disabled dates with commas.
+              💡 Tip: Use MM/DD/YYYY format for dates. Separate multiple disabled dates with commas.
             </div>
           </div>
           
@@ -1976,8 +1976,14 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   const [selectedStartDate, setSelectedStartDate] = React.useState('');
   const [selectedEndDate, setSelectedEndDate] = React.useState('');
   const [showCalendar, setShowCalendar] = React.useState(false);
-  const [currentMonth, setCurrentMonth] = React.useState(new Date().getMonth());
-  const [currentYear, setCurrentYear] = React.useState(new Date().getFullYear());
+  const [currentMonth, setCurrentMonth] = React.useState(() => {
+    const today = new Date();
+    return today.getMonth();
+  });
+  const [currentYear, setCurrentYear] = React.useState(() => {
+    const today = new Date();
+    return today.getFullYear();
+  });
   
   // Ref for calendar container to detect outside clicks
   const calendarRef = React.useRef(null);
@@ -1997,6 +2003,77 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       };
     }
   }, [showCalendar]);
+  
+  // Get render properties with matched condition index
+  let props = getRenderProperties(element, matchedConditionIndex);
+  
+  // Apply active styles if this element is in the active slide OR active tab
+  const shouldApplyActiveStyles = (isActiveSlide || isActiveTab) && isExecuteMode;
+  
+  if (shouldApplyActiveStyles) {
+    // Merge active properties over default properties
+    const activeProps = {};
+    Object.keys(props).forEach(key => {
+      const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+      if (props[activeKey] !== undefined) {
+        activeProps[key] = props[activeKey];
+      }
+    });
+    props = { ...props, ...activeProps };
+  }
+  
+  // Initialize calendar to valid selectable month when opened
+  React.useEffect(() => {
+    if (showCalendar && props.inputType === 'datePicker') {
+      // Parse MM/DD/YYYY format to YYYY-MM-DD
+      const parseMMDDYYYY = (dateStr) => {
+        if (!dateStr || dateStr.trim() === '') return null;
+        const parts = dateStr.trim().split('/');
+        if (parts.length !== 3) return null;
+        const month = parseInt(parts[0]);
+        const day = parseInt(parts[1]);
+        const year = parseInt(parts[2]);
+        if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+        if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) return null;
+        const date = new Date(year, month - 1, day);
+        return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+      };
+      
+      // Get date restrictions
+      const minDate = parseMMDDYYYY(props.datePickerMinDate);
+      const maxDate = parseMMDDYYYY(props.datePickerMaxDate);
+      
+      // Check if current month/year is within valid range
+      const currentMonthFirstDay = new Date(currentYear, currentMonth, 1);
+      const currentMonthLastDay = new Date(currentYear, currentMonth + 1, 0);
+      const currentMonthFirstDayStr = currentMonthFirstDay.toISOString().split('T')[0];
+      const currentMonthLastDayStr = currentMonthLastDay.toISOString().split('T')[0];
+      
+      let needsAdjustment = false;
+      let newMonth = currentMonth;
+      let newYear = currentYear;
+      
+      // If entire current month is before minimum date, move to minimum date month
+      if (minDate && currentMonthLastDayStr < minDate) {
+        const minDateObj = new Date(minDate);
+        newMonth = minDateObj.getMonth();
+        newYear = minDateObj.getFullYear();
+        needsAdjustment = true;
+      }
+      // If entire current month is after maximum date, move to maximum date month
+      else if (maxDate && currentMonthFirstDayStr > maxDate) {
+        const maxDateObj = new Date(maxDate);
+        newMonth = maxDateObj.getMonth();
+        newYear = maxDateObj.getFullYear();
+        needsAdjustment = true;
+      }
+      
+      if (needsAdjustment) {
+        setCurrentMonth(newMonth);
+        setCurrentYear(newYear);
+      }
+    }
+  }, [showCalendar, props.inputType, props.datePickerMinDate, props.datePickerMaxDate, currentMonth, currentYear]);
   
   console.log('🔵 INPUT_DEBUG: State values:', {
     elementId: element.id,
@@ -2121,24 +2198,6 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       console.log('🔵 INPUT_DEBUG: Skipping update - user has edited the input');
     }
   }, [element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isExecuteMode, isInitialized, inputValue, userHasEdited, isActiveTab, isActiveSlide]);
-  
-  // Get render properties with matched condition index
-  let props = getRenderProperties(element, matchedConditionIndex);
-  
-  // Apply active styles if this element is in the active slide OR active tab
-  const shouldApplyActiveStyles = (isActiveSlide || isActiveTab) && isExecuteMode;
-  
-  if (shouldApplyActiveStyles) {
-    // Merge active properties over default properties
-    const activeProps = {};
-    Object.keys(props).forEach(key => {
-      const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
-      if (props[activeKey] !== undefined) {
-        activeProps[key] = props[activeKey];
-      }
-    });
-    props = { ...props, ...activeProps };
-  }
   
   // Determine input type based on selected options
   const inputTypes = props.inputTypes || [];
@@ -2665,11 +2724,41 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           return <div>Unknown toggle type</div>;
         }
         
-        // Handle date picker input type
+          // Handle date picker input type
         if (props.inputType === 'datePicker') {
           const datePickerStyle = props.datePickerStyle || 'default';
           const selectMode = props.datePickerSelectMode || 'single';
           const label = props.datePickerLabel || 'Select Date';
+          
+          // Parse MM/DD/YYYY format to YYYY-MM-DD
+          const parseMMDDYYYY = (dateStr) => {
+            if (!dateStr || dateStr.trim() === '') return null;
+            const parts = dateStr.trim().split('/');
+            if (parts.length !== 3) return null;
+            const month = parseInt(parts[0]);
+            const day = parseInt(parts[1]);
+            const year = parseInt(parts[2]);
+            if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+            if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) return null;
+            const date = new Date(year, month - 1, day);
+            return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+          };
+          
+          // Get date restrictions
+          const minDate = parseMMDDYYYY(props.datePickerMinDate);
+          const maxDate = parseMMDDYYYY(props.datePickerMaxDate);
+          const disabledDatesStr = props.datePickerDisabledDates || '';
+          const disabledDates = disabledDatesStr.split(',')
+            .map(d => parseMMDDYYYY(d.trim()))
+            .filter(d => d !== null);
+          
+          // Check if a date is disabled
+          const isDateDisabled = (dateStr) => {
+            if (minDate && dateStr < minDate) return true;
+            if (maxDate && dateStr > maxDate) return true;
+            if (disabledDates.includes(dateStr)) return true;
+            return false;
+          };
           
           // Format date for display (e.g., "Jun 19, 2025")
           const formatDateForDisplay = (dateStr) => {
@@ -3037,6 +3126,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                             : (selectedStartDate === dateObj.date || selectedEndDate === dateObj.date);
                           const isInRange = selectMode === 'range' && selectedStartDate && selectedEndDate &&
                             dateObj.date >= selectedStartDate && dateObj.date <= selectedEndDate;
+                          const isDisabled = isDateDisabled(dateObj.date);
                           
                           return (
                             <div
@@ -3044,25 +3134,28 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                               style={{
                                 padding: '8px',
                                 textAlign: 'center',
-                                cursor: 'pointer',
+                                cursor: isDisabled ? 'not-allowed' : 'pointer',
                                 borderRadius: '6px',
-                                backgroundColor: isSelected ? '#007bff' : 
+                                backgroundColor: isDisabled ? '#f5f5f5' :
+                                               isSelected ? '#007bff' : 
                                                isInRange ? 'rgba(0, 123, 255, 0.1)' : 
                                                dateObj.isToday ? 'rgba(0, 123, 255, 0.05)' : 'transparent',
-                                color: isSelected ? '#ffffff' : '#333333',
+                                color: isDisabled ? '#cccccc' :
+                                       isSelected ? '#ffffff' : '#333333',
                                 fontSize: '13px',
                                 fontWeight: dateObj.isToday ? '600' : '400',
                                 transition: 'all 0.2s ease',
-                                border: dateObj.isToday && !isSelected ? '1px solid rgba(0, 123, 255, 0.3)' : '1px solid transparent'
+                                border: dateObj.isToday && !isSelected ? '1px solid rgba(0, 123, 255, 0.3)' : '1px solid transparent',
+                                opacity: isDisabled ? 0.5 : 1
                               }}
-                              onClick={() => handleDateSelect(dateObj.date)}
+                              onClick={() => !isDisabled && handleDateSelect(dateObj.date)}
                               onMouseOver={(e) => {
-                                if (!isSelected) {
+                                if (!isSelected && !isDisabled) {
                                   e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
                                 }
                               }}
                               onMouseOut={(e) => {
-                                if (!isSelected && !isInRange) {
+                                if (!isSelected && !isInRange && !isDisabled) {
                                   e.currentTarget.style.backgroundColor = dateObj.isToday ? 'rgba(0, 123, 255, 0.05)' : 'transparent';
                                 }
                               }}
@@ -3120,6 +3213,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                       : (selectedStartDate === dateObj.date || selectedEndDate === dateObj.date);
                     const isInRange = selectMode === 'range' && selectedStartDate && selectedEndDate &&
                       dateObj.date >= selectedStartDate && dateObj.date <= selectedEndDate;
+                    const isDisabled = isDateDisabled(dateObj.date);
                     
                     return (
                       <div
@@ -3129,26 +3223,29 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                           padding: '12px 8px',
                           border: `1px solid ${props.borderColor || '#ddd'}`,
                           borderRadius: `${props.borderRadiusTopLeft || 8}px`,
-                          backgroundColor: isSelected ? (props.textColor || '#007bff') : 
+                          backgroundColor: isDisabled ? '#f5f5f5' :
+                                         isSelected ? (props.textColor || '#007bff') : 
                                          isInRange ? 'rgba(0, 123, 255, 0.1)' : (props.backgroundColor || '#ffffff'),
-                          color: isSelected ? '#ffffff' : (props.textColor || '#333333'),
-                          cursor: isExecuteMode ? 'pointer' : 'default',
+                          color: isDisabled ? '#cccccc' :
+                                 isSelected ? '#ffffff' : (props.textColor || '#333333'),
+                          cursor: isDisabled ? 'not-allowed' : (isExecuteMode ? 'pointer' : 'default'),
                           textAlign: 'center',
                           display: 'flex',
                           flexDirection: 'column',
                           alignItems: 'center',
                           gap: '2px',
                           transition: 'all 0.2s ease',
-                          pointerEvents: isExecuteMode ? 'auto' : 'none'
+                          pointerEvents: isExecuteMode ? 'auto' : 'none',
+                          opacity: isDisabled ? 0.5 : 1
                         }}
-                        onClick={isExecuteMode ? () => handleDateSelect(dateObj.date) : undefined}
+                        onClick={isExecuteMode && !isDisabled ? () => handleDateSelect(dateObj.date) : undefined}
                         onMouseOver={(e) => {
-                          if (isExecuteMode && !isSelected) {
+                          if (isExecuteMode && !isSelected && !isDisabled) {
                             e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
                           }
                         }}
                         onMouseOut={(e) => {
-                          if (isExecuteMode && !isSelected && !isInRange) {
+                          if (isExecuteMode && !isSelected && !isInRange && !isDisabled) {
                             e.currentTarget.style.backgroundColor = props.backgroundColor || '#ffffff';
                           }
                         }}
