@@ -208,49 +208,8 @@ const InputStyleSettings = ({
         {(() => {
           const currentInputType = getValue('inputType') || 'text';
           
-          if (currentInputType === 'button') {
-            // Button-specific colors only
-            return (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-                  <label style={labelStyle}>
-                    Text Color:
-                  </label>
-                  <input
-                    type="color"
-                    value={getValueWithActiveMode('textColor')}
-                    onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: '30px',
-                      border: '1px solid #ddd',
-                      borderRadius: '3px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
-                  <label style={labelStyle}>
-                    Background Color:
-                  </label>
-                  <input
-                    type="color"
-                    value={getValueWithActiveMode('backgroundColor')}
-                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
-                    style={{
-                      width: '100%',
-                      height: '30px',
-                      border: '1px solid #ddd',
-                      borderRadius: '3px',
-                      cursor: 'pointer'
-                    }}
-                  />
-                </div>
-              </>
-            );
-          } else {
-            // All other input types get full color options
+          // Text Input Colors
+          if (currentInputType === 'text') {
             return (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
@@ -291,12 +250,37 @@ const InputStyleSettings = ({
 
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
                   <label style={labelStyle}>
-                    Background:
+                    Background Color:
                   </label>
                   <input
                     type="color"
-                    value={getValueWithActiveMode('boxBackgroundColor')}
-                    onChange={(e) => updatePropertyWithActiveMode('boxBackgroundColor', e.target.value)}
+                    value={getValueWithActiveMode('backgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </>
+            );
+          }
+          
+          // Dropdown Input Colors
+          else if (currentInputType === 'dropdown') {
+            return (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Text Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('textColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
                     style={{
                       width: '100%',
                       height: '30px',
@@ -307,15 +291,103 @@ const InputStyleSettings = ({
                   />
                 </div>
 
-                {currentInputType === 'dropdown' && (
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Background Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('backgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Arrow Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('arrowColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('arrowColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </>
+            );
+          }
+          
+          // Button Input Colors
+          else if (currentInputType === 'button') {
+            return (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Text Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('textColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Background Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('backgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </>
+            );
+          }
+          
+          // Toggle Input Colors
+          else if (currentInputType === 'toggle') {
+            const toggleType = getValue('toggleType') || 'radio';
+            
+            if (toggleType === 'radio') {
+              return (
+                <>
                   <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
                     <label style={labelStyle}>
-                      Arrow Color:
+                      Label Color:
                     </label>
                     <input
                       type="color"
-                      value={getValueWithActiveMode('arrowColor')}
-                      onChange={(e) => updatePropertyWithActiveMode('arrowColor', e.target.value)}
+                      value={getValueWithActiveMode('toggleLabelColor')}
+                      onChange={(e) => updatePropertyWithActiveMode('toggleLabelColor', e.target.value)}
                       style={{
                         width: '100%',
                         height: '30px',
@@ -325,10 +397,122 @@ const InputStyleSettings = ({
                       }}
                     />
                   </div>
-                )}
-              </>
-            );
+
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                    <label style={labelStyle}>
+                      Selected Color:
+                    </label>
+                    <input
+                      type="color"
+                      value={getValueWithActiveMode('toggleSelectedColor')}
+                      onChange={(e) => updatePropertyWithActiveMode('toggleSelectedColor', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+                </>
+              );
+            } else if (toggleType === 'checkbox') {
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                    <label style={labelStyle}>
+                      Label Color:
+                    </label>
+                    <input
+                      type="color"
+                      value={getValueWithActiveMode('toggleLabelColor')}
+                      onChange={(e) => updatePropertyWithActiveMode('toggleLabelColor', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                    <label style={labelStyle}>
+                      Check Color:
+                    </label>
+                    <input
+                      type="color"
+                      value={getValueWithActiveMode('toggleCheckColor')}
+                      onChange={(e) => updatePropertyWithActiveMode('toggleCheckColor', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+                </>
+              );
+            } else if (toggleType === 'switch') {
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                    <label style={labelStyle}>
+                      Switch Color:
+                    </label>
+                    <input
+                      type="color"
+                      value={getValueWithActiveMode('toggleSwitchColor')}
+                      onChange={(e) => updatePropertyWithActiveMode('toggleSwitchColor', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                    <label style={labelStyle}>
+                      Thumb Color:
+                    </label>
+                    <input
+                      type="color"
+                      value={getValueWithActiveMode('toggleThumbColor')}
+                      onChange={(e) => updatePropertyWithActiveMode('toggleThumbColor', e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '30px',
+                        border: '1px solid #ddd',
+                        borderRadius: '3px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                  </div>
+                </>
+              );
+            }
           }
+          
+          // Default fallback for other input types
+          return (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              textAlign: 'center',
+              color: '#666',
+              fontSize: '12px'
+            }}>
+              Color options will be available for this input type soon.
+            </div>
+          );
         })()}
       </div>
 
@@ -860,8 +1044,238 @@ const InputContentSettings = ({
         </div>
       )}
 
+      {/* Toggle Configuration */}
+      {currentInputType === 'toggle' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#fff5f5',
+          borderRadius: '6px',
+          border: '1px solid #ffc0cb'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '12px'
+          }}>
+            Toggle Configuration:
+          </label>
+          
+          {/* Toggle Type Selection */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#333',
+              marginBottom: '8px'
+            }}>
+              Toggle Type:
+            </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Radio Option */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  id="toggle-radio"
+                  name="toggleType"
+                  value="radio"
+                  checked={getValue('toggleType') === 'radio' || !getValue('toggleType')}
+                  onChange={(e) => handleInputChange('toggleType', e.target.value)}
+                />
+                <label htmlFor="toggle-radio" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Radio (single selection from options)
+                </label>
+              </div>
+              
+              {/* Checkbox Option */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  id="toggle-checkbox"
+                  name="toggleType"
+                  value="checkbox"
+                  checked={getValue('toggleType') === 'checkbox'}
+                  onChange={(e) => handleInputChange('toggleType', e.target.value)}
+                />
+                <label htmlFor="toggle-checkbox" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Checkbox (on/off toggle)
+                </label>
+              </div>
+              
+              {/* Switch Option */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  id="toggle-switch"
+                  name="toggleType"
+                  value="switch"
+                  checked={getValue('toggleType') === 'switch'}
+                  onChange={(e) => handleInputChange('toggleType', e.target.value)}
+                />
+                <label htmlFor="toggle-switch" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Switch (modern toggle)
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Radio-specific Configuration */}
+          {(getValue('toggleType') === 'radio' || !getValue('toggleType')) && (
+            <div style={{
+              marginBottom: '12px',
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <h5 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '600', color: '#333' }}>
+                Radio Options:
+              </h5>
+              
+              {/* Selected Option SuperText */}
+              <div style={{ marginBottom: '12px' }}>
+                <SuperText
+                  label="Selected Option"
+                  placeholder="Enter the currently selected option..."
+                  value={getValue('radioSelectedOption')}
+                  onChange={(value) => handleInputChange('radioSelectedOption', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              {/* Available Options SuperText */}
+              <div style={{ marginBottom: '8px' }}>
+                <SuperText
+                  label="Available Options"
+                  placeholder="Enter options separated by commas (e.g., Option 1, Option 2, Option 3)"
+                  value={getValue('radioAvailableOptions')}
+                  onChange={(value) => handleInputChange('radioAvailableOptions', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              <div style={{
+                fontSize: '11px',
+                color: '#0066cc',
+                padding: '4px 8px',
+                backgroundColor: '#e6f3ff',
+                borderRadius: '3px'
+              }}>
+                💡 Tip: Separate options with commas. Only one option can be selected at a time.
+              </div>
+            </div>
+          )}
+
+          {/* Checkbox-specific Configuration */}
+          {getValue('toggleType') === 'checkbox' && (
+            <div style={{
+              marginBottom: '12px',
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <h5 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '600', color: '#333' }}>
+                Checkbox Options:
+              </h5>
+              
+              {/* Label SuperText */}
+              <div style={{ marginBottom: '8px' }}>
+                <SuperText
+                  label="Label Text"
+                  placeholder="Enter checkbox label (e.g., Toggle)"
+                  value={getValue('checkboxLabel')}
+                  onChange={(value) => handleInputChange('checkboxLabel', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              <div style={{
+                fontSize: '11px',
+                color: '#0066cc',
+                padding: '4px 8px',
+                backgroundColor: '#e6f3ff',
+                borderRadius: '3px'
+              }}>
+                💡 Tip: The label text will be displayed next to the checkbox.
+              </div>
+            </div>
+          )}
+
+          {/* Switch-specific Configuration */}
+          {getValue('toggleType') === 'switch' && (
+            <div style={{
+              marginBottom: '12px',
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <h5 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '600', color: '#333' }}>
+                Switch Options:
+              </h5>
+              
+              {/* Label SuperText */}
+              <div style={{ marginBottom: '8px' }}>
+                <SuperText
+                  label="Label Text"
+                  placeholder="Enter switch label (optional)"
+                  value={getValue('switchLabel')}
+                  onChange={(value) => handleInputChange('switchLabel', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              <div style={{
+                fontSize: '11px',
+                color: '#0066cc',
+                padding: '4px 8px',
+                backgroundColor: '#e6f3ff',
+                borderRadius: '3px'
+              }}>
+                💡 Tip: The label text will be displayed next to the switch. Leave blank for no label.
+              </div>
+            </div>
+          )}
+          
+          <div style={{
+            fontSize: '11px',
+            color: '#d63384',
+            padding: '4px 8px',
+            backgroundColor: '#fff0f3',
+            borderRadius: '3px'
+          }}>
+            💡 Tip: Choose the toggle type that best fits your use case. Radio for multiple options, Checkbox for on/off, Switch for modern toggle.
+          </div>
+        </div>
+      )}
+
       {/* Show placeholder for other input types */}
-      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && (
+      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && (
         <div style={{
           marginBottom: '16px',
           padding: '16px',
@@ -1271,6 +1685,19 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   const [isInitialized, setIsInitialized] = React.useState(false);
   const [userHasEdited, setUserHasEdited] = React.useState(false);
   
+  // State for toggle value
+  const [toggleValue, setToggleValue] = React.useState(() => {
+    const toggleType = element.properties?.toggleType || 'radio';
+    if (toggleType === 'radio') {
+      return element.properties?.radioSelectedOption || '';
+    } else if (toggleType === 'checkbox') {
+      return false;
+    } else if (toggleType === 'switch') {
+      return false;
+    }
+    return '';
+  });
+  
   console.log('🔵 INPUT_DEBUG: State values:', {
     elementId: element.id,
     inputValue,
@@ -1437,7 +1864,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
     
     // Colors
     color: props.textColor || '#333333',
-    backgroundColor: props.boxBackgroundColor || '#ffffff',
+    backgroundColor: props.backgroundColor || '#ffffff',
     
     // Spacing
     marginTop: `${props.marginTop || 0}px`,
@@ -1738,6 +2165,206 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           );
         }
         
+        // Handle toggle input type
+        if (props.inputType === 'toggle') {
+          const toggleType = props.toggleType || 'radio';
+          
+          // Handle toggle change
+          const handleToggleChange = (newValue) => {
+            setToggleValue(newValue);
+            setUserHasEdited(true);
+            
+            // Update calculation engine
+            if (!window.elementValues) {
+              window.elementValues = {};
+            }
+            window.elementValues[element.id] = newValue;
+            
+            // Trigger calculation update
+            if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+              window.__v2ExecutionEngine.triggerCalculationUpdate();
+            }
+          };
+          
+          // Radio toggle
+          if (toggleType === 'radio') {
+            const availableOptionsStr = props.radioAvailableOptions || '';
+            let optionsArray = availableOptionsStr.split(',').map(opt => opt.trim()).filter(opt => opt.length > 0);
+            
+            // Check if options contain calculations
+            const hasCalculations = availableOptionsStr.includes('{{CALC:');
+            
+            // In builder mode (not execute mode)
+            if (!isExecuteMode) {
+              if (optionsArray.length === 0) {
+                // Show default "Option 1" if no options are configured
+                optionsArray = ['Option 1'];
+              } else if (hasCalculations) {
+                // Show default "Option 1" if options contain calculations
+                optionsArray = ['Option 1'];
+              }
+              // If options are simple text, show all of them (no change to optionsArray)
+            } else {
+              // In execute mode, show all options or defaults
+              if (optionsArray.length === 0) {
+                optionsArray = ['Option 1', 'Option 2', 'Option 3'];
+              }
+            }
+            
+            return (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {optionsArray.map((option, index) => {
+                  const isSelected = isExecuteMode ? toggleValue === option : props.radioSelectedOption === option;
+                  
+                  return (
+                    <label key={index} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: isExecuteMode ? 'pointer' : 'default',
+                      color: props.toggleLabelColor || '#333333',
+                      fontSize: `${props.fontSize || 16}px`,
+                      fontWeight: props.fontWeight || '400'
+                    }}>
+                      {/* Custom Radio Button */}
+                      <div
+                        style={{
+                          position: 'relative',
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          border: '1px solid #d1d5db',
+                          backgroundColor: '#ffffff',
+                          transition: 'all 0.2s ease',
+                          cursor: isExecuteMode ? 'pointer' : 'default',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onClick={isExecuteMode ? () => handleToggleChange(option) : undefined}
+                      >
+                        {/* Inner dot when selected */}
+                        {isSelected && (
+                          <div
+                            style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: props.toggleSelectedColor || '#007bff',
+                              transition: 'all 0.2s ease'
+                            }}
+                          />
+                        )}
+                      </div>
+                      <span onClick={isExecuteMode ? () => handleToggleChange(option) : undefined}>
+                        {option}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            );
+          }
+          
+          // Checkbox toggle
+          if (toggleType === 'checkbox') {
+            return (
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: isExecuteMode ? 'pointer' : 'default',
+                color: props.toggleLabelColor || '#333333',
+                fontSize: `${props.fontSize || 16}px`,
+                fontWeight: props.fontWeight || '400'
+              }}>
+                <div style={{
+                  position: 'relative',
+                  width: '20px',
+                  height: '20px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '4px',
+                  backgroundColor: '#ffffff',
+                  transition: 'all 0.2s ease',
+                  cursor: isExecuteMode ? 'pointer' : 'default'
+                }}
+                onClick={isExecuteMode ? () => handleToggleChange(!toggleValue) : undefined}
+                >
+                  {(isExecuteMode ? toggleValue : false) && (
+                    <svg
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '12px',
+                        height: '12px',
+                        fill: props.toggleCheckColor || '#ffffff'
+                      }}
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                  )}
+                </div>
+                <span onClick={isExecuteMode ? () => handleToggleChange(!toggleValue) : undefined}>
+                  {props.checkboxLabel || 'Toggle'}
+                </span>
+              </label>
+            );
+          }
+          
+          // Switch toggle
+          if (toggleType === 'switch') {
+            const switchWidth = 50;
+            const switchHeight = 24;
+            const thumbSize = 18;
+            const thumbOffset = 3;
+            
+            return (
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: isExecuteMode ? 'pointer' : 'default',
+                color: props.toggleLabelColor || '#333333',
+                fontSize: `${props.fontSize || 16}px`,
+                fontWeight: props.fontWeight || '400'
+              }}>
+                <div
+                  style={{
+                    position: 'relative',
+                    width: `${switchWidth}px`,
+                    height: `${switchHeight}px`,
+                    borderRadius: `${switchHeight / 2}px`,
+                    backgroundColor: props.toggleSwitchColor || '#007bff',
+                    transition: 'all 0.3s ease',
+                    cursor: isExecuteMode ? 'pointer' : 'default'
+                  }}
+                  onClick={isExecuteMode ? () => handleToggleChange(!toggleValue) : undefined}
+                >
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: `${thumbOffset}px`,
+                      left: (isExecuteMode && toggleValue) ? `${switchWidth - thumbSize - thumbOffset}px` : `${thumbOffset}px`,
+                      width: `${thumbSize}px`,
+                      height: `${thumbSize}px`,
+                      borderRadius: '50%',
+                      backgroundColor: props.toggleThumbColor || '#ffffff',
+                      transition: 'all 0.3s ease',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }}
+                  />
+                </div>
+                <span>{props.switchLabel || ''}</span>
+              </label>
+            );
+          }
+          
+          return <div>Unknown toggle type</div>;
+        }
+        
         // Handle text input types (textarea and regular inputs)
         return isTextarea ? (
           <textarea
@@ -1821,6 +2448,13 @@ export const InputElement = {
     // Button Configuration
     buttonLabel: 'Click Me',
     
+    // Toggle Configuration
+    toggleType: 'radio', // 'radio', 'checkbox', 'switch'
+    radioSelectedOption: '',
+    radioAvailableOptions: '',
+    checkboxLabel: 'Label',
+    switchLabel: '',
+    
     // Typography
     fontSize: 16,
     fontWeight: '400',
@@ -1833,6 +2467,15 @@ export const InputElement = {
     arrowColor: '#666666',
     labelColor: '#333333', // Button label color
     backgroundColor: '#ffffff', // Button background color
+    
+    // Toggle Colors
+    toggleLabelColor: '#333333',
+    toggleUnselectedColor: '#e0e0e0',
+    toggleSelectedColor: '#007bff',
+    toggleBackgroundColor: '#007bff',
+    toggleCheckColor: '#007bff',
+    toggleSwitchColor: '#6b7280',
+    toggleThumbColor: '#ffffff',
     
     // Spacing
     marginTop: 0,

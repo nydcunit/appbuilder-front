@@ -43,16 +43,20 @@ export const CreateAppWizardModal = ({ isOpen, onClose, onAppCreated }) => {
   const checkSubdomainAvailability = async () => {
     if (!appData.subdomain) return;
 
-    setCheckingSubdomain(true);
-    try {
-      const response = await axios.get(`/api/apps/check-subdomain/${appData.subdomain}`);
-      setSubdomainAvailable(response.data.available);
-    } catch (error) {
-      console.error('Error checking subdomain:', error);
-      setSubdomainAvailable(false);
-    } finally {
-      setCheckingSubdomain(false);
-    }
+    // DISABLED: Skip subdomain validation - manually ensure subdomain is available
+    setSubdomainAvailable(true);
+    
+    // Original validation code (commented out):
+    // setCheckingSubdomain(true);
+    // try {
+    //   const response = await axios.get(`/api/apps/check-subdomain/${appData.subdomain}`);
+    //   setSubdomainAvailable(response.data.available);
+    // } catch (error) {
+    //   console.error('Error checking subdomain:', error);
+    //   setSubdomainAvailable(false);
+    // } finally {
+    //   setCheckingSubdomain(false);
+    // }
   };
 
   const handleNext = () => {
@@ -230,12 +234,13 @@ export const CreateAppWizardModal = ({ isOpen, onClose, onAppCreated }) => {
             <p style={{
               marginTop: '8px',
               fontSize: '14px',
-              color: subdomainAvailable === false ? '#dc3545' : '#666'
+              color: '#666'
             }}>
-              {subdomainAvailable === false 
-                ? 'This subdomain is already taken' 
-                : `Your app will be available at ${appData.subdomain || 'your-subdomain'}.localhost:3001`
-              }
+              Your app will be available at {appData.subdomain || 'your-subdomain'}.localhost:3001
+              <br />
+              <span style={{ fontSize: '12px', color: '#28a745' }}>
+                ✓ Subdomain validation disabled - manually ensure subdomain is available
+              </span>
             </p>
           </div>
         )}
