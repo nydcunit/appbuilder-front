@@ -500,6 +500,67 @@ const InputStyleSettings = ({
             }
           }
           
+          // Date Picker Input Colors
+          else if (currentInputType === 'datePicker') {
+            return (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Text Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('textColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Background Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('backgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Icon Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('arrowColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('arrowColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </>
+            );
+          }
+          
           // Default fallback for other input types
           return (
             <div style={{
@@ -1274,8 +1335,220 @@ const InputContentSettings = ({
         </div>
       )}
 
+      {/* Date Picker Configuration */}
+      {currentInputType === 'datePicker' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#fff0f5',
+          borderRadius: '6px',
+          border: '1px solid #ffc0cb'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '12px'
+          }}>
+            Date Picker Configuration:
+          </label>
+          
+          {/* Date Picker Style Selection */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#333',
+              marginBottom: '8px'
+            }}>
+              Style:
+            </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Default Style Option */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  id="datepicker-default"
+                  name="datePickerStyle"
+                  value="default"
+                  checked={getValue('datePickerStyle') === 'default' || !getValue('datePickerStyle')}
+                  onChange={(e) => handleInputChange('datePickerStyle', e.target.value)}
+                />
+                <label htmlFor="datepicker-default" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Default (normal input style with dropdown icon)
+                </label>
+              </div>
+              
+              {/* Bar Style Option */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  id="datepicker-bar"
+                  name="datePickerStyle"
+                  value="bar"
+                  checked={getValue('datePickerStyle') === 'bar'}
+                  onChange={(e) => handleInputChange('datePickerStyle', e.target.value)}
+                />
+                <label htmlFor="datepicker-bar" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Bar (horizontal calendar picker)
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Select Mode Selection */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#333',
+              marginBottom: '8px'
+            }}>
+              Select Mode:
+            </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Single Date Option */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  id="datepicker-single"
+                  name="datePickerSelectMode"
+                  value="single"
+                  checked={getValue('datePickerSelectMode') === 'single' || !getValue('datePickerSelectMode')}
+                  onChange={(e) => handleInputChange('datePickerSelectMode', e.target.value)}
+                />
+                <label htmlFor="datepicker-single" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Single Date
+                </label>
+              </div>
+              
+              {/* Date Range Option */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="radio"
+                  id="datepicker-range"
+                  name="datePickerSelectMode"
+                  value="range"
+                  checked={getValue('datePickerSelectMode') === 'range'}
+                  onChange={(e) => handleInputChange('datePickerSelectMode', e.target.value)}
+                />
+                <label htmlFor="datepicker-range" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Date Range
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* SuperText Options */}
+          <div style={{
+            marginBottom: '12px',
+            padding: '12px',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '4px',
+            border: '1px solid #e0e0e0'
+          }}>
+            <h5 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '600', color: '#333' }}>
+              SuperText Options:
+            </h5>
+            
+            {/* Label SuperText */}
+            <div style={{ marginBottom: '12px' }}>
+              <SuperText
+                label="Label"
+                placeholder="Enter label text (e.g., Select Date)"
+                value={getValue('datePickerLabel')}
+                onChange={(value) => handleInputChange('datePickerLabel', value)}
+                availableElements={availableElements}
+                screens={screens}
+                currentScreenId={currentScreenId}
+              />
+            </div>
+            
+            {/* Minimum Date SuperText */}
+            <div style={{ marginBottom: '12px' }}>
+              <SuperText
+                label="Minimum Date"
+                placeholder="Enter minimum date (YYYY-MM-DD format)"
+                value={getValue('datePickerMinDate')}
+                onChange={(value) => handleInputChange('datePickerMinDate', value)}
+                availableElements={availableElements}
+                screens={screens}
+                currentScreenId={currentScreenId}
+              />
+            </div>
+            
+            {/* Maximum Date SuperText */}
+            <div style={{ marginBottom: '12px' }}>
+              <SuperText
+                label="Maximum Date"
+                placeholder="Enter maximum date (YYYY-MM-DD format)"
+                value={getValue('datePickerMaxDate')}
+                onChange={(value) => handleInputChange('datePickerMaxDate', value)}
+                availableElements={availableElements}
+                screens={screens}
+                currentScreenId={currentScreenId}
+              />
+            </div>
+            
+            {/* Disabled Dates SuperText */}
+            <div style={{ marginBottom: '8px' }}>
+              <SuperText
+                label="Disabled Dates"
+                placeholder="Enter disabled dates separated by commas (YYYY-MM-DD,YYYY-MM-DD)"
+                value={getValue('datePickerDisabledDates')}
+                onChange={(value) => handleInputChange('datePickerDisabledDates', value)}
+                availableElements={availableElements}
+                screens={screens}
+                currentScreenId={currentScreenId}
+              />
+            </div>
+            
+            <div style={{
+              fontSize: '11px',
+              color: '#0066cc',
+              padding: '4px 8px',
+              backgroundColor: '#e6f3ff',
+              borderRadius: '3px'
+            }}>
+              💡 Tip: Use YYYY-MM-DD format for dates. Separate multiple disabled dates with commas.
+            </div>
+          </div>
+          
+          <div style={{
+            fontSize: '11px',
+            color: '#d63384',
+            padding: '4px 8px',
+            backgroundColor: '#fff0f3',
+            borderRadius: '3px'
+          }}>
+            💡 Tip: Choose Default style for traditional date picker or Bar style for horizontal calendar view.
+          </div>
+        </div>
+      )}
+
       {/* Show placeholder for other input types */}
-      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && (
+      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && currentInputType !== 'datePicker' && (
         <div style={{
           marginBottom: '16px',
           padding: '16px',
@@ -1697,6 +1970,33 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
     }
     return '';
   });
+  
+  // State for date picker
+  const [selectedDate, setSelectedDate] = React.useState('');
+  const [selectedStartDate, setSelectedStartDate] = React.useState('');
+  const [selectedEndDate, setSelectedEndDate] = React.useState('');
+  const [showCalendar, setShowCalendar] = React.useState(false);
+  const [currentMonth, setCurrentMonth] = React.useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = React.useState(new Date().getFullYear());
+  
+  // Ref for calendar container to detect outside clicks
+  const calendarRef = React.useRef(null);
+  
+  // Close calendar when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (calendarRef.current && !calendarRef.current.contains(event.target)) {
+        setShowCalendar(false);
+      }
+    };
+    
+    if (showCalendar) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showCalendar]);
   
   console.log('🔵 INPUT_DEBUG: State values:', {
     elementId: element.id,
@@ -2365,6 +2665,517 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           return <div>Unknown toggle type</div>;
         }
         
+        // Handle date picker input type
+        if (props.inputType === 'datePicker') {
+          const datePickerStyle = props.datePickerStyle || 'default';
+          const selectMode = props.datePickerSelectMode || 'single';
+          const label = props.datePickerLabel || 'Select Date';
+          
+          // Format date for display (e.g., "Jun 19, 2025")
+          const formatDateForDisplay = (dateStr) => {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { 
+              month: 'short', 
+              day: 'numeric', 
+              year: 'numeric' 
+            });
+          };
+          
+          // Handle date selection
+          const handleDateSelect = (date) => {
+            if (selectMode === 'single') {
+              setSelectedDate(date);
+              const displayValue = formatDateForDisplay(date);
+              setInputValue(displayValue);
+              setUserHasEdited(true);
+              setShowCalendar(false);
+              
+              // Update calculation engine with original date format
+              if (!window.elementValues) {
+                window.elementValues = {};
+              }
+              window.elementValues[element.id] = date; // Keep YYYY-MM-DD for calculations
+              
+              // Trigger calculation update
+              if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+                window.__v2ExecutionEngine.triggerCalculationUpdate();
+              }
+            } else if (selectMode === 'range') {
+              if (!selectedStartDate || (selectedStartDate && selectedEndDate)) {
+                // Start new range
+                setSelectedStartDate(date);
+                setSelectedEndDate('');
+                const displayValue = formatDateForDisplay(date);
+                setInputValue(displayValue);
+                setUserHasEdited(true);
+              } else {
+                // Complete range
+                const startDate = new Date(selectedStartDate);
+                const endDate = new Date(date);
+                if (endDate >= startDate) {
+                  setSelectedEndDate(date);
+                  const startDisplay = formatDateForDisplay(selectedStartDate);
+                  const endDisplay = formatDateForDisplay(date);
+                  const rangeValue = `${startDisplay} to ${endDisplay}`;
+                  setInputValue(rangeValue);
+                  setUserHasEdited(true);
+                  setShowCalendar(false);
+                } else {
+                  // If end date is before start date, swap them
+                  setSelectedStartDate(date);
+                  setSelectedEndDate(selectedStartDate);
+                  const startDisplay = formatDateForDisplay(date);
+                  const endDisplay = formatDateForDisplay(selectedStartDate);
+                  const rangeValue = `${startDisplay} to ${endDisplay}`;
+                  setInputValue(rangeValue);
+                  setUserHasEdited(true);
+                  setShowCalendar(false);
+                }
+              }
+              
+              // Update calculation engine with range in original format
+              if (!window.elementValues) {
+                window.elementValues = {};
+              }
+              const rangeForCalc = selectedEndDate ? `${selectedStartDate} to ${date}` : date;
+              window.elementValues[element.id] = rangeForCalc;
+              
+              // Trigger calculation update
+              if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+                window.__v2ExecutionEngine.triggerCalculationUpdate();
+              }
+            }
+          };
+          
+          // Generate calendar dates for current month
+          const generateCalendarDates = () => {
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            const firstDay = new Date(currentYear, currentMonth, 1);
+            const lastDay = new Date(currentYear, currentMonth + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            
+            const dates = [];
+            for (let i = 1; i <= daysInMonth; i++) {
+              const date = new Date(currentYear, currentMonth, i);
+              const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+              dates.push({
+                date: dateStr,
+                day: i,
+                dayName: date.toLocaleDateString('en-US', { weekday: 'short' })
+              });
+            }
+            return dates;
+          };
+          
+          // Generate next 7 days for bar style
+          const generateBarDates = () => {
+            const dates = [];
+            const today = new Date();
+            for (let i = 0; i < 7; i++) {
+              const date = new Date(today);
+              date.setDate(today.getDate() + i);
+              const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+              dates.push({
+                date: dateStr,
+                day: date.getDate(),
+                dayName: date.toLocaleDateString('en-US', { weekday: 'short' })
+              });
+            }
+            return dates;
+          };
+          
+          // Default style (input with dropdown)
+          if (datePickerStyle === 'default') {
+            return (
+              <div style={{ position: 'relative' }}>
+                {/* Input field */}
+                <div
+                  style={{
+                    ...inputStyle,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    cursor: isExecuteMode ? 'pointer' : 'default',
+                    pointerEvents: isExecuteMode ? 'auto' : 'none'
+                  }}
+                  onClick={isExecuteMode ? () => setShowCalendar(!showCalendar) : undefined}
+                >
+                  <span style={{ 
+                    color: props.textColor || '#333333',
+                    flex: 1
+                  }}>
+                    {inputValue || (props.datePickerLabel || 'Select date')}
+                  </span>
+                  <svg
+                    style={{
+                      width: '16px',
+                      height: '16px',
+                      stroke: props.arrowColor || '#666666',
+                      flexShrink: 0
+                    }}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                </div>
+                
+                {/* Calendar popup */}
+                {showCalendar && isExecuteMode && (
+                  <div 
+                    ref={calendarRef}
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 4px)',
+                      left: 0,
+                      minWidth: '280px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '8px',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                      zIndex: 1000,
+                      padding: '16px'
+                    }}>
+                    {/* Calendar Header with Navigation */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '12px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      color: '#333333'
+                    }}>
+                      {/* Previous Month Button */}
+                      <button
+                        onClick={() => {
+                          if (currentMonth === 0) {
+                            setCurrentMonth(11);
+                            setCurrentYear(currentYear - 1);
+                          } else {
+                            setCurrentMonth(currentMonth - 1);
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          color: '#666666',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        ‹
+                      </button>
+                      
+                      {/* Month/Year Display with Dropdowns */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {/* Month Selector */}
+                        <select
+                          value={currentMonth}
+                          onChange={(e) => setCurrentMonth(parseInt(e.target.value))}
+                          style={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            backgroundColor: '#ffffff',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {[
+                            'January', 'February', 'March', 'April', 'May', 'June',
+                            'July', 'August', 'September', 'October', 'November', 'December'
+                          ].map((month, index) => (
+                            <option key={index} value={index}>
+                              {month}
+                            </option>
+                          ))}
+                        </select>
+                        
+                        {/* Year Selector */}
+                        <select
+                          value={currentYear}
+                          onChange={(e) => setCurrentYear(parseInt(e.target.value))}
+                          style={{
+                            border: '1px solid #e0e0e0',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            backgroundColor: '#ffffff',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {(() => {
+                            const years = [];
+                            const currentYearActual = new Date().getFullYear();
+                            for (let year = currentYearActual - 100; year <= currentYearActual + 10; year++) {
+                              years.push(year);
+                            }
+                            return years.map(year => (
+                              <option key={year} value={year}>
+                                {year}
+                              </option>
+                            ));
+                          })()}
+                        </select>
+                      </div>
+                      
+                      {/* Next Month Button */}
+                      <button
+                        onClick={() => {
+                          if (currentMonth === 11) {
+                            setCurrentMonth(0);
+                            setCurrentYear(currentYear + 1);
+                          } else {
+                            setCurrentMonth(currentMonth + 1);
+                          }
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '16px',
+                          color: '#666666',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        ›
+                      </button>
+                    </div>
+                    
+                    {/* Day headers */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(7, 1fr)',
+                      gap: '2px',
+                      marginBottom: '8px'
+                    }}>
+                      {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            padding: '6px 4px',
+                            textAlign: 'center',
+                            fontSize: '11px',
+                            fontWeight: '500',
+                            color: '#666666'
+                          }}
+                        >
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Calendar dates */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(7, 1fr)',
+                      gap: '2px'
+                    }}>
+                      {(() => {
+                        const today = new Date();
+                        const firstDay = new Date(currentYear, currentMonth, 1);
+                        const lastDay = new Date(currentYear, currentMonth + 1, 0);
+                        const daysInMonth = lastDay.getDate();
+                        const startingDayOfWeek = firstDay.getDay();
+                        
+                        const calendarDays = [];
+                        
+                        // Add empty cells for days before the first day of the month
+                        for (let i = 0; i < startingDayOfWeek; i++) {
+                          calendarDays.push(null);
+                        }
+                        
+                        // Add all days of the month
+                        for (let day = 1; day <= daysInMonth; day++) {
+                          const date = new Date(currentYear, currentMonth, day);
+                          const dateStr = date.toISOString().split('T')[0];
+                          calendarDays.push({
+                            date: dateStr,
+                            day: day,
+                            isToday: dateStr === today.toISOString().split('T')[0]
+                          });
+                        }
+                        
+                        return calendarDays.map((dateObj, index) => {
+                          if (!dateObj) {
+                            return <div key={index} style={{ padding: '8px' }}></div>;
+                          }
+                          
+                          const isSelected = selectMode === 'single' 
+                            ? selectedDate === dateObj.date
+                            : (selectedStartDate === dateObj.date || selectedEndDate === dateObj.date);
+                          const isInRange = selectMode === 'range' && selectedStartDate && selectedEndDate &&
+                            dateObj.date >= selectedStartDate && dateObj.date <= selectedEndDate;
+                          
+                          return (
+                            <div
+                              key={index}
+                              style={{
+                                padding: '8px',
+                                textAlign: 'center',
+                                cursor: 'pointer',
+                                borderRadius: '6px',
+                                backgroundColor: isSelected ? '#007bff' : 
+                                               isInRange ? 'rgba(0, 123, 255, 0.1)' : 
+                                               dateObj.isToday ? 'rgba(0, 123, 255, 0.05)' : 'transparent',
+                                color: isSelected ? '#ffffff' : '#333333',
+                                fontSize: '13px',
+                                fontWeight: dateObj.isToday ? '600' : '400',
+                                transition: 'all 0.2s ease',
+                                border: dateObj.isToday && !isSelected ? '1px solid rgba(0, 123, 255, 0.3)' : '1px solid transparent'
+                              }}
+                              onClick={() => handleDateSelect(dateObj.date)}
+                              onMouseOver={(e) => {
+                                if (!isSelected) {
+                                  e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                                }
+                              }}
+                              onMouseOut={(e) => {
+                                if (!isSelected && !isInRange) {
+                                  e.currentTarget.style.backgroundColor = dateObj.isToday ? 'rgba(0, 123, 255, 0.05)' : 'transparent';
+                                }
+                              }}
+                            >
+                              {dateObj.day}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                    
+                    {/* Close button */}
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginTop: '12px',
+                      paddingTop: '12px',
+                      borderTop: '1px solid #f0f0f0'
+                    }}>
+                      <button
+                        onClick={() => setShowCalendar(false)}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#f8f9fa',
+                          border: '1px solid #e0e0e0',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          color: '#666666'
+                        }}
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
+          
+          // Bar style (horizontal calendar)
+          if (datePickerStyle === 'bar') {
+            return (
+              <div>
+                {/* Bar dates */}
+                <div style={{
+                  display: 'flex',
+                  gap: '8px',
+                  overflowX: 'auto',
+                  padding: '8px 0'
+                }}>
+                  {generateBarDates().map((dateObj, index) => {
+                    const isSelected = selectMode === 'single' 
+                      ? selectedDate === dateObj.date
+                      : (selectedStartDate === dateObj.date || selectedEndDate === dateObj.date);
+                    const isInRange = selectMode === 'range' && selectedStartDate && selectedEndDate &&
+                      dateObj.date >= selectedStartDate && dateObj.date <= selectedEndDate;
+                    
+                    return (
+                      <div
+                        key={index}
+                        style={{
+                          minWidth: '60px',
+                          padding: '12px 8px',
+                          border: `1px solid ${props.borderColor || '#ddd'}`,
+                          borderRadius: `${props.borderRadiusTopLeft || 8}px`,
+                          backgroundColor: isSelected ? (props.textColor || '#007bff') : 
+                                         isInRange ? 'rgba(0, 123, 255, 0.1)' : (props.backgroundColor || '#ffffff'),
+                          color: isSelected ? '#ffffff' : (props.textColor || '#333333'),
+                          cursor: isExecuteMode ? 'pointer' : 'default',
+                          textAlign: 'center',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px',
+                          transition: 'all 0.2s ease',
+                          pointerEvents: isExecuteMode ? 'auto' : 'none'
+                        }}
+                        onClick={isExecuteMode ? () => handleDateSelect(dateObj.date) : undefined}
+                        onMouseOver={(e) => {
+                          if (isExecuteMode && !isSelected) {
+                            e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                          }
+                        }}
+                        onMouseOut={(e) => {
+                          if (isExecuteMode && !isSelected && !isInRange) {
+                            e.currentTarget.style.backgroundColor = props.backgroundColor || '#ffffff';
+                          }
+                        }}
+                      >
+                        <div style={{
+                          fontSize: '10px',
+                          opacity: 0.7
+                        }}>
+                          {dateObj.dayName}
+                        </div>
+                        <div style={{
+                          fontSize: '16px',
+                          fontWeight: '600'
+                        }}>
+                          {dateObj.day}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+          
+          return <div>Unknown date picker style</div>;
+        }
+        
         // Handle text input types (textarea and regular inputs)
         return isTextarea ? (
           <textarea
@@ -2454,6 +3265,14 @@ export const InputElement = {
     radioAvailableOptions: '',
     checkboxLabel: 'Label',
     switchLabel: '',
+    
+    // Date Picker Configuration
+    datePickerStyle: 'default', // 'default', 'bar'
+    datePickerSelectMode: 'single', // 'single', 'range'
+    datePickerLabel: 'Select Date',
+    datePickerMinDate: '',
+    datePickerMaxDate: '',
+    datePickerDisabledDates: '',
     
     // Typography
     fontSize: 16,
