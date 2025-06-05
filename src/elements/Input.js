@@ -1977,11 +1977,51 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   const [selectedEndDate, setSelectedEndDate] = React.useState('');
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [currentMonth, setCurrentMonth] = React.useState(() => {
+    // Parse MM/DD/YYYY format to get minimum date
+    const parseMMDDYYYY = (dateStr) => {
+      if (!dateStr || dateStr.trim() === '') return null;
+      const parts = dateStr.trim().split('/');
+      if (parts.length !== 3) return null;
+      const month = parseInt(parts[0]);
+      const day = parseInt(parts[1]);
+      const year = parseInt(parts[2]);
+      if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+      if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) return null;
+      return new Date(year, month - 1, day);
+    };
+    
     const today = new Date();
+    const minDate = parseMMDDYYYY(element.properties?.datePickerMinDate);
+    
+    // If there's a minimum date and it's after today, start with the minimum date's month
+    if (minDate && minDate > today) {
+      return minDate.getMonth();
+    }
+    
     return today.getMonth();
   });
   const [currentYear, setCurrentYear] = React.useState(() => {
+    // Parse MM/DD/YYYY format to get minimum date
+    const parseMMDDYYYY = (dateStr) => {
+      if (!dateStr || dateStr.trim() === '') return null;
+      const parts = dateStr.trim().split('/');
+      if (parts.length !== 3) return null;
+      const month = parseInt(parts[0]);
+      const day = parseInt(parts[1]);
+      const year = parseInt(parts[2]);
+      if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
+      if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) return null;
+      return new Date(year, month - 1, day);
+    };
+    
     const today = new Date();
+    const minDate = parseMMDDYYYY(element.properties?.datePickerMinDate);
+    
+    // If there's a minimum date and it's after today, start with the minimum date's year
+    if (minDate && minDate > today) {
+      return minDate.getFullYear();
+    }
+    
     return today.getFullYear();
   });
   
@@ -2043,7 +2083,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       const minDate = parseMMDDYYYY(props.datePickerMinDate);
       const maxDate = parseMMDDYYYY(props.datePickerMaxDate);
       
-      // Check if current month/year is within valid range
+      // Check if current month/year has any valid selectable dates
       const currentMonthFirstDay = new Date(currentYear, currentMonth, 1);
       const currentMonthLastDay = new Date(currentYear, currentMonth + 1, 0);
       const currentMonthFirstDayStr = currentMonthFirstDay.toISOString().split('T')[0];
@@ -2053,19 +2093,43 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       let newMonth = currentMonth;
       let newYear = currentYear;
       
-      // If entire current month is before minimum date, move to minimum date month
+      // If there's a minimum date and the entire current month is before it, move to minimum date month
       if (minDate && currentMonthLastDayStr < minDate) {
         const minDateObj = new Date(minDate);
         newMonth = minDateObj.getMonth();
         newYear = minDateObj.getFullYear();
         needsAdjustment = true;
       }
-      // If entire current month is after maximum date, move to maximum date month
+      // If there's a maximum date and the entire current month is after it, move to maximum date month
       else if (maxDate && currentMonthFirstDayStr > maxDate) {
         const maxDateObj = new Date(maxDate);
         newMonth = maxDateObj.getMonth();
         newYear = maxDateObj.getFullYear();
         needsAdjustment = true;
+      }
+      // If there's a minimum date and some days in current month are before it, 
+      // but some days are valid, check if we should still move to minimum date month
+      else if (minDate && currentMonthFirstDayStr < minDate && currentMonthLastDayStr >= minDate) {
+        // Check if there are any valid days in the current month
+        const daysInMonth = currentMonthLastDay.getDate();
+        let hasValidDays = false;
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+          const testDate = new Date(currentYear, currentMonth, day);
+          const testDateStr = testDate.toISOString().split('T')[0];
+          if (testDateStr >= minDate && (!maxDate || testDateStr <= maxDate)) {
+            hasValidDays = true;
+            break;
+          }
+        }
+        
+        // If no valid days in current month, move to minimum date month
+        if (!hasValidDays) {
+          const minDateObj = new Date(minDate);
+          newMonth = minDateObj.getMonth();
+          newYear = minDateObj.getFullYear();
+          needsAdjustment = true;
+        }
       }
       
       if (needsAdjustment) {
