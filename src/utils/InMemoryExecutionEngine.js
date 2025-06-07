@@ -1520,6 +1520,7 @@ export class InMemoryExecutionEngine {
     const isDatePicker = element && element.properties && element.properties.inputType === 'datePicker';
     const isToggle = element && element.properties && element.properties.inputType === 'toggle';
     const isDropdown = element && element.properties && element.properties.inputType === 'dropdown';
+    const isLocation = element && element.properties && element.properties.inputType === 'location';
     
     console.log('🔵 INPUT_DEBUG: Element type check:', {
       elementId,
@@ -1605,6 +1606,17 @@ export class InMemoryExecutionEngine {
       const dropdownValue = element.properties?.selectedOption || '';
       console.log('🔵 INPUT_DEBUG: Using dropdown selected option from properties:', dropdownValue);
       return String(dropdownValue);
+    }
+    
+    // For location inputs, check properties for default value
+    if (isLocation) {
+      console.log('🔵 INPUT_DEBUG: Handling location input - checking properties');
+      console.log('🔵 INPUT_DEBUG: Element properties:', element.properties);
+      console.log('🔵 INPUT_DEBUG: defaultValue:', element.properties?.defaultValue);
+      
+      const locationValue = element.properties?.defaultValue || '';
+      console.log('🔵 INPUT_DEBUG: Using location default value from properties:', locationValue);
+      return String(locationValue);
     }
     
     // CRITICAL FIX: Check if we have a current calculated value for this input element first

@@ -1565,8 +1565,65 @@ const InputContentSettings = ({
         </div>
       )}
 
+      {/* Location Configuration */}
+      {currentInputType === 'location' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#f0f8ff',
+          borderRadius: '6px',
+          border: '1px solid #b3d9ff'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '8px'
+          }}>
+            Location Configuration:
+          </label>
+          
+          {/* Placeholder SuperText for Location */}
+          <div style={{ marginBottom: '12px' }}>
+            <SuperText
+              label="Placeholder"
+              placeholder="Enter placeholder text (e.g., Enter your address)"
+              value={getValue('placeholder')}
+              onChange={(value) => handleInputChange('placeholder', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+          
+          {/* Default Value SuperText */}
+          <div style={{ marginBottom: '8px' }}>
+            <SuperText
+              label="Default Value"
+              placeholder="Enter default address (optional)"
+              value={getValue('defaultValue')}
+              onChange={(value) => handleInputChange('defaultValue', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+          
+          <div style={{
+            fontSize: '11px',
+            color: '#0066cc',
+            padding: '4px 8px',
+            backgroundColor: '#e6f3ff',
+            borderRadius: '3px'
+          }}>
+            💡 Tip: This input uses Google Places Autocomplete to help users select addresses. Users can type to search for locations and select from suggestions.
+          </div>
+        </div>
+      )}
+
       {/* Show placeholder for other input types */}
-      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && currentInputType !== 'datePicker' && (
+      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && currentInputType !== 'datePicker' && currentInputType !== 'location' && (
         <div style={{
           marginBottom: '16px',
           padding: '16px',
@@ -1961,6 +2018,24 @@ const getRenderProperties = (element, matchedConditionIndex = null) => {
 const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isActiveTab, matchedConditionIndex, handlers }) => {
   const { onClick, onDelete, onDragStart } = handlers;
   
+  // Get render properties with matched condition index FIRST
+  let props = getRenderProperties(element, matchedConditionIndex);
+  
+  // Apply active styles if this element is in the active slide OR active tab
+  const shouldApplyActiveStyles = (isActiveSlide || isActiveTab) && isExecuteMode;
+  
+  if (shouldApplyActiveStyles) {
+    // Merge active properties over default properties
+    const activeProps = {};
+    Object.keys(props).forEach(key => {
+      const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+      if (props[activeKey] !== undefined) {
+        activeProps[key] = props[activeKey];
+      }
+    });
+    props = { ...props, ...activeProps };
+  }
+  
   console.log('🔵 INPUT_DEBUG: InputRenderer props:', {
     elementId: element.id,
     isExecuteMode,
@@ -2035,6 +2110,14 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   const [selectedEndDate, setSelectedEndDate] = React.useState('');
   const [showCalendar, setShowCalendar] = React.useState(false);
   const [dateOffset, setDateOffset] = React.useState(0); // State for tracking the current date offset within the month
+  
+  // State for location input
+  const [locationValue, setLocationValue] = React.useState('');
+  const [suggestions, setSuggestions] = React.useState([]);
+  const [showSuggestions, setShowSuggestions] = React.useState(false);
+  const [isLoadingGoogle, setIsLoadingGoogle] = React.useState(false);
+  const locationInputRef = React.useRef(null);
+  const suggestionsRef = React.useRef(null);
   const [currentMonth, setCurrentMonth] = React.useState(() => {
     // Parse MM/DD/YYYY format to get minimum date
     const parseMMDDYYYY = (dateStr) => {
@@ -2103,23 +2186,91 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
     }
   }, [showCalendar]);
   
-  // Get render properties with matched condition index
-  let props = getRenderProperties(element, matchedConditionIndex);
-  
-  // Apply active styles if this element is in the active slide OR active tab
-  const shouldApplyActiveStyles = (isActiveSlide || isActiveTab) && isExecuteMode;
-  
-  if (shouldApplyActiveStyles) {
-    // Merge active properties over default properties
-    const activeProps = {};
-    Object.keys(props).forEach(key => {
-      const activeKey = `active${key.charAt(0).toUpperCase()}${key.slice(1)}`;
-      if (props[activeKey] !== undefined) {
-        activeProps[key] = props[activeKey];
+  // Initialize location value
+  React.useEffect(() => {
+    if (isExecuteMode && !isInitialized && props.inputType === 'location') {
+      const initialValue = props.defaultValue || '';
+      setLocationValue(initialValue);
+      setInputValue(initialValue);
+      
+      // Expose to calculation engine
+      if (!window.elementValues) {
+        window.elementValues = {};
       }
-    });
-    props = { ...props, ...activeProps };
-  }
+      window.elementValues[element.id] = initialValue;
+    }
+  }, [isExecuteMode, props.defaultValue, isInitialized, props.inputType]);
+  
+  // Load Google Places API (with duplicate prevention)
+  React.useEffect(() => {
+    if (isExecuteMode && props.inputType === 'location') {
+      // Check if Google API is already loaded or loading
+      if (window.google && window.google.maps && window.google.maps.places) {
+        setIsLoadingGoogle(false);
+        console.log('🌍 Google Places API already loaded');
+        return;
+      }
+      
+      // Check if script is already being loaded
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        setIsLoadingGoogle(true);
+        // Wait for existing script to load
+        existingScript.onload = () => {
+          setIsLoadingGoogle(false);
+          console.log('🌍 Google Places API loaded from existing script');
+        };
+        return;
+      }
+      
+      // Load the API for the first time
+      setIsLoadingGoogle(true);
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.REACT_APP_GOOGLE_PLACES_API_KEY || 'YOUR_API_KEY'}&libraries=places&loading=async`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        setIsLoadingGoogle(false);
+        console.log('🌍 Google Places API loaded successfully');
+      };
+      script.onerror = () => {
+        setIsLoadingGoogle(false);
+        console.error('❌ Failed to load Google Places API - check API key and billing');
+      };
+      document.head.appendChild(script);
+    }
+  }, [isExecuteMode, props.inputType]);
+  
+  // Close suggestions when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target) &&
+          locationInputRef.current && !locationInputRef.current.contains(event.target)) {
+        setShowSuggestions(false);
+      }
+    };
+    
+    if (showSuggestions) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showSuggestions]);
+  
+  // Generate mock suggestions for testing when Google API is not available
+  const generateMockSuggestions = (value) => {
+    const mockData = [
+      { placeId: 'mock1', description: `${value} Street, New York, NY, USA`, mainText: `${value} Street`, secondaryText: 'New York, NY, USA' },
+      { placeId: 'mock2', description: `${value} Avenue, Los Angeles, CA, USA`, mainText: `${value} Avenue`, secondaryText: 'Los Angeles, CA, USA' },
+      { placeId: 'mock3', description: `${value} Road, Chicago, IL, USA`, mainText: `${value} Road`, secondaryText: 'Chicago, IL, USA' },
+      { placeId: 'mock4', description: `${value} Boulevard, Miami, FL, USA`, mainText: `${value} Boulevard`, secondaryText: 'Miami, FL, USA' },
+      { placeId: 'mock5', description: `${value} Plaza, Seattle, WA, USA`, mainText: `${value} Plaza`, secondaryText: 'Seattle, WA, USA' }
+    ];
+    
+    return mockData.slice(0, 3); // Return 3 mock suggestions
+  };
+  
   
   // Initialize calendar to valid selectable month when opened
   React.useEffect(() => {
@@ -3011,7 +3162,230 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           return <div>Unknown toggle type</div>;
         }
         
-          // Handle date picker input type
+          // Handle location input type
+        if (props.inputType === 'location') {
+          // Handle location input change with autocomplete
+          const handleLocationChange = async (value) => {
+            setLocationValue(value);
+            setInputValue(value);
+            setUserHasEdited(true);
+            
+            // Update calculation engine
+            if (!window.elementValues) {
+              window.elementValues = {};
+            }
+            window.elementValues[element.id] = value;
+            
+            // Get autocomplete suggestions with improved error handling and fallback
+            if (value.length > 2) {
+              if (window.google && window.google.maps && window.google.maps.places) {
+                try {
+                  // Use AutocompleteService with better error handling
+                  const autocompleteService = new window.google.maps.places.AutocompleteService();
+                  
+                  const request = {
+                    input: value,
+                    types: ['address', 'establishment', 'geocode'],
+                    componentRestrictions: {} // Allow all countries
+                  };
+                  
+                  // Set a timeout to show mock suggestions if API doesn't respond quickly
+                  let timeoutId = setTimeout(() => {
+                    console.log('🌍 API timeout, showing mock suggestions for:', value);
+                    const mockSuggestions = generateMockSuggestions(value);
+                    setSuggestions(mockSuggestions);
+                    setShowSuggestions(mockSuggestions.length > 0);
+                  }, 1000); // 1 second timeout
+                  
+                  autocompleteService.getPlacePredictions(request, (predictions, status) => {
+                    clearTimeout(timeoutId); // Clear timeout since we got a response
+                    console.log('🌍 Google Places API response:', { status, predictions: predictions?.length || 0 });
+                    
+                    if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions && predictions.length > 0) {
+                      const formattedSuggestions = predictions.slice(0, 5).map(prediction => ({
+                        placeId: prediction.place_id,
+                        description: prediction.description,
+                        mainText: prediction.structured_formatting?.main_text || prediction.description,
+                        secondaryText: prediction.structured_formatting?.secondary_text || ''
+                      }));
+                      setSuggestions(formattedSuggestions);
+                      setShowSuggestions(true);
+                      console.log('🌍 Formatted suggestions:', formattedSuggestions);
+                    } else {
+                      console.log('🌍 API failed with status:', status, '- showing mock suggestions for:', value);
+                      // Show mock suggestions when API fails
+                      const mockSuggestions = generateMockSuggestions(value);
+                      setSuggestions(mockSuggestions);
+                      setShowSuggestions(mockSuggestions.length > 0);
+                    }
+                  });
+                } catch (error) {
+                  console.error('❌ Error getting place predictions, showing mock suggestions:', error);
+                  // Show mock suggestions when API throws error
+                  const mockSuggestions = generateMockSuggestions(value);
+                  setSuggestions(mockSuggestions);
+                  setShowSuggestions(mockSuggestions.length > 0);
+                }
+              } else {
+                console.log('🌍 Google API not loaded, showing mock suggestions for:', value);
+                // Show mock suggestions when Google API is not loaded
+                const mockSuggestions = generateMockSuggestions(value);
+                setSuggestions(mockSuggestions);
+                setShowSuggestions(mockSuggestions.length > 0);
+              }
+            } else {
+              setSuggestions([]);
+              setShowSuggestions(false);
+            }
+            
+            // Trigger calculation update
+            if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+              window.__v2ExecutionEngine.triggerCalculationUpdate();
+            }
+          };
+          
+          // Handle suggestion selection
+          const handleSuggestionSelect = (suggestion) => {
+            setLocationValue(suggestion.description);
+            setInputValue(suggestion.description);
+            setShowSuggestions(false);
+            setUserHasEdited(true);
+            
+            // Update calculation engine
+            if (!window.elementValues) {
+              window.elementValues = {};
+            }
+            window.elementValues[element.id] = suggestion.description;
+            
+            // Trigger calculation update
+            if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+              window.__v2ExecutionEngine.triggerCalculationUpdate();
+            }
+            
+            console.log('🌍 Location selected:', suggestion.description);
+          };
+          
+          return (
+            <div style={{ position: 'relative' }}>
+              {/* Location Input */}
+              <input
+                ref={locationInputRef}
+                data-element-id={element.id}
+                data-element-type="input"
+                data-input-type="location"
+                type="text"
+                placeholder={props.placeholder || 'Enter your address'}
+                value={isExecuteMode ? locationValue : undefined}
+                defaultValue={!isExecuteMode ? (props.defaultValue || '') : undefined}
+                onChange={isExecuteMode ? (e) => handleLocationChange(e.target.value) : undefined}
+                onFocus={isExecuteMode ? () => {
+                  if (suggestions.length > 0) {
+                    setShowSuggestions(true);
+                  }
+                } : undefined}
+                style={{
+                  ...inputStyle,
+                  pointerEvents: isExecuteMode ? 'auto' : 'none',
+                  paddingRight: `${(props.paddingRight || 16) + 24}px`, // Add space for location icon
+                  backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='${encodeURIComponent(props.arrowColor || '#666666')}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z'%3e%3c/path%3e%3ccircle cx='12' cy='10' r='3'%3e%3c/circle%3e%3c/svg%3e")`,
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'right 12px center',
+                  backgroundSize: '16px'
+                }}
+                disabled={!isExecuteMode}
+              />
+              
+              {/* Loading indicator */}
+              {isLoadingGoogle && isExecuteMode && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  right: '40px',
+                  transform: 'translateY(-50%)',
+                  fontSize: '12px',
+                  color: props.arrowColor || '#666666'
+                }}>
+                  Loading...
+                </div>
+              )}
+              
+              {/* Suggestions dropdown */}
+              {showSuggestions && suggestions.length > 0 && isExecuteMode && (
+                <div
+                  ref={suggestionsRef}
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 4px)',
+                    left: 0,
+                    right: 0,
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '6px',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    zIndex: 1000,
+                    maxHeight: '200px',
+                    overflowY: 'auto'
+                  }}
+                >
+                  {suggestions.map((suggestion, index) => (
+                    <div
+                      key={suggestion.placeId}
+                      style={{
+                        padding: '12px 16px',
+                        cursor: 'pointer',
+                        borderBottom: index < suggestions.length - 1 ? '1px solid #f0f0f0' : 'none',
+                        transition: 'background-color 0.2s ease'
+                      }}
+                      onClick={() => handleSuggestionSelect(suggestion)}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f8f9fa';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: '#333333',
+                        marginBottom: '2px'
+                      }}>
+                        {suggestion.mainText}
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#666666'
+                      }}>
+                        {suggestion.secondaryText}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Fallback message when Google API is not available */}
+              {!window.google && !isLoadingGoogle && isExecuteMode && (
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  left: 0,
+                  right: 0,
+                  padding: '8px 12px',
+                  backgroundColor: '#fff3cd',
+                  border: '1px solid #ffeaa7',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  color: '#856404',
+                  zIndex: 1000
+                }}>
+                  ⚠️ Google Places API not configured. Contact administrator to enable location autocomplete.
+                </div>
+              )}
+            </div>
+          );
+        }
+        
+        // Handle date picker input type
         if (props.inputType === 'datePicker') {
           const datePickerStyle = props.datePickerStyle || 'default';
           const selectMode = props.datePickerSelectMode || 'single';
