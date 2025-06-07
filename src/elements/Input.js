@@ -2211,8 +2211,10 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 const day = parseInt(parts[1]);
                 const year = parseInt(parts[2]);
                 if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
-                  const date = new Date(year, month - 1, day);
-                  return date.toISOString().split('T')[0];
+                  // Use string formatting to avoid timezone issues
+                  const monthStr = month.toString().padStart(2, '0');
+                  const dayStr = day.toString().padStart(2, '0');
+                  return `${year}-${monthStr}-${dayStr}`;
                 }
               }
             } else {
@@ -2940,8 +2942,10 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
             const year = parseInt(parts[2]);
             if (isNaN(month) || isNaN(day) || isNaN(year)) return null;
             if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1000) return null;
-            const date = new Date(year, month - 1, day);
-            return date.toISOString().split('T')[0]; // YYYY-MM-DD format
+            // Use string formatting to avoid timezone issues
+            const monthStr = month.toString().padStart(2, '0');
+            const dayStr = day.toString().padStart(2, '0');
+            return `${year}-${monthStr}-${dayStr}`; // YYYY-MM-DD format
           };
           
           // Get date restrictions
@@ -3025,7 +3029,18 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           
           // Format date for display (e.g., "Jun 19, 2025")
           const formatDateForDisplay = (dateStr) => {
-            const date = new Date(dateStr);
+            // Parse YYYY-MM-DD format manually to avoid timezone issues
+            const parts = dateStr.split('-');
+            if (parts.length !== 3) return dateStr;
+            
+            const year = parseInt(parts[0]);
+            const month = parseInt(parts[1]) - 1; // Month is 0-indexed
+            const day = parseInt(parts[2]);
+            
+            if (isNaN(year) || isNaN(month) || isNaN(day)) return dateStr;
+            
+            // Create date in local timezone
+            const date = new Date(year, month, day);
             return date.toLocaleDateString('en-US', { 
               month: 'short', 
               day: 'numeric', 
