@@ -2929,27 +2929,52 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 setInputValue(displayValue);
                 setUserHasEdited(true);
               } else {
-                // Complete range
+                // Complete range - but first validate that no disabled dates exist in between
                 const startDate = new Date(selectedStartDate);
                 const endDate = new Date(date);
+                
+                // Determine the actual start and end dates (handle case where user selects earlier date second)
+                let actualStartDate, actualEndDate;
                 if (endDate >= startDate) {
-                  setSelectedEndDate(date);
-                  const startDisplay = formatDateForDisplay(selectedStartDate);
-                  const endDisplay = formatDateForDisplay(date);
+                  actualStartDate = selectedStartDate;
+                  actualEndDate = date;
+                } else {
+                  actualStartDate = date;
+                  actualEndDate = selectedStartDate;
+                }
+                
+                // Check if any dates in the range (inclusive) are disabled
+                const isRangeValid = () => {
+                  const start = new Date(actualStartDate);
+                  const end = new Date(actualEndDate);
+                  
+                  // Check each date in the range
+                  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                    const dateStr = d.toISOString().split('T')[0];
+                    if (isDateDisabled(dateStr)) {
+                      return false;
+                    }
+                  }
+                  return true;
+                };
+                
+                if (isRangeValid()) {
+                  // Range is valid - complete the selection
+                  setSelectedStartDate(actualStartDate);
+                  setSelectedEndDate(actualEndDate);
+                  const startDisplay = formatDateForDisplay(actualStartDate);
+                  const endDisplay = formatDateForDisplay(actualEndDate);
                   const rangeValue = `${startDisplay} to ${endDisplay}`;
                   setInputValue(rangeValue);
                   setUserHasEdited(true);
                   setShowCalendar(false);
                 } else {
-                  // If end date is before start date, swap them
+                  // Range contains disabled dates - start a new range from the clicked date
                   setSelectedStartDate(date);
-                  setSelectedEndDate(selectedStartDate);
-                  const startDisplay = formatDateForDisplay(date);
-                  const endDisplay = formatDateForDisplay(selectedStartDate);
-                  const rangeValue = `${startDisplay} to ${endDisplay}`;
-                  setInputValue(rangeValue);
+                  setSelectedEndDate('');
+                  const displayValue = formatDateForDisplay(date);
+                  setInputValue(displayValue);
                   setUserHasEdited(true);
-                  setShowCalendar(false);
                 }
               }
               
