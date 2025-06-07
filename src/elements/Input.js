@@ -1531,7 +1531,10 @@ const InputContentSettings = ({
               backgroundColor: '#e6f3ff',
               borderRadius: '3px'
             }}>
-              💡 Tip: Use MM/DD/YYYY format for dates. Separate multiple disabled dates with commas.
+              💡 Tip: Use MM/DD/YYYY format for dates. Supports individual dates and ranges. Examples:<br/>
+              • Individual dates: 09/12/2025, 09/22/2025<br/>
+              • Date ranges: 09/02/2025-09/08/2025, 09/22/2025 - 09/28/2025<br/>
+              • Mixed: 09/02/2025-09/08/2025, 09/12/2025, 09/22/2025 - 09/28/2025
             </div>
           </div>
           
@@ -2813,15 +2816,78 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           const minDate = parseMMDDYYYY(props.datePickerMinDate);
           const maxDate = parseMMDDYYYY(props.datePickerMaxDate);
           const disabledDatesStr = props.datePickerDisabledDates || '';
-          const disabledDates = disabledDatesStr.split(',')
-            .map(d => parseMMDDYYYY(d.trim()))
-            .filter(d => d !== null);
+          
+          // Parse disabled dates and ranges
+          const parseDisabledDatesAndRanges = (disabledStr) => {
+            const disabledDates = [];
+            const disabledRanges = [];
+            
+            if (!disabledStr || disabledStr.trim() === '') {
+              return { disabledDates, disabledRanges };
+            }
+            
+            // Split by commas and process each entry
+            const entries = disabledStr.split(',').map(entry => entry.trim()).filter(entry => entry.length > 0);
+            
+            entries.forEach(entry => {
+              // Check if entry contains a range (has dash or "to")
+              if (entry.includes('-') || entry.toLowerCase().includes(' to ')) {
+                // Parse as range
+                let startStr, endStr;
+                
+                if (entry.includes(' - ') || entry.includes(' to ')) {
+                  // Handle "MM/DD/YYYY - MM/DD/YYYY" or "MM/DD/YYYY to MM/DD/YYYY"
+                  const parts = entry.split(/ - | to /i);
+                  if (parts.length === 2) {
+                    startStr = parts[0].trim();
+                    endStr = parts[1].trim();
+                  }
+                } else if (entry.includes('-')) {
+                  // Handle "MM/DD/YYYY-MM/DD/YYYY"
+                  const parts = entry.split('-');
+                  if (parts.length === 2) {
+                    startStr = parts[0].trim();
+                    endStr = parts[1].trim();
+                  }
+                }
+                
+                if (startStr && endStr) {
+                  const startDate = parseMMDDYYYY(startStr);
+                  const endDate = parseMMDDYYYY(endStr);
+                  
+                  if (startDate && endDate) {
+                    disabledRanges.push({ start: startDate, end: endDate });
+                  }
+                }
+              } else {
+                // Parse as single date
+                const singleDate = parseMMDDYYYY(entry);
+                if (singleDate) {
+                  disabledDates.push(singleDate);
+                }
+              }
+            });
+            
+            return { disabledDates, disabledRanges };
+          };
+          
+          const { disabledDates, disabledRanges } = parseDisabledDatesAndRanges(disabledDatesStr);
           
           // Check if a date is disabled
           const isDateDisabled = (dateStr) => {
             if (minDate && dateStr < minDate) return true;
             if (maxDate && dateStr > maxDate) return true;
+            
+            // Check individual disabled dates
             if (disabledDates.includes(dateStr)) return true;
+            
+            // Check disabled date ranges
+            for (const range of disabledRanges) {
+              if (dateStr >= range.start && dateStr <= range.end) {
+                return true;
+              }
+            }
+            
             return false;
           };
           
