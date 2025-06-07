@@ -604,6 +604,31 @@ const InputStyleSettings = ({
             );
           }
           
+          // Audio Input Colors
+          else if (currentInputType === 'audio') {
+            return (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Background Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('backgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </>
+            );
+          }
+          
           // Default fallback for other input types
           return (
             <div style={{
@@ -1871,8 +1896,39 @@ const InputContentSettings = ({
         </div>
       )}
 
+      {/* Audio Configuration */}
+      {currentInputType === 'audio' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#fff0f5',
+          borderRadius: '6px',
+          border: '1px solid #ffc0cb'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '8px'
+          }}>
+            Audio Configuration:
+          </label>
+          
+          <div style={{
+            fontSize: '11px',
+            color: '#d63384',
+            padding: '4px 8px',
+            backgroundColor: '#fff0f3',
+            borderRadius: '3px'
+          }}>
+            💡 Tip: Press Record to start recording, Stop to end recording, and Reset to clear the recording and timer.
+          </div>
+        </div>
+      )}
+
       {/* Show placeholder for other input types */}
-      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && currentInputType !== 'datePicker' && currentInputType !== 'location' && currentInputType !== 'filePicker' && (
+      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && currentInputType !== 'datePicker' && currentInputType !== 'location' && currentInputType !== 'filePicker' && currentInputType !== 'audio' && (
         <div style={{
           marginBottom: '16px',
           padding: '16px',
@@ -2371,6 +2427,14 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   // State for file picker
   const [selectedFiles, setSelectedFiles] = React.useState([]);
   const fileInputRef = React.useRef(null);
+  
+  // State for audio recording
+  const [isRecording, setIsRecording] = React.useState(false);
+  const [recordingTime, setRecordingTime] = React.useState(0);
+  const [audioBlob, setAudioBlob] = React.useState(null);
+  const [mediaRecorder, setMediaRecorder] = React.useState(null);
+  const [recordingState, setRecordingState] = React.useState('idle'); // 'idle', 'recording', 'stopped'
+  const audioIntervalRef = React.useRef(null);
   const [currentMonth, setCurrentMonth] = React.useState(() => {
     // Parse MM/DD/YYYY format to get minimum date
     const parseMMDDYYYY = (dateStr) => {
@@ -3887,6 +3951,216 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           );
         }
         
+        // Handle audio input type
+        if (props.inputType === 'audio') {
+          // Format time as MM:SS
+          const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+          };
+          
+          // Start recording
+          const startRecording = async () => {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              const recorder = new MediaRecorder(stream);
+              const chunks = [];
+              
+              recorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                  chunks.push(event.data);
+                }
+              };
+              
+              recorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/wav' });
+                setAudioBlob(blob);
+                setRecordingState('stopped');
+                
+                // Update calculation engine with recording info
+                if (!window.elementValues) {
+                  window.elementValues = {};
+                }
+                window.elementValues[element.id] = `Audio recording (${formatTime(recordingTime)})`;
+                
+                // Trigger calculation update
+                if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+                  window.__v2ExecutionEngine.triggerCalculationUpdate();
+                }
+                
+                // Stop all tracks to release microphone
+                stream.getTracks().forEach(track => track.stop());
+              };
+              
+              setMediaRecorder(recorder);
+              recorder.start();
+              setIsRecording(true);
+              setRecordingState('recording');
+              setRecordingTime(0);
+              
+              // Start timer
+              audioIntervalRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+              }, 1000);
+              
+            } catch (error) {
+              console.error('Error accessing microphone:', error);
+              alert('Unable to access microphone. Please check permissions.');
+            }
+          };
+          
+          // Stop recording
+          const stopRecording = () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+              mediaRecorder.stop();
+              setIsRecording(false);
+              
+              // Clear timer
+              if (audioIntervalRef.current) {
+                clearInterval(audioIntervalRef.current);
+                audioIntervalRef.current = null;
+              }
+            }
+          };
+          
+          // Reset recording
+          const resetRecording = () => {
+            setIsRecording(false);
+            setRecordingTime(0);
+            setAudioBlob(null);
+            setRecordingState('idle');
+            
+            // Clear timer
+            if (audioIntervalRef.current) {
+              clearInterval(audioIntervalRef.current);
+              audioIntervalRef.current = null;
+            }
+            
+            // Update calculation engine
+            if (!window.elementValues) {
+              window.elementValues = {};
+            }
+            window.elementValues[element.id] = '';
+            
+            // Trigger calculation update
+            if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+              window.__v2ExecutionEngine.triggerCalculationUpdate();
+            }
+          };
+          
+          
+          return (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              padding: `${props.paddingTop || 12}px ${props.paddingRight || 16}px ${props.paddingBottom || 12}px ${props.paddingLeft || 16}px`,
+              backgroundColor: props.backgroundColor || '#ffffff',
+              borderRadius: `${props.borderRadiusTopLeft || 4}px ${props.borderRadiusTopRight || 4}px ${props.borderRadiusBottomRight || 4}px ${props.borderRadiusBottomLeft || 4}px`,
+              border: `${props.borderWidth || 1}px solid ${props.borderColor || '#ddd'}`,
+              marginTop: `${props.marginTop || 0}px`,
+              marginBottom: `${props.marginBottom || 0}px`,
+              marginLeft: `${props.marginLeft || 0}px`,
+              marginRight: `${props.marginRight || 0}px`,
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              {/* Microphone Icon */}
+              <div style={{
+                fontSize: '20px',
+                color: isRecording ? '#dc3545' : (props.textColor || '#666666'),
+                transition: 'color 0.2s ease'
+              }}>
+                🎤
+              </div>
+              
+              {/* Timer Display */}
+              <div style={{
+                fontSize: `${props.fontSize || 16}px`,
+                fontWeight: props.fontWeight || '400',
+                color: props.textColor || '#333333',
+                fontFamily: 'monospace',
+                minWidth: '50px'
+              }}>
+                {formatTime(recordingTime)}
+              </div>
+              
+              {/* Control Button */}
+              <button
+                onClick={isExecuteMode ? () => {
+                  if (recordingState === 'idle') {
+                    startRecording();
+                  } else if (recordingState === 'recording') {
+                    stopRecording();
+                  } else if (recordingState === 'stopped') {
+                    resetRecording();
+                  }
+                } : undefined}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  border: 'none',
+                  backgroundColor: recordingState === 'recording' ? '#dc3545' : 
+                                 recordingState === 'stopped' ? '#6c757d' : '#007bff',
+                  color: 'white',
+                  fontSize: `${props.fontSize || 14}px`,
+                  fontWeight: '500',
+                  cursor: isExecuteMode ? 'pointer' : 'default',
+                  transition: 'all 0.2s ease',
+                  pointerEvents: isExecuteMode ? 'auto' : 'none',
+                  opacity: isExecuteMode ? 1 : 0.7
+                }}
+                onMouseOver={isExecuteMode ? (e) => {
+                  if (recordingState === 'recording') {
+                    e.currentTarget.style.backgroundColor = '#c82333';
+                  } else if (recordingState === 'stopped') {
+                    e.currentTarget.style.backgroundColor = '#5a6268';
+                  } else {
+                    e.currentTarget.style.backgroundColor = '#0056b3';
+                  }
+                } : undefined}
+                onMouseOut={isExecuteMode ? (e) => {
+                  if (recordingState === 'recording') {
+                    e.currentTarget.style.backgroundColor = '#dc3545';
+                  } else if (recordingState === 'stopped') {
+                    e.currentTarget.style.backgroundColor = '#6c757d';
+                  } else {
+                    e.currentTarget.style.backgroundColor = '#007bff';
+                  }
+                } : undefined}
+                disabled={!isExecuteMode}
+              >
+                {recordingState === 'idle' ? 'Record' :
+                 recordingState === 'recording' ? 'Stop' : 'Reset'}
+              </button>
+              
+              {/* Recording indicator */}
+              {isRecording && (
+                <div style={{
+                  width: '8px',
+                  height: '8px',
+                  borderRadius: '50%',
+                  backgroundColor: '#dc3545',
+                  animation: 'pulse 1s infinite'
+                }} />
+              )}
+              
+              {/* Audio playback (when recording exists) */}
+              {audioBlob && recordingState === 'stopped' && (
+                <audio
+                  controls
+                  src={URL.createObjectURL(audioBlob)}
+                  style={{
+                    height: '30px',
+                    fontSize: '12px'
+                  }}
+                />
+              )}
+            </div>
+          );
+        }
+        
         // Handle date picker input type
         if (props.inputType === 'datePicker') {
           const datePickerStyle = props.datePickerStyle || 'default';
@@ -4859,11 +5133,23 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
         );
       })()}
       
-      {/* Add CSS for placeholder styling */}
+      {/* Add CSS for placeholder styling and audio recording animation */}
       <style>
         {`
           input::placeholder, textarea::placeholder {
             color: ${placeholderColor} !important;
+          }
+          
+          @keyframes pulse {
+            0% {
+              opacity: 1;
+            }
+            50% {
+              opacity: 0.5;
+            }
+            100% {
+              opacity: 1;
+            }
           }
         `}
       </style>
