@@ -1460,69 +1460,84 @@ const InputContentSettings = ({
             </div>
           </div>
 
-          {/* SuperText Options */}
-          <div style={{
-            marginBottom: '12px',
-            padding: '12px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '4px',
-            border: '1px solid #e0e0e0'
-          }}>
-            <h5 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '600', color: '#333' }}>
-              SuperText Options:
-            </h5>
-            
-            {/* Label SuperText */}
-            <div style={{ marginBottom: '12px' }}>
-              <SuperText
-                label="Label"
-                placeholder="Enter label text (e.g., Select Date)"
-                value={getValue('datePickerLabel')}
-                onChange={(value) => handleInputChange('datePickerLabel', value)}
-                availableElements={availableElements}
-                screens={screens}
-                currentScreenId={currentScreenId}
-              />
-            </div>
-            
-            {/* Minimum Date SuperText */}
-            <div style={{ marginBottom: '12px' }}>
-              <SuperText
-                label="Minimum Date"
-                placeholder="Enter minimum date (MM/DD/YYYY format)"
-                value={getValue('datePickerMinDate')}
-                onChange={(value) => handleInputChange('datePickerMinDate', value)}
-                availableElements={availableElements}
-                screens={screens}
-                currentScreenId={currentScreenId}
-              />
-            </div>
-            
-            {/* Maximum Date SuperText */}
-            <div style={{ marginBottom: '12px' }}>
-              <SuperText
-                label="Maximum Date"
-                placeholder="Enter maximum date (MM/DD/YYYY format)"
-                value={getValue('datePickerMaxDate')}
-                onChange={(value) => handleInputChange('datePickerMaxDate', value)}
-                availableElements={availableElements}
-                screens={screens}
-                currentScreenId={currentScreenId}
-              />
-            </div>
-            
-            {/* Disabled Dates SuperText */}
-            <div style={{ marginBottom: '8px' }}>
-              <SuperText
-                label="Disabled Dates"
-                placeholder="Enter disabled dates separated by commas (MM/DD/YYYY,MM/DD/YYYY)"
-                value={getValue('datePickerDisabledDates')}
-                onChange={(value) => handleInputChange('datePickerDisabledDates', value)}
-                availableElements={availableElements}
-                screens={screens}
-                currentScreenId={currentScreenId}
-              />
-            </div>
+            {/* SuperText Options */}
+            <div style={{
+              marginBottom: '12px',
+              padding: '12px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #e0e0e0'
+            }}>
+              <h5 style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: '600', color: '#333' }}>
+                SuperText Options:
+              </h5>
+              
+              {/* Label SuperText */}
+              <div style={{ marginBottom: '12px' }}>
+                <SuperText
+                  label="Label"
+                  placeholder="Enter label text (e.g., Select Date)"
+                  value={getValue('datePickerLabel')}
+                  onChange={(value) => handleInputChange('datePickerLabel', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              {/* Selected Value SuperText */}
+              <div style={{ marginBottom: '12px' }}>
+                <SuperText
+                  label="Selected Value"
+                  placeholder={getValue('datePickerSelectMode') === 'range' 
+                    ? "Enter initial date range (MM/DD/YYYY to MM/DD/YYYY)" 
+                    : "Enter initial date (MM/DD/YYYY format)"}
+                  value={getValue('datePickerSelectedValue')}
+                  onChange={(value) => handleInputChange('datePickerSelectedValue', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              {/* Minimum Date SuperText */}
+              <div style={{ marginBottom: '12px' }}>
+                <SuperText
+                  label="Minimum Date"
+                  placeholder="Enter minimum date (MM/DD/YYYY format)"
+                  value={getValue('datePickerMinDate')}
+                  onChange={(value) => handleInputChange('datePickerMinDate', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              {/* Maximum Date SuperText */}
+              <div style={{ marginBottom: '12px' }}>
+                <SuperText
+                  label="Maximum Date"
+                  placeholder="Enter maximum date (MM/DD/YYYY format)"
+                  value={getValue('datePickerMaxDate')}
+                  onChange={(value) => handleInputChange('datePickerMaxDate', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
+              
+              {/* Disabled Dates SuperText */}
+              <div style={{ marginBottom: '8px' }}>
+                <SuperText
+                  label="Disabled Dates"
+                  placeholder="Enter disabled dates separated by commas (MM/DD/YYYY,MM/DD/YYYY)"
+                  value={getValue('datePickerDisabledDates')}
+                  onChange={(value) => handleInputChange('datePickerDisabledDates', value)}
+                  availableElements={availableElements}
+                  screens={screens}
+                  currentScreenId={currentScreenId}
+                />
+              </div>
             
             <div style={{
               fontSize: '11px',
@@ -2159,7 +2174,8 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       isInitialized,
       inputType: element.properties?.inputType,
       selectedOption: element.properties?.selectedOption,
-      defaultValue: element.properties?.defaultValue
+      defaultValue: element.properties?.defaultValue,
+      datePickerSelectedValue: element.properties?.datePickerSelectedValue
     });
     
     if (isExecuteMode && !isInitialized) {
@@ -2168,7 +2184,71 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       // For dropdown inputs, use selectedOption as the initial value
       if (element.properties?.inputType === 'dropdown') {
         calculatedValue = element.properties?.selectedOption || '';
-      } else {
+      } 
+      // For date picker inputs, use datePickerSelectedValue as the initial value
+      else if (element.properties?.inputType === 'datePicker') {
+        calculatedValue = element.properties?.datePickerSelectedValue || '';
+        
+        // Parse and set date picker specific state for bar style
+        if (calculatedValue) {
+          const selectMode = element.properties?.datePickerSelectMode || 'single';
+          
+          // Helper function to parse MM/DD/YYYY to YYYY-MM-DD
+          const parseDisplayToISO = (displayDate) => {
+            // Handle different display formats
+            if (displayDate.includes(' to ')) {
+              // Range format: "Jun 19, 2025 to Jun 25, 2025"
+              const parts = displayDate.split(' to ');
+              return parts.map(part => {
+                const date = new Date(part.trim());
+                return date.toISOString().split('T')[0];
+              });
+            } else if (displayDate.includes('/')) {
+              // MM/DD/YYYY format
+              const parts = displayDate.trim().split('/');
+              if (parts.length === 3) {
+                const month = parseInt(parts[0]);
+                const day = parseInt(parts[1]);
+                const year = parseInt(parts[2]);
+                if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                  const date = new Date(year, month - 1, day);
+                  return date.toISOString().split('T')[0];
+                }
+              }
+            } else {
+              // Try parsing as a regular date string
+              const date = new Date(calculatedValue);
+              if (!isNaN(date.getTime())) {
+                return date.toISOString().split('T')[0];
+              }
+            }
+            return null;
+          };
+          
+          if (selectMode === 'single') {
+            const isoDate = parseDisplayToISO(calculatedValue);
+            if (isoDate) {
+              setSelectedDate(isoDate);
+            }
+          } else if (selectMode === 'range') {
+            if (calculatedValue.includes(' to ')) {
+              const dates = parseDisplayToISO(calculatedValue);
+              if (dates && dates.length === 2) {
+                setSelectedStartDate(dates[0]);
+                setSelectedEndDate(dates[1]);
+              }
+            } else {
+              // Single date in range mode - treat as start date
+              const isoDate = parseDisplayToISO(calculatedValue);
+              if (isoDate) {
+                setSelectedStartDate(isoDate);
+                setSelectedEndDate('');
+              }
+            }
+          }
+        }
+      } 
+      else {
         // For other input types, use defaultValue
         calculatedValue = element.properties?.defaultValue || '';
       }
@@ -2196,7 +2276,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
         });
       }
     }
-  }, [isExecuteMode, element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isInitialized]);
+  }, [isExecuteMode, element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.datePickerSelectedValue, element.properties?.inputType, isInitialized]);
   
   // Update input value when calculated value changes (but only if user hasn't edited)
   React.useEffect(() => {
@@ -2208,6 +2288,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       inputType: element.properties?.inputType,
       selectedOption: element.properties?.selectedOption,
       defaultValue: element.properties?.defaultValue,
+      datePickerSelectedValue: element.properties?.datePickerSelectedValue,
       currentInputValue: inputValue,
       isActiveTab,
       isActiveSlide
@@ -2219,7 +2300,12 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       // For dropdown inputs, use selectedOption as the value to track
       if (element.properties?.inputType === 'dropdown') {
         calculatedValue = element.properties?.selectedOption || '';
-      } else {
+      } 
+      // For date picker inputs, use datePickerSelectedValue as the value to track
+      else if (element.properties?.inputType === 'datePicker') {
+        calculatedValue = element.properties?.datePickerSelectedValue || '';
+      } 
+      else {
         // For other input types, use defaultValue
         calculatedValue = element.properties?.defaultValue || '';
       }
@@ -2265,7 +2351,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
     } else if (userHasEdited) {
       console.log('🔵 INPUT_DEBUG: Skipping update - user has edited the input');
     }
-  }, [element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.inputType, isExecuteMode, isInitialized, inputValue, userHasEdited, isActiveTab, isActiveSlide]);
+  }, [element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.datePickerSelectedValue, element.properties?.inputType, isExecuteMode, isInitialized, inputValue, userHasEdited, isActiveTab, isActiveSlide]);
   
   // Determine input type based on selected options
   const inputTypes = props.inputTypes || [];
@@ -3688,6 +3774,7 @@ export const InputElement = {
     datePickerStyle: 'default', // 'default', 'bar'
     datePickerSelectMode: 'single', // 'single', 'range'
     datePickerLabel: 'Select Date',
+    datePickerSelectedValue: '', // Initial selected date or date range
     datePickerMinDate: '',
     datePickerMaxDate: '',
     datePickerDisabledDates: '',
