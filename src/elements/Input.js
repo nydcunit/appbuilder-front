@@ -561,6 +561,49 @@ const InputStyleSettings = ({
             );
           }
           
+          // File Picker Input Colors
+          else if (currentInputType === 'filePicker') {
+            return (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Background Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('backgroundColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('backgroundColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', gap: '10px' }}>
+                  <label style={labelStyle}>
+                    Label Color:
+                  </label>
+                  <input
+                    type="color"
+                    value={getValueWithActiveMode('textColor')}
+                    onChange={(e) => updatePropertyWithActiveMode('textColor', e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '30px',
+                      border: '1px solid #ddd',
+                      borderRadius: '3px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              </>
+            );
+          }
+          
           // Default fallback for other input types
           return (
             <div style={{
@@ -1622,8 +1665,214 @@ const InputContentSettings = ({
         </div>
       )}
 
+      {/* File Picker Configuration */}
+      {currentInputType === 'filePicker' && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '12px',
+          backgroundColor: '#f0fff0',
+          borderRadius: '6px',
+          border: '1px solid #90ee90'
+        }}>
+          <label style={{
+            display: 'block',
+            fontSize: '13px',
+            fontWeight: '500',
+            color: '#333',
+            marginBottom: '12px'
+          }}>
+            File Picker Configuration:
+          </label>
+          
+          {/* File Type Selection */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#333',
+              marginBottom: '8px'
+            }}>
+              Accepted File Types (can select multiple):
+            </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Photo Checkbox */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="filePicker-photo"
+                  checked={(getValue('filePickerTypes') || []).includes('photo')}
+                  onChange={(e) => {
+                    const currentTypes = getValue('filePickerTypes') || [];
+                    let newTypes;
+                    if (e.target.checked) {
+                      newTypes = [...currentTypes, 'photo'];
+                    } else {
+                      newTypes = currentTypes.filter(t => t !== 'photo');
+                    }
+                    handleInputChange('filePickerTypes', newTypes);
+                  }}
+                />
+                <label htmlFor="filePicker-photo" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Photo (jpg, png, gif, webp, etc.)
+                </label>
+              </div>
+              
+              {/* Video Checkbox */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="filePicker-video"
+                  checked={(getValue('filePickerTypes') || []).includes('video')}
+                  onChange={(e) => {
+                    const currentTypes = getValue('filePickerTypes') || [];
+                    let newTypes;
+                    if (e.target.checked) {
+                      newTypes = [...currentTypes, 'video'];
+                    } else {
+                      newTypes = currentTypes.filter(t => t !== 'video');
+                    }
+                    handleInputChange('filePickerTypes', newTypes);
+                  }}
+                />
+                <label htmlFor="filePicker-video" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  Video (mp4, avi, mov, webm, etc.)
+                </label>
+              </div>
+              
+              {/* All Checkbox */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  id="filePicker-all"
+                  checked={(getValue('filePickerTypes') || []).includes('all')}
+                  onChange={(e) => {
+                    const currentTypes = getValue('filePickerTypes') || [];
+                    let newTypes;
+                    if (e.target.checked) {
+                      newTypes = [...currentTypes, 'all'];
+                    } else {
+                      newTypes = currentTypes.filter(t => t !== 'all');
+                    }
+                    handleInputChange('filePickerTypes', newTypes);
+                  }}
+                />
+                <label htmlFor="filePicker-all" style={{
+                  fontSize: '12px',
+                  color: '#333',
+                  cursor: 'pointer'
+                }}>
+                  All (any file type)
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* MultiSelect Option */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: '#333',
+              marginBottom: '8px'
+            }}>
+              MultiSelect:
+            </label>
+            <select
+              value={getValue('filePickerMultiSelect') || 'enable'}
+              onChange={(e) => handleInputChange('filePickerMultiSelect', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                fontSize: '12px',
+                backgroundColor: 'white'
+              }}
+            >
+              <option value="disable">Disable</option>
+              <option value="enable">Enable</option>
+            </select>
+          </div>
+
+          {/* Max Files (only show when MultiSelect is enabled) */}
+          {getValue('filePickerMultiSelect') === 'enable' && (
+            <div style={{ marginBottom: '12px' }}>
+              <SuperText
+                label="Max Files"
+                placeholder="Enter maximum number of files (e.g., 5)"
+                value={getValue('filePickerMaxFiles')}
+                onChange={(value) => handleInputChange('filePickerMaxFiles', value)}
+                availableElements={availableElements}
+                screens={screens}
+                currentScreenId={currentScreenId}
+              />
+            </div>
+          )}
+
+          {/* Max Size SuperText */}
+          <div style={{ marginBottom: '12px' }}>
+            <SuperText
+              label="Max Size (MB)"
+              placeholder="Enter max file size in MB (e.g., 10)"
+              value={getValue('filePickerMaxSize')}
+              onChange={(value) => handleInputChange('filePickerMaxSize', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+
+          {/* Label Text SuperText */}
+          <div style={{ marginBottom: '12px' }}>
+            <SuperText
+              label="Label Text"
+              placeholder="Enter upload label (e.g., + Upload)"
+              value={getValue('filePickerLabelText')}
+              onChange={(value) => handleInputChange('filePickerLabelText', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+
+          {/* Height SuperText */}
+          <div style={{ marginBottom: '8px' }}>
+            <SuperText
+              label="Height"
+              placeholder="Enter height (e.g., 80px, 120px)"
+              value={getValue('filePickerHeight')}
+              onChange={(value) => handleInputChange('filePickerHeight', value)}
+              availableElements={availableElements}
+              screens={screens}
+              currentScreenId={currentScreenId}
+            />
+          </div>
+          
+          <div style={{
+            fontSize: '11px',
+            color: '#228b22',
+            padding: '4px 8px',
+            backgroundColor: '#f0fff0',
+            borderRadius: '3px'
+          }}>
+            💡 Tip: Files are stored temporarily in browser memory. Image files will show previews, others will show file names.
+          </div>
+        </div>
+      )}
+
       {/* Show placeholder for other input types */}
-      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && currentInputType !== 'datePicker' && currentInputType !== 'location' && (
+      {currentInputType !== 'text' && currentInputType !== 'dropdown' && currentInputType !== 'button' && currentInputType !== 'toggle' && currentInputType !== 'datePicker' && currentInputType !== 'location' && currentInputType !== 'filePicker' && (
         <div style={{
           marginBottom: '16px',
           padding: '16px',
@@ -2118,6 +2367,10 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   const [isLoadingGoogle, setIsLoadingGoogle] = React.useState(false);
   const locationInputRef = React.useRef(null);
   const suggestionsRef = React.useRef(null);
+  
+  // State for file picker
+  const [selectedFiles, setSelectedFiles] = React.useState([]);
+  const fileInputRef = React.useRef(null);
   const [currentMonth, setCurrentMonth] = React.useState(() => {
     // Parse MM/DD/YYYY format to get minimum date
     const parseMMDDYYYY = (dateStr) => {
@@ -3385,6 +3638,255 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           );
         }
         
+        // Handle file picker input type
+        if (props.inputType === 'filePicker') {
+          // Get file picker configuration
+          const fileTypes = props.filePickerTypes || [];
+          const multiSelect = props.filePickerMultiSelect === 'enable';
+          const maxFiles = parseInt(props.filePickerMaxFiles) || 5;
+          const maxSize = parseInt(props.filePickerMaxSize) || 10; // MB
+          const labelText = props.filePickerLabelText || '+ Upload';
+          const containerHeight = props.filePickerHeight || '80px';
+          
+          // Generate accept attribute based on file types
+          const getAcceptAttribute = () => {
+            if (fileTypes.includes('all')) {
+              return '*/*';
+            }
+            
+            const acceptTypes = [];
+            if (fileTypes.includes('photo')) {
+              acceptTypes.push('image/*');
+            }
+            if (fileTypes.includes('video')) {
+              acceptTypes.push('video/*');
+            }
+            
+            return acceptTypes.length > 0 ? acceptTypes.join(',') : '*/*';
+          };
+          
+          // Handle file selection
+          const handleFileSelect = (event) => {
+            const files = Array.from(event.target.files);
+            
+            // Validate file size
+            const validFiles = files.filter(file => {
+              const fileSizeMB = file.size / (1024 * 1024);
+              return fileSizeMB <= maxSize;
+            });
+            
+            if (multiSelect) {
+              // Multi-select mode
+              const newFiles = [...selectedFiles, ...validFiles];
+              const limitedFiles = newFiles.slice(0, maxFiles);
+              setSelectedFiles(limitedFiles);
+              
+              // Update calculation engine with file names
+              if (!window.elementValues) {
+                window.elementValues = {};
+              }
+              window.elementValues[element.id] = limitedFiles.map(f => f.name).join(', ');
+            } else {
+              // Single file mode
+              const singleFile = validFiles[0];
+              if (singleFile) {
+                setSelectedFiles([singleFile]);
+                
+                // Update calculation engine with file name
+                if (!window.elementValues) {
+                  window.elementValues = {};
+                }
+                window.elementValues[element.id] = singleFile.name;
+              }
+            }
+            
+            // Clear the input to allow re-selecting the same file
+            event.target.value = '';
+            
+            // Trigger calculation update
+            if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+              window.__v2ExecutionEngine.triggerCalculationUpdate();
+            }
+          };
+          
+          // Handle file removal
+          const handleFileRemove = (indexToRemove) => {
+            const newFiles = selectedFiles.filter((_, index) => index !== indexToRemove);
+            setSelectedFiles(newFiles);
+            
+            // Update calculation engine
+            if (!window.elementValues) {
+              window.elementValues = {};
+            }
+            window.elementValues[element.id] = newFiles.map(f => f.name).join(', ');
+            
+            // Trigger calculation update
+            if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+              window.__v2ExecutionEngine.triggerCalculationUpdate();
+            }
+          };
+          
+          // Check if file is an image for preview
+          const isImageFile = (file) => {
+            return file.type.startsWith('image/');
+          };
+          
+          // File item style with configurable height
+          const fileItemStyle = {
+            position: 'relative',
+            minWidth: '120px',
+            height: containerHeight,
+            border: `${props.borderWidth || 1}px solid ${props.borderColor || '#ddd'}`,
+            borderRadius: `${props.borderRadiusTopLeft || 4}px`,
+            backgroundColor: props.backgroundColor || '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexDirection: 'column',
+            gap: '4px',
+            padding: '8px',
+            fontSize: '12px',
+            color: props.textColor || '#333333',
+            overflow: 'hidden'
+          };
+          
+          return (
+            <div style={{ width: '100%' }}>
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={getAcceptAttribute()}
+                multiple={multiSelect}
+                onChange={isExecuteMode ? handleFileSelect : undefined}
+                style={{ display: 'none' }}
+                disabled={!isExecuteMode}
+              />
+              
+              {/* File picker container */}
+              <div style={{
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'flex-start'
+              }}>
+                {/* Upload button - always visible and fixed */}
+                <div
+                  style={{
+                    ...fileItemStyle,
+                    cursor: isExecuteMode ? 'pointer' : 'default',
+                    borderStyle: 'dashed',
+                    transition: 'all 0.2s ease',
+                    flexShrink: 0 // Prevent shrinking
+                  }}
+                  onClick={isExecuteMode ? () => fileInputRef.current?.click() : undefined}
+                  onMouseOver={isExecuteMode ? (e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.05)';
+                    e.currentTarget.style.borderColor = '#007bff';
+                  } : undefined}
+                  onMouseOut={isExecuteMode ? (e) => {
+                    e.currentTarget.style.backgroundColor = props.backgroundColor || '#ffffff';
+                    e.currentTarget.style.borderColor = props.borderColor || '#ddd';
+                  } : undefined}
+                >
+                  <div style={{
+                    fontSize: '12px',
+                    color: props.textColor || '#333333',
+                    textAlign: 'center',
+                    fontWeight: props.fontWeight || '400'
+                  }}>
+                    {labelText}
+                  </div>
+                </div>
+                
+                {/* Selected files container - scrollable */}
+                {selectedFiles.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    gap: '8px',
+                    overflowX: 'auto',
+                    flex: 1,
+                    paddingBottom: '4px' // Add some padding for scrollbar
+                  }}>
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} style={{
+                        ...fileItemStyle,
+                        flexShrink: 0 // Prevent shrinking of file items
+                      }}>
+                        {/* Delete button */}
+                        {isExecuteMode && (
+                          <button
+                            onClick={() => handleFileRemove(index)}
+                            style={{
+                              position: 'absolute',
+                              top: '4px',
+                              right: '4px',
+                              width: '16px',
+                              height: '16px',
+                              borderRadius: '50%',
+                              border: 'none',
+                              backgroundColor: '#dc3545',
+                              color: 'white',
+                              fontSize: '10px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              zIndex: 1
+                            }}
+                          >
+                            ×
+                          </button>
+                        )}
+                        
+                        {/* File preview or icon */}
+                        {isImageFile(file) ? (
+                          <img
+                            src={URL.createObjectURL(file)}
+                            alt={file.name}
+                            style={{
+                              width: '100%',
+                              height: '60px',
+                              objectFit: 'cover',
+                              borderRadius: '2px'
+                            }}
+                            onLoad={(e) => {
+                              // Clean up object URL to prevent memory leaks
+                              setTimeout(() => {
+                                URL.revokeObjectURL(e.target.src);
+                              }, 1000);
+                            }}
+                          />
+                        ) : (
+                          <div style={{
+                            fontSize: '20px',
+                            color: props.textColor || '#333333',
+                            marginBottom: '4px'
+                          }}>
+                            📄
+                          </div>
+                        )}
+                        
+                        {/* File name */}
+                        <div style={{
+                          fontSize: '10px',
+                          color: props.textColor || '#333333',
+                          textAlign: 'center',
+                          wordBreak: 'break-all',
+                          lineHeight: '1.2',
+                          maxHeight: '24px',
+                          overflow: 'hidden'
+                        }}>
+                          {file.name.length > 15 ? `${file.name.substring(0, 12)}...` : file.name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        }
+        
         // Handle date picker input type
         if (props.inputType === 'datePicker') {
           const datePickerStyle = props.datePickerStyle || 'default';
@@ -4404,6 +4906,14 @@ export const InputElement = {
     datePickerMinDate: '',
     datePickerMaxDate: '',
     datePickerDisabledDates: '',
+    
+    // File Picker Configuration
+    filePickerTypes: ['photo'], // Array of accepted file types: 'photo', 'video', 'all'
+    filePickerMultiSelect: 'enable', // 'enable', 'disable'
+    filePickerMaxFiles: '5',
+    filePickerMaxSize: '10', // MB
+    filePickerLabelText: '+ Upload',
+    filePickerHeight: '80px', // Height of the file picker container
     
     // Typography
     fontSize: 16,
