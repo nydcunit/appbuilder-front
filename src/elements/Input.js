@@ -3185,7 +3185,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   
                   const request = {
                     input: value,
-                    types: ['address', 'establishment', 'geocode'],
+                    types: ['geocode'], // Use only geocode to avoid conflicts
                     componentRestrictions: {} // Allow all countries
                   };
                   
