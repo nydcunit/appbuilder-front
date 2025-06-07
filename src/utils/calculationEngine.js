@@ -931,13 +931,17 @@ export class CalculationEngine {
     console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
     console.log('🔵 INPUT_DEBUG: Current window.elementValues:', window.elementValues);
     
-    // First, check if this is a datepicker input by looking at the element properties
+    // First, check if this is a special input type by looking at the element properties
     const element = this.availableElements.find(el => el.id === elementId);
     const isDatePicker = element && element.properties && element.properties.inputType === 'datePicker';
+    const isToggle = element && element.properties && element.properties.inputType === 'toggle';
+    const isDropdown = element && element.properties && element.properties.inputType === 'dropdown';
     
     console.log('🔵 INPUT_DEBUG: Element type check:', {
       elementId,
       isDatePicker,
+      isToggle,
+      isDropdown,
       inputType: element?.properties?.inputType,
       element: element
     });
@@ -947,6 +951,33 @@ export class CalculationEngine {
       const value = window.elementValues[elementId];
       console.log('🔵 INPUT_DEBUG: Found value in window.elementValues:', value);
       return String(value); // Ensure it's a string
+    }
+    
+    // For toggle inputs (radio, checkbox, switch), check properties for initial value
+    if (isToggle) {
+      console.log('🔵 INPUT_DEBUG: Handling toggle input - checking properties');
+      console.log('🔵 INPUT_DEBUG: Element properties:', element.properties);
+      console.log('🔵 INPUT_DEBUG: toggleType:', element.properties?.toggleType);
+      console.log('🔵 INPUT_DEBUG: radioSelectedOption:', element.properties?.radioSelectedOption);
+      
+      const toggleType = element.properties?.toggleType || 'radio';
+      
+      if (toggleType === 'radio') {
+        const radioValue = element.properties?.radioSelectedOption || '';
+        console.log('🔵 INPUT_DEBUG: Using radio selected option from properties:', radioValue);
+        return String(radioValue);
+      } else if (toggleType === 'checkbox') {
+        const checkboxValue = false; // Default to unchecked
+        console.log('🔵 INPUT_DEBUG: Using checkbox default value:', checkboxValue);
+        return String(checkboxValue);
+      } else if (toggleType === 'switch') {
+        const switchValue = false; // Default to off
+        console.log('🔵 INPUT_DEBUG: Using switch default value:', switchValue);
+        return String(switchValue);
+      }
+      
+      console.log('🔵 INPUT_DEBUG: No toggle value found, returning empty string');
+      return '';
     }
     
     // For datepicker inputs, additional handling
@@ -968,6 +999,17 @@ export class CalculationEngine {
       
       console.log('🔵 INPUT_DEBUG: No datepicker value found, returning empty string');
       return '';
+    }
+    
+    // For dropdown inputs, check properties for selected option
+    if (isDropdown) {
+      console.log('🔵 INPUT_DEBUG: Handling dropdown input - checking properties');
+      console.log('🔵 INPUT_DEBUG: Element properties:', element.properties);
+      console.log('🔵 INPUT_DEBUG: selectedOption:', element.properties?.selectedOption);
+      
+      const dropdownValue = element.properties?.selectedOption || '';
+      console.log('🔵 INPUT_DEBUG: Using dropdown selected option from properties:', dropdownValue);
+      return String(dropdownValue);
     }
     
     // For other input types, try to find the input element in the DOM

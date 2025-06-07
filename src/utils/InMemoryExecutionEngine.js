@@ -1515,17 +1515,71 @@ export class InMemoryExecutionEngine {
   getInputElementValue(elementId) {
     console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
     
-    // CRITICAL FIX: For datepicker inputs, prioritize window.elementValues over static properties
-    // This ensures that user interactions (date selections) are reflected in calculations
+    // First, check if this is a special input type by looking at the element properties
     const element = this.findElementById(elementId);
-    if (element && element.type === 'input' && element.properties?.inputType === 'datePicker') {
-      // Check if we have a dynamic value from user interaction first
+    const isDatePicker = element && element.properties && element.properties.inputType === 'datePicker';
+    const isToggle = element && element.properties && element.properties.inputType === 'toggle';
+    const isDropdown = element && element.properties && element.properties.inputType === 'dropdown';
+    
+    console.log('🔵 INPUT_DEBUG: Element type check:', {
+      elementId,
+      isDatePicker,
+      isToggle,
+      isDropdown,
+      inputType: element?.properties?.inputType,
+      element: element
+    });
+    
+    // For toggle inputs (radio, checkbox, switch), handle initial values properly
+    if (isToggle) {
+      console.log('🔵 INPUT_DEBUG: Handling toggle input - checking properties');
+      console.log('🔵 INPUT_DEBUG: Element properties:', element.properties);
+      console.log('🔵 INPUT_DEBUG: toggleType:', element.properties?.toggleType);
+      console.log('🔵 INPUT_DEBUG: radioSelectedOption:', element.properties?.radioSelectedOption);
+      
+      const toggleType = element.properties?.toggleType || 'radio';
+      
+      // Check window.elementValues first, but only if it has a meaningful value
       if (window.elementValues && window.elementValues[elementId] !== undefined) {
         const dynamicValue = window.elementValues[elementId];
-        console.log('🔵 INPUT_DEBUG: Using dynamic datepicker value from window.elementValues:', dynamicValue);
-        return String(dynamicValue);
+        console.log('🔵 INPUT_DEBUG: Found value in window.elementValues:', dynamicValue);
+        
+        // For toggle inputs, only use the dynamic value if it's not empty (user has interacted)
+        if (dynamicValue !== '' && dynamicValue !== null && dynamicValue !== undefined) {
+          console.log('🔵 INPUT_DEBUG: Using dynamic toggle value:', dynamicValue);
+          return String(dynamicValue);
+        }
       }
       
+      // Fall back to initial properties for toggle inputs
+      if (toggleType === 'radio') {
+        const radioValue = element.properties?.radioSelectedOption || '';
+        console.log('🔵 INPUT_DEBUG: Using radio selected option from properties:', radioValue);
+        return String(radioValue);
+      } else if (toggleType === 'checkbox') {
+        const checkboxValue = false; // Default to unchecked
+        console.log('🔵 INPUT_DEBUG: Using checkbox default value:', checkboxValue);
+        return String(checkboxValue);
+      } else if (toggleType === 'switch') {
+        const switchValue = false; // Default to off
+        console.log('🔵 INPUT_DEBUG: Using switch default value:', switchValue);
+        return String(switchValue);
+      }
+      
+      console.log('🔵 INPUT_DEBUG: No toggle value found, returning empty string');
+      return '';
+    }
+    
+    // Check window.elementValues for non-toggle input types (this is the primary source)
+    if (window.elementValues && window.elementValues[elementId] !== undefined) {
+      const value = window.elementValues[elementId];
+      console.log('🔵 INPUT_DEBUG: Found value in window.elementValues:', value);
+      return String(value); // Ensure it's a string
+    }
+    
+    // CRITICAL FIX: For datepicker inputs, prioritize window.elementValues over static properties
+    // This ensures that user interactions (date selections) are reflected in calculations
+    if (isDatePicker) {
       // Fallback to static datePickerSelectedValue if no dynamic value
       if (element.properties.datePickerSelectedValue) {
         const value = element.properties.datePickerSelectedValue;
@@ -1540,6 +1594,17 @@ export class InMemoryExecutionEngine {
       // No datepicker value found
       console.log('🔵 INPUT_DEBUG: No datepicker value found, returning empty string');
       return '';
+    }
+    
+    // For dropdown inputs, check properties for selected option
+    if (isDropdown) {
+      console.log('🔵 INPUT_DEBUG: Handling dropdown input - checking properties');
+      console.log('🔵 INPUT_DEBUG: Element properties:', element.properties);
+      console.log('🔵 INPUT_DEBUG: selectedOption:', element.properties?.selectedOption);
+      
+      const dropdownValue = element.properties?.selectedOption || '';
+      console.log('🔵 INPUT_DEBUG: Using dropdown selected option from properties:', dropdownValue);
+      return String(dropdownValue);
     }
     
     // CRITICAL FIX: Check if we have a current calculated value for this input element first

@@ -1980,7 +1980,27 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   const [toggleValue, setToggleValue] = React.useState(() => {
     const toggleType = element.properties?.toggleType || 'radio';
     if (toggleType === 'radio') {
-      return element.properties?.radioSelectedOption || '';
+      const initialValue = element.properties?.radioSelectedOption || '';
+      console.log('🔵 RADIO_DEBUG: Initializing radio toggle value:', {
+        elementId: element.id,
+        radioSelectedOption: element.properties?.radioSelectedOption,
+        initialValue
+      });
+      
+      // CRITICAL FIX: Immediately expose radio value to calculation engine during initialization
+      if (isExecuteMode && initialValue) {
+        if (!window.elementValues) {
+          window.elementValues = {};
+        }
+        window.elementValues[element.id] = initialValue;
+        console.log('🔵 RADIO_DEBUG: Immediately exposed radio value to calculation engine during init:', {
+          elementId: element.id,
+          initialValue,
+          elementValues: window.elementValues
+        });
+      }
+      
+      return initialValue;
     } else if (toggleType === 'checkbox') {
       return false;
     } else if (toggleType === 'switch') {
@@ -1988,6 +2008,26 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
     }
     return '';
   });
+  
+  // CRITICAL FIX: Ensure toggle value is exposed to calculation engine on initialization
+  React.useEffect(() => {
+    if (isExecuteMode && element.properties?.inputType === 'toggle') {
+      const toggleType = element.properties?.toggleType || 'radio';
+      if (toggleType === 'radio' && toggleValue) {
+        // Initialize elementValues if it doesn't exist
+        if (!window.elementValues) {
+          window.elementValues = {};
+        }
+        window.elementValues[element.id] = toggleValue;
+        
+        console.log('🔵 RADIO_DEBUG: Exposed initial toggle value to calculation engine:', {
+          elementId: element.id,
+          toggleValue,
+          elementValues: window.elementValues
+        });
+      }
+    }
+  }, [isExecuteMode, element.properties?.inputType, element.properties?.toggleType, toggleValue, element.id]);
   
   // State for date picker
   const [selectedDate, setSelectedDate] = React.useState('');
@@ -2175,7 +2215,9 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       inputType: element.properties?.inputType,
       selectedOption: element.properties?.selectedOption,
       defaultValue: element.properties?.defaultValue,
-      datePickerSelectedValue: element.properties?.datePickerSelectedValue
+      datePickerSelectedValue: element.properties?.datePickerSelectedValue,
+      toggleType: element.properties?.toggleType,
+      radioSelectedOption: element.properties?.radioSelectedOption
     });
     
     if (isExecuteMode && !isInitialized) {
@@ -2270,6 +2312,17 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           }
         }
       } 
+      // CRITICAL FIX: For toggle inputs (radio, checkbox, switch), use the appropriate initial value
+      else if (element.properties?.inputType === 'toggle') {
+        const toggleType = element.properties?.toggleType || 'radio';
+        if (toggleType === 'radio') {
+          calculatedValue = element.properties?.radioSelectedOption || '';
+        } else if (toggleType === 'checkbox') {
+          calculatedValue = false; // Default to unchecked
+        } else if (toggleType === 'switch') {
+          calculatedValue = false; // Default to off
+        }
+      }
       else {
         // For other input types, use defaultValue
         calculatedValue = element.properties?.defaultValue || '';
@@ -2278,6 +2331,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
       console.log('🔵 INPUT_DEBUG: Initializing input value:', {
         elementId: element.id,
         inputType: element.properties?.inputType,
+        toggleType: element.properties?.toggleType,
         calculatedValue
       });
       setInputValue(calculatedValue);
@@ -2355,7 +2409,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
         }
       }
     }
-  }, [isExecuteMode, element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.datePickerSelectedValue, element.properties?.inputType, isInitialized]);
+  }, [isExecuteMode, element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.datePickerSelectedValue, element.properties?.inputType, element.properties?.toggleType, element.properties?.radioSelectedOption, isInitialized]);
   
   // Update input value when calculated value changes (but only if user hasn't edited)
   React.useEffect(() => {
