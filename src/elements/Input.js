@@ -1976,6 +1976,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
   const [selectedStartDate, setSelectedStartDate] = React.useState('');
   const [selectedEndDate, setSelectedEndDate] = React.useState('');
   const [showCalendar, setShowCalendar] = React.useState(false);
+  const [dateOffset, setDateOffset] = React.useState(0); // State for tracking the current date offset within the month
   const [currentMonth, setCurrentMonth] = React.useState(() => {
     // Parse MM/DD/YYYY format to get minimum date
     const parseMMDDYYYY = (dateStr) => {
@@ -3262,8 +3263,173 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           
           // Bar style (horizontal calendar)
           if (datePickerStyle === 'bar') {
+            // Generate dates for current view (7 consecutive days starting from a base date)
+            const generateBarDatesForView = () => {
+              const dates = [];
+              
+              // Calculate the base date from current month, year, and offset
+              const baseDate = new Date(currentYear, currentMonth, 1 + dateOffset);
+              
+              for (let i = 0; i < 7; i++) {
+                const date = new Date(baseDate);
+                date.setDate(baseDate.getDate() + i);
+                const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+                dates.push({
+                  date: dateStr,
+                  day: date.getDate(),
+                  month: date.getMonth(),
+                  year: date.getFullYear(),
+                  dayName: date.toLocaleDateString('en-US', { weekday: 'short' })
+                });
+              }
+              return dates;
+            };
+            
+            // Get month name for the first date in the current view
+            const monthNames = [
+              'January', 'February', 'March', 'April', 'May', 'June',
+              'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            
+            // Get the dates for display
+            const viewDates = generateBarDatesForView();
+            const firstDate = viewDates[0];
+            const lastDate = viewDates[viewDates.length - 1];
+            
+            // Determine month/year display - show range if dates span multiple months
+            let monthYearDisplay;
+            if (firstDate.month === lastDate.month && firstDate.year === lastDate.year) {
+              monthYearDisplay = `${monthNames[firstDate.month]} ${firstDate.year}`;
+            } else if (firstDate.year === lastDate.year) {
+              monthYearDisplay = `${monthNames[firstDate.month]} - ${monthNames[lastDate.month]} ${firstDate.year}`;
+            } else {
+              monthYearDisplay = `${monthNames[firstDate.month]} ${firstDate.year} - ${monthNames[lastDate.month]} ${lastDate.year}`;
+            }
+            
+            // Navigation handlers
+            const handlePreviousDates = () => {
+              const newOffset = dateOffset - 7;
+              
+              // If going to negative offset, move to previous month
+              if (newOffset < 0) {
+                if (currentMonth === 0) {
+                  // Go to December of previous year
+                  setCurrentMonth(11);
+                  setCurrentYear(currentYear - 1);
+                  // Calculate offset for last week of December
+                  const lastDayOfPrevMonth = new Date(currentYear - 1, 11 + 1, 0).getDate();
+                  setDateOffset(lastDayOfPrevMonth + newOffset);
+                } else {
+                  // Go to previous month
+                  setCurrentMonth(currentMonth - 1);
+                  // Calculate offset for last week of previous month
+                  const lastDayOfPrevMonth = new Date(currentYear, currentMonth, 0).getDate();
+                  setDateOffset(lastDayOfPrevMonth + newOffset);
+                }
+              } else {
+                setDateOffset(newOffset);
+              }
+            };
+            
+            const handleNextDates = () => {
+              const newOffset = dateOffset + 7;
+              const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+              
+              // If going beyond current month, move to next month
+              if (newOffset >= daysInCurrentMonth) {
+                if (currentMonth === 11) {
+                  // Go to January of next year
+                  setCurrentMonth(0);
+                  setCurrentYear(currentYear + 1);
+                  setDateOffset(newOffset - daysInCurrentMonth);
+                } else {
+                  // Go to next month
+                  setCurrentMonth(currentMonth + 1);
+                  setDateOffset(newOffset - daysInCurrentMonth);
+                }
+              } else {
+                setDateOffset(newOffset);
+              }
+            };
+            
             return (
               <div>
+                {/* Month header with navigation */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px',
+                  padding: '8px 0'
+                }}>
+                  {/* Previous Dates Button */}
+                  <button
+                    onClick={isExecuteMode ? handlePreviousDates : undefined}
+                    style={{
+                      background: 'none',
+                      border: `1px solid ${props.borderColor || '#ddd'}`,
+                      cursor: isExecuteMode ? 'pointer' : 'default',
+                      padding: '8px 12px',
+                      borderRadius: `${props.borderRadiusTopLeft || 4}px`,
+                      fontSize: '16px',
+                      color: props.arrowColor || '#666666',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: props.backgroundColor || '#ffffff',
+                      transition: 'all 0.2s ease',
+                      pointerEvents: isExecuteMode ? 'auto' : 'none'
+                    }}
+                    onMouseOver={isExecuteMode ? (e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                    } : undefined}
+                    onMouseOut={isExecuteMode ? (e) => {
+                      e.currentTarget.style.backgroundColor = props.backgroundColor || '#ffffff';
+                    } : undefined}
+                  >
+                    ‹
+                  </button>
+                  
+                  {/* Month/Year Display */}
+                  <div style={{
+                    fontSize: `${props.fontSize || 16}px`,
+                    fontWeight: props.fontWeight || '600',
+                    color: props.textColor || '#333333',
+                    textAlign: 'center',
+                    flex: 1
+                  }}>
+                    {monthYearDisplay}
+                  </div>
+                  
+                  {/* Next Dates Button */}
+                  <button
+                    onClick={isExecuteMode ? handleNextDates : undefined}
+                    style={{
+                      background: 'none',
+                      border: `1px solid ${props.borderColor || '#ddd'}`,
+                      cursor: isExecuteMode ? 'pointer' : 'default',
+                      padding: '8px 12px',
+                      borderRadius: `${props.borderRadiusTopLeft || 4}px`,
+                      fontSize: '16px',
+                      color: props.arrowColor || '#666666',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: props.backgroundColor || '#ffffff',
+                      transition: 'all 0.2s ease',
+                      pointerEvents: isExecuteMode ? 'auto' : 'none'
+                    }}
+                    onMouseOver={isExecuteMode ? (e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
+                    } : undefined}
+                    onMouseOut={isExecuteMode ? (e) => {
+                      e.currentTarget.style.backgroundColor = props.backgroundColor || '#ffffff';
+                    } : undefined}
+                  >
+                    ›
+                  </button>
+                </div>
+                
                 {/* Bar dates */}
                 <div style={{
                   display: 'flex',
@@ -3271,7 +3437,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   overflowX: 'auto',
                   padding: '8px 0'
                 }}>
-                  {generateBarDates().map((dateObj, index) => {
+                  {viewDates.map((dateObj, index) => {
                     const isSelected = selectMode === 'single' 
                       ? selectedDate === dateObj.date
                       : (selectedStartDate === dateObj.date || selectedEndDate === dateObj.date);
