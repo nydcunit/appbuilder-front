@@ -3057,18 +3057,33 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
               setUserHasEdited(true);
               setShowCalendar(false);
               
-              // CRITICAL FIX: Update calculation engine with ISO date format for calculations
-              if (!window.elementValues) {
-                window.elementValues = {};
-              }
-              window.elementValues[element.id] = date; // Keep YYYY-MM-DD for calculations
-              
-              console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for single date:', {
-                elementId: element.id,
-                date,
-                displayValue,
-                windowElementValues: window.elementValues
-              });
+        // CRITICAL FIX: Update calculation engine with MM/DD/YYYY format for calculations
+        if (!window.elementValues) {
+          window.elementValues = {};
+        }
+        
+        // Convert YYYY-MM-DD back to MM/DD/YYYY for calculations
+        const convertToMMDDYYYY = (isoDate) => {
+          const parts = isoDate.split('-');
+          if (parts.length === 3) {
+            const year = parts[0];
+            const month = parts[1];
+            const day = parts[2];
+            return `${month}/${day}/${year}`;
+          }
+          return isoDate;
+        };
+        
+        const mmddyyyyValue = convertToMMDDYYYY(date);
+        window.elementValues[element.id] = mmddyyyyValue; // Store MM/DD/YYYY for calculations
+        
+        console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for single date:', {
+          elementId: element.id,
+          isoDate: date,
+          mmddyyyyValue,
+          displayValue,
+          windowElementValues: window.elementValues
+        });
               
               // Trigger calculation update
               if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
@@ -3137,15 +3152,34 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   setUserHasEdited(true);
                   setShowCalendar(false);
                   
-                  // CRITICAL FIX: Update calculation engine with ISO range format for calculations
+                  // CRITICAL FIX: Update calculation engine with MM/DD/YYYY range format for calculations
                   if (!window.elementValues) {
                     window.elementValues = {};
                   }
-                  const rangeForCalc = `${actualStartDate} to ${actualEndDate}`;
-                  window.elementValues[element.id] = rangeForCalc; // Keep YYYY-MM-DD format for calculations
+                  
+                  // Convert YYYY-MM-DD back to MM/DD/YYYY for calculations
+                  const convertToMMDDYYYY = (isoDate) => {
+                    const parts = isoDate.split('-');
+                    if (parts.length === 3) {
+                      const year = parts[0];
+                      const month = parts[1];
+                      const day = parts[2];
+                      return `${month}/${day}/${year}`;
+                    }
+                    return isoDate;
+                  };
+                  
+                  const startMMDDYYYY = convertToMMDDYYYY(actualStartDate);
+                  const endMMDDYYYY = convertToMMDDYYYY(actualEndDate);
+                  const rangeForCalc = `${startMMDDYYYY}-${endMMDDYYYY}`;
+                  window.elementValues[element.id] = rangeForCalc; // Store MM/DD/YYYY-MM/DD/YYYY format for calculations
                   
                   console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for completed range:', {
                     elementId: element.id,
+                    actualStartDate,
+                    actualEndDate,
+                    startMMDDYYYY,
+                    endMMDDYYYY,
                     rangeForCalc,
                     displayValue: rangeValue,
                     windowElementValues: window.elementValues

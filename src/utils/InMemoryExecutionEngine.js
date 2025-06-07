@@ -1531,44 +1531,10 @@ export class InMemoryExecutionEngine {
         const value = element.properties.datePickerSelectedValue;
         console.log('🔵 INPUT_DEBUG: Using static datepicker selected value from properties:', value);
         
-        // Convert MM/DD/YYYY to YYYY-MM-DD for calculations
-        const convertToISOForCalc = (displayDate) => {
-          if (displayDate.includes(' to ')) {
-            // Range format: convert both dates
-            const parts = displayDate.split(' to ');
-            const startISO = convertSingleDateToISO(parts[0].trim());
-            const endISO = convertSingleDateToISO(parts[1].trim());
-            return startISO && endISO ? `${startISO} to ${endISO}` : displayDate;
-          } else {
-            // Single date format
-            return convertSingleDateToISO(displayDate) || displayDate;
-          }
-        };
+        // Keep MM/DD/YYYY format for calculations (user expectation)
+        console.log('🔵 INPUT_DEBUG: Using datepicker value in MM/DD/YYYY format for calculation:', value);
         
-        const convertSingleDateToISO = (dateStr) => {
-          if (dateStr.includes('/')) {
-            // MM/DD/YYYY format
-            const parts = dateStr.trim().split('/');
-            if (parts.length === 3) {
-              const month = parseInt(parts[0]);
-              const day = parseInt(parts[1]);
-              const year = parseInt(parts[2]);
-              if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
-                const date = new Date(year, month - 1, day);
-                return date.toISOString().split('T')[0];
-              }
-            }
-          }
-          return null;
-        };
-        
-        const isoValue = convertToISOForCalc(value);
-        console.log('🔵 INPUT_DEBUG: Converted static datepicker value to ISO for calculation:', {
-          originalValue: value,
-          isoValue: isoValue
-        });
-        
-        return String(isoValue);
+        return String(value);
       }
       
       // No datepicker value found
@@ -1665,44 +1631,10 @@ export class InMemoryExecutionEngine {
         const value = element.properties.datePickerSelectedValue;
         console.log('🔵 INPUT_DEBUG: Using datepicker selected value from properties:', value);
         
-        // Convert MM/DD/YYYY to YYYY-MM-DD for calculations
-        const convertToISOForCalc = (displayDate) => {
-          if (displayDate.includes(' to ')) {
-            // Range format: convert both dates
-            const parts = displayDate.split(' to ');
-            const startISO = convertSingleDateToISO(parts[0].trim());
-            const endISO = convertSingleDateToISO(parts[1].trim());
-            return startISO && endISO ? `${startISO} to ${endISO}` : displayDate;
-          } else {
-            // Single date format
-            return convertSingleDateToISO(displayDate) || displayDate;
-          }
-        };
+        // Keep MM/DD/YYYY format for calculations (user expectation)
+        console.log('🔵 INPUT_DEBUG: Using datepicker value in MM/DD/YYYY format for calculation:', value);
         
-        const convertSingleDateToISO = (dateStr) => {
-          if (dateStr.includes('/')) {
-            // MM/DD/YYYY format
-            const parts = dateStr.trim().split('/');
-            if (parts.length === 3) {
-              const month = parseInt(parts[0]);
-              const day = parseInt(parts[1]);
-              const year = parseInt(parts[2]);
-              if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
-                const date = new Date(year, month - 1, day);
-                return date.toISOString().split('T')[0];
-              }
-            }
-          }
-          return null;
-        };
-        
-        const isoValue = convertToISOForCalc(value);
-        console.log('🔵 INPUT_DEBUG: Converted datepicker value to ISO for calculation:', {
-          originalValue: value,
-          isoValue: isoValue
-        });
-        
-        return String(isoValue);
+        return String(value);
       }
       
       // For input elements, try to get the defaultValue or current value
