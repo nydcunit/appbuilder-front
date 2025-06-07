@@ -929,13 +929,89 @@ export class CalculationEngine {
   // Get current value from input element in DOM
   getInputElementValue(elementId) {
     console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
+    console.log('🔵 INPUT_DEBUG: Current window.elementValues:', window.elementValues);
     
-    // Try to find the input element in the DOM
+    // First, check if this is a datepicker input by looking at the element properties
+    const element = this.availableElements.find(el => el.id === elementId);
+    const isDatePicker = element && element.properties && element.properties.inputType === 'datePicker';
+    
+    console.log('🔵 INPUT_DEBUG: Element type check:', {
+      elementId,
+      isDatePicker,
+      inputType: element?.properties?.inputType,
+      element: element
+    });
+    
+    // Check window.elementValues first for ALL input types (this is the primary source)
+    if (window.elementValues && window.elementValues[elementId] !== undefined) {
+      const value = window.elementValues[elementId];
+      console.log('🔵 INPUT_DEBUG: Found value in window.elementValues:', value);
+      return String(value); // Ensure it's a string
+    }
+    
+    // For datepicker inputs, additional handling
+    if (isDatePicker) {
+      console.log('🔵 INPUT_DEBUG: Handling datepicker input - checking properties');
+      console.log('🔵 INPUT_DEBUG: Element properties:', element.properties);
+      console.log('🔵 INPUT_DEBUG: datePickerSelectedValue:', element.properties?.datePickerSelectedValue);
+      
+      // Fallback to initial selected value from properties
+      if (element.properties && element.properties.datePickerSelectedValue) {
+        const value = element.properties.datePickerSelectedValue;
+        console.log('🔵 INPUT_DEBUG: Using datepicker initial selected value:', value);
+        
+        // Convert MM/DD/YYYY to YYYY-MM-DD for calculations
+        const convertToISOForCalc = (displayDate) => {
+          if (displayDate.includes(' to ')) {
+            // Range format: convert both dates
+            const parts = displayDate.split(' to ');
+            const startISO = convertSingleDateToISO(parts[0].trim());
+            const endISO = convertSingleDateToISO(parts[1].trim());
+            return startISO && endISO ? `${startISO} to ${endISO}` : displayDate;
+          } else {
+            // Single date format
+            return convertSingleDateToISO(displayDate) || displayDate;
+          }
+        };
+        
+        const convertSingleDateToISO = (dateStr) => {
+          if (dateStr.includes('/')) {
+            // MM/DD/YYYY format
+            const parts = dateStr.trim().split('/');
+            if (parts.length === 3) {
+              const month = parseInt(parts[0]);
+              const day = parseInt(parts[1]);
+              const year = parseInt(parts[2]);
+              if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                const date = new Date(year, month - 1, day);
+                return date.toISOString().split('T')[0];
+              }
+            }
+          }
+          return null;
+        };
+        
+        const isoValue = convertToISOForCalc(value);
+        console.log('🔵 INPUT_DEBUG: Converted datepicker value to ISO for calculation:', {
+          originalValue: value,
+          isoValue: isoValue
+        });
+        
+        return String(isoValue);
+      }
+      
+      console.log('🔵 INPUT_DEBUG: No datepicker value found, returning empty string');
+      return '';
+    }
+    
+    // For other input types, try to find the input element in the DOM
     // Input elements are rendered with their element ID as a data attribute or in a container
     const inputElement = document.querySelector(`input[data-element-id="${elementId}"]`) ||
                         document.querySelector(`textarea[data-element-id="${elementId}"]`) ||
+                        document.querySelector(`select[data-element-id="${elementId}"]`) ||
                         document.querySelector(`[data-element-id="${elementId}"] input`) ||
-                        document.querySelector(`[data-element-id="${elementId}"] textarea`);
+                        document.querySelector(`[data-element-id="${elementId}"] textarea`) ||
+                        document.querySelector(`[data-element-id="${elementId}"] select`);
     
     if (inputElement) {
       const value = inputElement.value || '';
@@ -943,8 +1019,8 @@ export class CalculationEngine {
       return value;
     }
     
-    // Fallback: Try to find by element ID in any input/textarea
-    const allInputs = document.querySelectorAll('input, textarea');
+    // Fallback: Try to find by element ID in any input/textarea/select
+    const allInputs = document.querySelectorAll('input, textarea, select');
     for (const input of allInputs) {
       // Check if the input is inside a container with the element ID
       const container = input.closest(`[data-element-id="${elementId}"]`);
@@ -956,12 +1032,20 @@ export class CalculationEngine {
     }
     
     // If we can't find the input in DOM, try to get from element properties as fallback
-    const element = this.availableElements.find(el => el.id === elementId);
     if (element && element.properties) {
-      // For input elements, try to get the defaultValue or current value
-      const fallbackValue = element.properties.defaultValue || element.properties.value || '';
+      // For input elements, try to get the appropriate default value based on input type
+      let fallbackValue = '';
+      
+      if (element.properties.inputType === 'dropdown') {
+        fallbackValue = element.properties.selectedOption || element.properties.defaultValue || '';
+      } else if (element.properties.inputType === 'datePicker') {
+        fallbackValue = element.properties.datePickerSelectedValue || '';
+      } else {
+        fallbackValue = element.properties.defaultValue || element.properties.value || '';
+      }
+      
       console.log('🔵 INPUT_DEBUG: Using fallback value from element properties:', fallbackValue);
-      return fallbackValue;
+      return String(fallbackValue);
     }
     
     console.log('🔵 INPUT_DEBUG: No input value found, returning empty string');

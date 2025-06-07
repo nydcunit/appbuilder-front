@@ -2274,6 +2274,52 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           value: calculatedValue,
           elementValues: window.elementValues
         });
+        
+        // CRITICAL: For datepickers, also ensure the ISO date is stored for calculations
+        if (element.properties?.inputType === 'datePicker' && calculatedValue) {
+          const selectMode = element.properties?.datePickerSelectMode || 'single';
+          
+          // Helper function to convert MM/DD/YYYY to YYYY-MM-DD for calculations
+          const convertToISOForCalc = (displayDate) => {
+            if (displayDate.includes(' to ')) {
+              // Range format: convert both dates
+              const parts = displayDate.split(' to ');
+              const startISO = convertSingleDateToISO(parts[0].trim());
+              const endISO = convertSingleDateToISO(parts[1].trim());
+              return startISO && endISO ? `${startISO} to ${endISO}` : displayDate;
+            } else {
+              // Single date format
+              return convertSingleDateToISO(displayDate) || displayDate;
+            }
+          };
+          
+          const convertSingleDateToISO = (dateStr) => {
+            if (dateStr.includes('/')) {
+              // MM/DD/YYYY format
+              const parts = dateStr.trim().split('/');
+              if (parts.length === 3) {
+                const month = parseInt(parts[0]);
+                const day = parseInt(parts[1]);
+                const year = parseInt(parts[2]);
+                if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                  const date = new Date(year, month - 1, day);
+                  return date.toISOString().split('T')[0];
+                }
+              }
+            }
+            return null;
+          };
+          
+          const isoValue = convertToISOForCalc(calculatedValue);
+          window.elementValues[element.id] = isoValue;
+          
+          console.log('🔵 DATEPICKER_DEBUG: Converted initial value to ISO for calculations:', {
+            elementId: element.id,
+            originalValue: calculatedValue,
+            isoValue: isoValue,
+            windowElementValues: window.elementValues
+          });
+        }
       }
     }
   }, [isExecuteMode, element.properties?.defaultValue, element.properties?.selectedOption, element.properties?.datePickerSelectedValue, element.properties?.inputType, isInitialized]);
@@ -3002,6 +3048,12 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
               }
               window.elementValues[element.id] = date; // Keep YYYY-MM-DD for calculations
               
+              console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for single date:', {
+                elementId: element.id,
+                date,
+                windowElementValues: window.elementValues
+              });
+              
               // Trigger calculation update
               if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
                 window.__v2ExecutionEngine.triggerCalculationUpdate();
@@ -3014,6 +3066,18 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 const displayValue = formatDateForDisplay(date);
                 setInputValue(displayValue);
                 setUserHasEdited(true);
+                
+                // Update calculation engine with single date for now
+                if (!window.elementValues) {
+                  window.elementValues = {};
+                }
+                window.elementValues[element.id] = date;
+                
+                console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for range start:', {
+                  elementId: element.id,
+                  date,
+                  windowElementValues: window.elementValues
+                });
               } else {
                 // Complete range - but first validate that no disabled dates exist in between
                 const startDate = new Date(selectedStartDate);
@@ -3054,6 +3118,19 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   setInputValue(rangeValue);
                   setUserHasEdited(true);
                   setShowCalendar(false);
+                  
+                  // Update calculation engine with range in original format
+                  if (!window.elementValues) {
+                    window.elementValues = {};
+                  }
+                  const rangeForCalc = `${actualStartDate} to ${actualEndDate}`;
+                  window.elementValues[element.id] = rangeForCalc;
+                  
+                  console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for completed range:', {
+                    elementId: element.id,
+                    rangeForCalc,
+                    windowElementValues: window.elementValues
+                  });
                 } else {
                   // Range contains disabled dates - start a new range from the clicked date
                   setSelectedStartDate(date);
@@ -3061,15 +3138,20 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   const displayValue = formatDateForDisplay(date);
                   setInputValue(displayValue);
                   setUserHasEdited(true);
+                  
+                  // Update calculation engine with single date
+                  if (!window.elementValues) {
+                    window.elementValues = {};
+                  }
+                  window.elementValues[element.id] = date;
+                  
+                  console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for new range start:', {
+                    elementId: element.id,
+                    date,
+                    windowElementValues: window.elementValues
+                  });
                 }
               }
-              
-              // Update calculation engine with range in original format
-              if (!window.elementValues) {
-                window.elementValues = {};
-              }
-              const rangeForCalc = selectedEndDate ? `${selectedStartDate} to ${date}` : date;
-              window.elementValues[element.id] = rangeForCalc;
               
               // Trigger calculation update
               if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {

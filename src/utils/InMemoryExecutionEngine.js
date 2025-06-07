@@ -1600,6 +1600,51 @@ export class InMemoryExecutionEngine {
     
     // If we can't find the input in DOM, try to get from element properties as fallback
     if (element && element.properties) {
+      // For datepicker inputs, check for datePickerSelectedValue
+      if (element.properties.inputType === 'datePicker' && element.properties.datePickerSelectedValue) {
+        const value = element.properties.datePickerSelectedValue;
+        console.log('🔵 INPUT_DEBUG: Using datepicker selected value from properties:', value);
+        
+        // Convert MM/DD/YYYY to YYYY-MM-DD for calculations
+        const convertToISOForCalc = (displayDate) => {
+          if (displayDate.includes(' to ')) {
+            // Range format: convert both dates
+            const parts = displayDate.split(' to ');
+            const startISO = convertSingleDateToISO(parts[0].trim());
+            const endISO = convertSingleDateToISO(parts[1].trim());
+            return startISO && endISO ? `${startISO} to ${endISO}` : displayDate;
+          } else {
+            // Single date format
+            return convertSingleDateToISO(displayDate) || displayDate;
+          }
+        };
+        
+        const convertSingleDateToISO = (dateStr) => {
+          if (dateStr.includes('/')) {
+            // MM/DD/YYYY format
+            const parts = dateStr.trim().split('/');
+            if (parts.length === 3) {
+              const month = parseInt(parts[0]);
+              const day = parseInt(parts[1]);
+              const year = parseInt(parts[2]);
+              if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                const date = new Date(year, month - 1, day);
+                return date.toISOString().split('T')[0];
+              }
+            }
+          }
+          return null;
+        };
+        
+        const isoValue = convertToISOForCalc(value);
+        console.log('🔵 INPUT_DEBUG: Converted datepicker value to ISO for calculation:', {
+          originalValue: value,
+          isoValue: isoValue
+        });
+        
+        return String(isoValue);
+      }
+      
       // For input elements, try to get the defaultValue or current value
       const fallbackValue = element.properties.defaultValue || element.properties.value || '';
       console.log('🔵 INPUT_DEBUG: Using fallback value from element properties:', fallbackValue);
