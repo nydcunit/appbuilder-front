@@ -3042,7 +3042,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
               setUserHasEdited(true);
               setShowCalendar(false);
               
-              // Update calculation engine with original date format
+              // CRITICAL FIX: Update calculation engine with ISO date format for calculations
               if (!window.elementValues) {
                 window.elementValues = {};
               }
@@ -3051,11 +3051,13 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
               console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for single date:', {
                 elementId: element.id,
                 date,
+                displayValue,
                 windowElementValues: window.elementValues
               });
               
               // Trigger calculation update
               if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+                console.log('🔵 DATEPICKER_DEBUG: Triggering calculation update for single date selection');
                 window.__v2ExecutionEngine.triggerCalculationUpdate();
               }
             } else if (selectMode === 'range') {
@@ -3067,15 +3069,16 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 setInputValue(displayValue);
                 setUserHasEdited(true);
                 
-                // Update calculation engine with single date for now
+                // CRITICAL FIX: Update calculation engine with ISO date format for calculations
                 if (!window.elementValues) {
                   window.elementValues = {};
                 }
-                window.elementValues[element.id] = date;
+                window.elementValues[element.id] = date; // Keep YYYY-MM-DD for calculations
                 
                 console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for range start:', {
                   elementId: element.id,
                   date,
+                  displayValue,
                   windowElementValues: window.elementValues
                 });
               } else {
@@ -3119,16 +3122,17 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   setUserHasEdited(true);
                   setShowCalendar(false);
                   
-                  // Update calculation engine with range in original format
+                  // CRITICAL FIX: Update calculation engine with ISO range format for calculations
                   if (!window.elementValues) {
                     window.elementValues = {};
                   }
                   const rangeForCalc = `${actualStartDate} to ${actualEndDate}`;
-                  window.elementValues[element.id] = rangeForCalc;
+                  window.elementValues[element.id] = rangeForCalc; // Keep YYYY-MM-DD format for calculations
                   
                   console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for completed range:', {
                     elementId: element.id,
                     rangeForCalc,
+                    displayValue: rangeValue,
                     windowElementValues: window.elementValues
                   });
                 } else {
@@ -3139,15 +3143,16 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   setInputValue(displayValue);
                   setUserHasEdited(true);
                   
-                  // Update calculation engine with single date
+                  // CRITICAL FIX: Update calculation engine with ISO date format for calculations
                   if (!window.elementValues) {
                     window.elementValues = {};
                   }
-                  window.elementValues[element.id] = date;
+                  window.elementValues[element.id] = date; // Keep YYYY-MM-DD for calculations
                   
                   console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for new range start:', {
                     elementId: element.id,
                     date,
+                    displayValue,
                     windowElementValues: window.elementValues
                   });
                 }
@@ -3155,6 +3160,7 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
               
               // Trigger calculation update
               if (window.__v2ExecutionEngine && window.__v2ExecutionEngine.triggerCalculationUpdate) {
+                console.log('🔵 DATEPICKER_DEBUG: Triggering calculation update for range selection');
                 window.__v2ExecutionEngine.triggerCalculationUpdate();
               }
             }

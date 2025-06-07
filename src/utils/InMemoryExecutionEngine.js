@@ -1515,10 +1515,70 @@ export class InMemoryExecutionEngine {
   getInputElementValue(elementId) {
     console.log('🔵 INPUT_DEBUG: Getting input value for element:', elementId);
     
+    // CRITICAL FIX: For datepicker inputs, prioritize window.elementValues over static properties
+    // This ensures that user interactions (date selections) are reflected in calculations
+    const element = this.findElementById(elementId);
+    if (element && element.type === 'input' && element.properties?.inputType === 'datePicker') {
+      // Check if we have a dynamic value from user interaction first
+      if (window.elementValues && window.elementValues[elementId] !== undefined) {
+        const dynamicValue = window.elementValues[elementId];
+        console.log('🔵 INPUT_DEBUG: Using dynamic datepicker value from window.elementValues:', dynamicValue);
+        return String(dynamicValue);
+      }
+      
+      // Fallback to static datePickerSelectedValue if no dynamic value
+      if (element.properties.datePickerSelectedValue) {
+        const value = element.properties.datePickerSelectedValue;
+        console.log('🔵 INPUT_DEBUG: Using static datepicker selected value from properties:', value);
+        
+        // Convert MM/DD/YYYY to YYYY-MM-DD for calculations
+        const convertToISOForCalc = (displayDate) => {
+          if (displayDate.includes(' to ')) {
+            // Range format: convert both dates
+            const parts = displayDate.split(' to ');
+            const startISO = convertSingleDateToISO(parts[0].trim());
+            const endISO = convertSingleDateToISO(parts[1].trim());
+            return startISO && endISO ? `${startISO} to ${endISO}` : displayDate;
+          } else {
+            // Single date format
+            return convertSingleDateToISO(displayDate) || displayDate;
+          }
+        };
+        
+        const convertSingleDateToISO = (dateStr) => {
+          if (dateStr.includes('/')) {
+            // MM/DD/YYYY format
+            const parts = dateStr.trim().split('/');
+            if (parts.length === 3) {
+              const month = parseInt(parts[0]);
+              const day = parseInt(parts[1]);
+              const year = parseInt(parts[2]);
+              if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                const date = new Date(year, month - 1, day);
+                return date.toISOString().split('T')[0];
+              }
+            }
+          }
+          return null;
+        };
+        
+        const isoValue = convertToISOForCalc(value);
+        console.log('🔵 INPUT_DEBUG: Converted static datepicker value to ISO for calculation:', {
+          originalValue: value,
+          isoValue: isoValue
+        });
+        
+        return String(isoValue);
+      }
+      
+      // No datepicker value found
+      console.log('🔵 INPUT_DEBUG: No datepicker value found, returning empty string');
+      return '';
+    }
+    
     // CRITICAL FIX: Check if we have a current calculated value for this input element first
     // This ensures that when tab state changes, we get the correct calculated value immediately
     // instead of waiting for DOM updates which happen after calculation execution
-    const element = this.findElementById(elementId);
     if (element && element.type === 'input') {
       // For input elements with calculated default values, get the current calculated value
       if (element.properties?.defaultValue && element.properties.defaultValue.includes('{{CALC:')) {
