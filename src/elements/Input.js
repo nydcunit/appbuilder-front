@@ -2197,10 +2197,26 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           const parseDisplayToISO = (displayDate) => {
             // Handle different display formats
             if (displayDate.includes(' to ')) {
-              // Range format: "Jun 19, 2025 to Jun 25, 2025"
+              // Range format: "Jun 19, 2025 to Jun 25, 2025" or "MM/DD/YYYY to MM/DD/YYYY"
               const parts = displayDate.split(' to ');
               return parts.map(part => {
-                const date = new Date(part.trim());
+                const trimmedPart = part.trim();
+                if (trimmedPart.includes('/')) {
+                  // MM/DD/YYYY format
+                  const dateParts = trimmedPart.split('/');
+                  if (dateParts.length === 3) {
+                    const month = parseInt(dateParts[0]);
+                    const day = parseInt(dateParts[1]);
+                    const year = parseInt(dateParts[2]);
+                    if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+                      const monthStr = month.toString().padStart(2, '0');
+                      const dayStr = day.toString().padStart(2, '0');
+                      return `${year}-${monthStr}-${dayStr}`;
+                    }
+                  }
+                }
+                // Try parsing as a regular date string
+                const date = new Date(trimmedPart);
                 return date.toISOString().split('T')[0];
               });
             } else if (displayDate.includes('/')) {
@@ -2218,8 +2234,12 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 }
               }
             } else {
-              // Try parsing as a regular date string
-              const date = new Date(calculatedValue);
+              // Try parsing as a regular date string (could be YYYY-MM-DD format)
+              if (displayDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                // Already in YYYY-MM-DD format
+                return displayDate;
+              }
+              const date = new Date(displayDate);
               if (!isNaN(date.getTime())) {
                 return date.toISOString().split('T')[0];
               }
@@ -2277,48 +2297,59 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
           elementValues: window.elementValues
         });
         
-        // CRITICAL: For datepickers, also ensure the ISO date is stored for calculations
+        // CRITICAL: For datepickers, ensure the MM/DD/YYYY format is stored for calculations
         if (element.properties?.inputType === 'datePicker' && calculatedValue) {
           const selectMode = element.properties?.datePickerSelectMode || 'single';
           
-          // Helper function to convert MM/DD/YYYY to YYYY-MM-DD for calculations
-          const convertToISOForCalc = (displayDate) => {
+          // Helper function to convert any date format to MM/DD/YYYY for calculations
+          const convertToMMDDYYYYForCalc = (displayDate) => {
             if (displayDate.includes(' to ')) {
               // Range format: convert both dates
               const parts = displayDate.split(' to ');
-              const startISO = convertSingleDateToISO(parts[0].trim());
-              const endISO = convertSingleDateToISO(parts[1].trim());
-              return startISO && endISO ? `${startISO} to ${endISO}` : displayDate;
+              const startMMDDYYYY = convertSingleDateToMMDDYYYY(parts[0].trim());
+              const endMMDDYYYY = convertSingleDateToMMDDYYYY(parts[1].trim());
+              return startMMDDYYYY && endMMDDYYYY ? `${startMMDDYYYY}-${endMMDDYYYY}` : displayDate;
             } else {
               // Single date format
-              return convertSingleDateToISO(displayDate) || displayDate;
+              return convertSingleDateToMMDDYYYY(displayDate) || displayDate;
             }
           };
           
-          const convertSingleDateToISO = (dateStr) => {
+          const convertSingleDateToMMDDYYYY = (dateStr) => {
             if (dateStr.includes('/')) {
-              // MM/DD/YYYY format
-              const parts = dateStr.trim().split('/');
+              // Already MM/DD/YYYY format
+              return dateStr;
+            } else if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+              // YYYY-MM-DD format - convert to MM/DD/YYYY
+              const parts = dateStr.split('-');
               if (parts.length === 3) {
-                const month = parseInt(parts[0]);
-                const day = parseInt(parts[1]);
-                const year = parseInt(parts[2]);
-                if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
-                  const date = new Date(year, month - 1, day);
-                  return date.toISOString().split('T')[0];
+                const year = parts[0];
+                const month = parseInt(parts[1]);
+                const day = parseInt(parts[2]);
+                if (!isNaN(month) && !isNaN(day)) {
+                  return `${month}/${day}/${year}`;
                 }
+              }
+            } else {
+              // Try parsing as a date and convert to MM/DD/YYYY
+              const date = new Date(dateStr);
+              if (!isNaN(date.getTime())) {
+                const month = date.getMonth() + 1;
+                const day = date.getDate();
+                const year = date.getFullYear();
+                return `${month}/${day}/${year}`;
               }
             }
             return null;
           };
           
-          const isoValue = convertToISOForCalc(calculatedValue);
-          window.elementValues[element.id] = isoValue;
+          const mmddyyyyValue = convertToMMDDYYYYForCalc(calculatedValue);
+          window.elementValues[element.id] = mmddyyyyValue;
           
-          console.log('🔵 DATEPICKER_DEBUG: Converted initial value to ISO for calculations:', {
+          console.log('🔵 DATEPICKER_DEBUG: Converted initial value to MM/DD/YYYY for calculations:', {
             elementId: element.id,
             originalValue: calculatedValue,
-            isoValue: isoValue,
+            mmddyyyyValue: mmddyyyyValue,
             windowElementValues: window.elementValues
           });
         }
@@ -3099,18 +3130,33 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                 setInputValue(displayValue);
                 setUserHasEdited(true);
                 
-                // CRITICAL FIX: Update calculation engine with ISO date format for calculations
-                if (!window.elementValues) {
-                  window.elementValues = {};
+              // CRITICAL FIX: Update calculation engine with MM/DD/YYYY format for calculations
+              if (!window.elementValues) {
+                window.elementValues = {};
+              }
+              
+              // Convert YYYY-MM-DD to MM/DD/YYYY for calculations
+              const convertToMMDDYYYY = (isoDate) => {
+                const parts = isoDate.split('-');
+                if (parts.length === 3) {
+                  const year = parts[0];
+                  const month = parts[1];
+                  const day = parts[2];
+                  return `${month}/${day}/${year}`;
                 }
-                window.elementValues[element.id] = date; // Keep YYYY-MM-DD for calculations
-                
-                console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for range start:', {
-                  elementId: element.id,
-                  date,
-                  displayValue,
-                  windowElementValues: window.elementValues
-                });
+                return isoDate;
+              };
+              
+              const mmddyyyyValue = convertToMMDDYYYY(date);
+              window.elementValues[element.id] = mmddyyyyValue; // Store MM/DD/YYYY for calculations
+              
+              console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for range start:', {
+                elementId: element.id,
+                isoDate: date,
+                mmddyyyyValue,
+                displayValue,
+                windowElementValues: window.elementValues
+              });
               } else {
                 // Complete range - but first validate that no disabled dates exist in between
                 const startDate = new Date(selectedStartDate);
@@ -3192,15 +3238,30 @@ const InputRenderer = ({ element, isExecuteMode, isSelected, isActiveSlide, isAc
                   setInputValue(displayValue);
                   setUserHasEdited(true);
                   
-                  // CRITICAL FIX: Update calculation engine with ISO date format for calculations
+                  // CRITICAL FIX: Update calculation engine with MM/DD/YYYY format for calculations
                   if (!window.elementValues) {
                     window.elementValues = {};
                   }
-                  window.elementValues[element.id] = date; // Keep YYYY-MM-DD for calculations
+                  
+                  // Convert YYYY-MM-DD to MM/DD/YYYY for calculations
+                  const convertToMMDDYYYY = (isoDate) => {
+                    const parts = isoDate.split('-');
+                    if (parts.length === 3) {
+                      const year = parts[0];
+                      const month = parts[1];
+                      const day = parts[2];
+                      return `${month}/${day}/${year}`;
+                    }
+                    return isoDate;
+                  };
+                  
+                  const mmddyyyyValue = convertToMMDDYYYY(date);
+                  window.elementValues[element.id] = mmddyyyyValue; // Store MM/DD/YYYY for calculations
                   
                   console.log('🔵 DATEPICKER_DEBUG: Updated window.elementValues for new range start:', {
                     elementId: element.id,
-                    date,
+                    isoDate: date,
+                    mmddyyyyValue,
                     displayValue,
                     windowElementValues: window.elementValues
                   });
